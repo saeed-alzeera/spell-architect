@@ -196,15 +196,9 @@ export function ritualEvent(run: Run, ev: Ev) {
   }
 }
 
-/** Tell the player the ritual belongs to (a remote player gets it on their own screen only). */
-function notify(run: Run, title: string, color: string, sub: string) {
-  if (run.remote) run.world.onRemoteNotice(run, title, color, sub); else run.announce(title, color, sub);
-}
-
 function fail(run: Run, r: ActiveRitual, why: string) {
   if (r.state !== 'active') return;
   r.state = 'lapsed'; r.why = why;
-  notify(run, 'RITUAL LAPSED', '#ff9a9a', `${r.def.name}: ${why}`);
 }
 
 export function ritualRoundStart(run: Run) {
@@ -232,7 +226,6 @@ export function ritualRoundEnd(run: Run) {
       else {
         r.state = 'fulfilled';
         applyReward(w, r.def.reward, r.def.tier);
-        notify(w, 'RITUAL FULFILLED', '#ffd25a', `${r.def.name}: ${rewardText(r.def.reward, r.def.tier)}.`);
       }
     }
   }

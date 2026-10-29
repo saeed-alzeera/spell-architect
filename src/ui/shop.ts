@@ -1,14 +1,15 @@
 // Between-round shop overlay: one shelf of cards (runes, a relic, permanent upgrades), selling, and relic management.
 import { RUNE_BY_ID, RUNES, RARITY, KIND_LABEL, ELEMENTS, runeColor } from '../data/runes';
-import { RELIC_BY_ID, relicColor } from '../game/relics';
+import { RELIC_BY_ID, relicColor, relicSellPrice } from '../game/relics';
 import { buyOffer, upgradeOf, reroll, rerollCost, sellRune, sellPrice, owned } from '../game/shop';
 import { audio } from '../core/audio';
 import type { Run } from '../game/run';
 import { el, type UI } from './ui';
-import { relicManager } from './relics';
+import { relicBar } from './relics';
 
 export function showShop(ui: UI, run: Run) {
-  let tab: 'buy' | 'sell' | 'relics' = 'buy';
+  let tab: 'buy' | 'sell' = 'buy';
+  let swapFor: string | null = null; // a relic offer waiting for the player to pick which worn relic to sell
   let msg = '';
   let bad = false;
   let picking: string | null = null;
@@ -18,7 +19,6 @@ export function showShop(ui: UI, run: Run) {
   let bindRel: ((r: HTMLElement) => void) | null = null;
 
   const render = () => {
-    const forgeReady = run.forgeReady();
     const cards = run.shop.stock.map((o) => {
       const afford = run.coins >= o.price;
       if (o.upgrade) {
@@ -27,7 +27,7 @@ export function showShop(ui: UI, run: Run) {
         const ok = up.avail && afford;
         return `<div class="scard upoffer ${!up.avail ? 'sold' : ok ? 'aff' : 'poor'} ${picking === o.id ? 'pick' : ''}" data-offer="${o.id}" style="--rc:${RARITY[up.rarity].color};--c:${RARITY[up.rarity].color}">
           <div class="sci">${up.icon}</div><div class="scn">${up.title}</div><div class="scr">Upgrade</div>
-          <p>${up.desc}${(run.buys[o.upgrade] ?? 0) ? ` Bought ${run.buys[o.upgrade]} time${run.buys[o.upgrade] === 1 ? '' : 's'}; each costs more.` : ''}</p><div class="sprice">${!up.avail ? 'MAXED' : `◈ ${up.price}`}</div></div>`;
+          <p>${up.desc}${(run.buys[o.upgrade] ?? 0) ? `` : ''}</p><div class="sprice">${!up.avail ? 'MAXED' : `◈ ${up.price}`}</div></div>`;
       }
       if (o.relic) {
         const r = RELIC_BY_ID[o.rune];
@@ -45,18 +45,19 @@ export function showShop(ui: UI, run: Run) {
     const spells = picking ? `<div class="picker"><b>Add +2 capacity to which spell?</b>${run.spells.map((s, i) => `<button data-spell="${i}">${i + 1}. ${s.def.root ? s.c.name : 'Empty slot'} <small>${s.c.cost}/${s.def.capacity}</small></button>`).join('')}<button data-spell="x">cancel</button></div>` : '';
     const pool = RUNES.filter((r) => (run.inv[r.id] ?? 0) > 0).map((r) => `<div class="rchip inv" data-sell="${r.id}" style="--c:${runeColor(r)}" title="${r.name}: sell for ${sellPrice(run, r)}">
       <span class="ri">${r.icon}</span><span class="rn">${r.name}</span><span class="rc">+${sellPrice(run, r)}</span><span class="rx">×${run.inv[r.id]}</span></div>`).join('');
-    const rm = tab === 'relics' ? relicManager(run, render) : null;
-    bindRel = rm ? rm.bind : null;
+    const rm = relicBar(run, render);
+    bindRel = rm.bind;
+    const swapOffer = swapFor ? run.shop.stock.find((x) => x.id === swapFor) : null;
+    const swap = swapOffer ? `<div class="picker"><b>Slots full. Sell which relic to buy ${RELIC_BY_ID[swapOffer.rune].name} (◈ ${swapOffer.price})?</b>${run.equipped.map((id) => `<button data-swapout="${id}">${RELIC_BY_ID[id].icon} ${RELIC_BY_ID[id].name} <small>+◈ ${relicSellPrice(RELIC_BY_ID[id])}</small></button>`).join('')}<button data-swapout="x">cancel</button></div>` : '';
     panel.innerHTML = `
       <div class="shh"><h2>SHOP</h2><div class="coins">◈ ${Math.floor(run.coins)}</div>
-        <div class="stabs2"><button data-tab="buy" class="${tab === 'buy' ? 'on' : ''}">BUY</button><button data-tab="sell" class="${tab === 'sell' ? 'on' : ''}">SELL RUNES</button><button data-tab="relics" class="${tab === 'relics' ? 'on' : ''}">RELICS ${run.equipped.length}/6</button></div></div>
-      ${forgeReady.length ? `<div class="forgebanner">FORGE READY: you have ${run.forgeCost()}+ ${forgeReady.map((e) => ELEMENTS[e].name).join(', ')} cores. Open the Spell Editor's Forge tab to evolve!</div>` : ''}
+        <div class="stabs2"><button data-tab="buy" class="${tab === 'buy' ? 'on' : ''}">BUY</button><button data-tab="sell" class="${tab === 'sell' ? 'on' : ''}">SELL RUNES</button></div></div>
+      ${rm.html}${swap}
       ${tab === 'buy' ? `
-        <div class="shsec"><h4>FOR SALE <small class="buys">runes, relics and upgrades</small></h4><button class="big rr" data-reroll ${run.coins >= rerollCost(run) ? '' : 'disabled'}>REROLL ALL ◈ ${rerollCost(run)}</button></div>
+        <div class="shsec"><h4>FOR SALE</h4><button class="big rr" data-reroll ${run.coins >= rerollCost(run) ? '' : 'disabled'}>REROLL ALL ◈ ${rerollCost(run)}</button></div>
         <div class="scards">${cards}</div>${spells}`
-      : tab === 'sell' ? `<p class="muted">Sell runes you don't need. Click a rune to sell one.</p><div class="chips">${pool || '<p class="muted">Your rune pool is empty.</p>'}</div>`
-      : rm!.html}
-      <div class="shmsg ${bad ? 'bad' : ''}">${msg || 'One shelf for everything. Upgrades never sell out, but every copy costs more than the last. Rerolling replaces the whole shelf.'}</div>
+      : `<div class="chips">${pool || '<p class="muted">Your rune pool is empty.</p>'}</div>`}
+      ${msg ? `<div class="shmsg ${bad ? 'bad' : ''}">${msg}</div>` : ''}
       <div class="rbtns"><button class="big primary" data-done>Done</button></div>`;
     bindRel?.(panel);
   };
@@ -64,7 +65,7 @@ export function showShop(ui: UI, run: Run) {
   n.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     const tb = t.closest('[data-tab]') as HTMLElement | null;
-    if (tb) { tab = tb.dataset.tab as typeof tab; picking = null; audio.play('ui'); render(); return; }
+    if (tb) { tab = tb.dataset.tab as typeof tab; picking = null; swapFor = null; audio.play('ui'); render(); return; }
     if (t.closest('[data-done]')) { audio.play('ui'); ui.pop('shop'); window.dispatchEvent(new Event('sa-shop-closed')); return; }
     if (t.closest('[data-reroll]')) {
       if (reroll(run)) { audio.play('pick'); say('Stock rerolled.'); } else say('Not enough coins to reroll.', true);
@@ -77,9 +78,21 @@ export function showShop(ui: UI, run: Run) {
         if (run.coins < o.price) { say(`Not enough coins (need ${o.price}).`, true); audio.play('warn'); } else picking = o.id;
         render(); return;
       }
+      if (o.relic && !o.sold && run.relicsFull && !run.equipped.includes(o.rune)) { swapFor = o.id; render(); return; }
       const err = buyOffer(run, o);
       if (err) { say(err, true); audio.play('warn'); }
       else { say(o.upgrade ? `${upgradeOf(run, o.upgrade)?.title ?? 'Upgrade'} bought.` : o.relic ? `Bought ${RELIC_BY_ID[o.rune].name}.` : `Bought ${RUNE_BY_ID[o.rune].name}. It is in your rune pool: place it in the Spell Editor.`); audio.play('pick'); }
+      render(); return;
+    }
+    const so = t.closest('[data-swapout]') as HTMLElement | null;
+    if (so) {
+      const o = run.shop.stock.find((x) => x.id === swapFor);
+      const out = so.dataset.swapout!;
+      swapFor = null;
+      if (o && out !== 'x') {
+        if (run.coins + relicSellPrice(RELIC_BY_ID[out]) < o.price) { say(`Not enough coins (need ${o.price}).`, true); audio.play('warn'); }
+        else { run.sellRelic(out); const err = buyOffer(run, o); if (err) { say(err, true); audio.play('warn'); } else { say(`Bought ${RELIC_BY_ID[o.rune].name}.`); audio.play('pick'); } }
+      }
       render(); return;
     }
     const sp = t.closest('[data-spell]') as HTMLElement | null;

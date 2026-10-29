@@ -101,6 +101,8 @@ export function buyOffer(run: Run, offer: Offer, spellIndex = -1): string | null
   if (offer.sold) return 'Already sold.';
   if (run.coins < offer.price) return `Not enough coins (need ${offer.price}).`;
   if (offer.relic && !RELIC_BY_ID[offer.rune]) return 'Unknown relic.';
+  if (offer.relic && run.equipped.includes(offer.rune)) return 'You already wear this relic.';
+  if (offer.relic && run.relicsFull) return 'Relic slots are full: sell one first.';
   run.coins -= offer.price;
   offer.sold = true;
   if (offer.relic) run.addRelic(offer.rune);

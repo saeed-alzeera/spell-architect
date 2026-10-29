@@ -13,7 +13,7 @@ import { reactionCardHtml } from './reactions';
 import { buildSandboxPanel } from './sandbox';
 import { showShop } from './shop';
 import { loadRuns, exportRuns, type RunRecord } from '../core/analytics';
-import { showRelicPick } from './relics';
+import { showRelicPick, relicBar } from './relics';
 import { RELIC_BY_ID, relicColor } from '../game/relics';
 import { EVOLVE_COST } from '../data/runes';
 import { describeRes, FINAL_ROUND, roundLen, WEAK_TO, isBossRound, type Aff } from '../game/rounds';
@@ -48,7 +48,7 @@ interface Layer { kind: string; el: HTMLElement; onKey?: (e: KeyboardEvent) => b
 class Hud {
   root: HTMLElement;
   hp!: HTMLElement; hpTxt!: HTMLElement; xp!: HTMLElement; lvl!: HTMLElement; timer!: HTMLElement; kills!: HTMLElement;
-  bossBox!: HTMLElement; bossFill!: HTMLElement; bossName!: HTMLElement; slotsEl!: HTMLElement; ann!: HTMLElement; toasts!: HTMLElement; badge!: HTMLElement; coinEl!: HTMLElement; lastCoin = -1; ultsEl!: HTMLElement; ultKey = '';
+  bossBox!: HTMLElement; bossFill!: HTMLElement; bossName!: HTMLElement; slotsEl!: HTMLElement; ann!: HTMLElement; badge!: HTMLElement; coinEl!: HTMLElement; lastCoin = -1; ultsEl!: HTMLElement; ultKey = '';
   ultEls: HTMLElement[] = [];
   partyEl!: HTMLElement; partyKey = ''; ritEl!: HTMLElement; ritKey = '';
   slotKey = '';
@@ -76,7 +76,6 @@ class Hud {
       </div>
       <div class="hud-slots"></div>
       <div class="announce"></div>
-      <div class="toasts"></div>
     </div>`);
     uiRef.root.appendChild(this.root);
     this.partyEl = $('.hud-party', this.root);
@@ -86,7 +85,7 @@ class Hud {
     this.xp = $('.xp .fill', this.root); this.lvl = $('.lvl', this.root);
     this.timer = $('.timer', this.root); this.kills = $('.kills', this.root);
     this.bossBox = $('.bossbox', this.root); this.bossFill = $('.boss .fill', this.root); this.bossName = $('.bossname', this.root);
-    this.slotsEl = $('.hud-slots', this.root); this.ann = $('.announce', this.root); this.toasts = $('.toasts', this.root); this.badge = $('.rewardbadge', this.root); this.coinEl = $('.cn', this.root); this.ultsEl = $('.hud-ults', this.root);
+    this.slotsEl = $('.hud-slots', this.root); this.ann = $('.announce', this.root); this.badge = $('.rewardbadge', this.root); this.coinEl = $('.cn', this.root); this.ultsEl = $('.hud-ults', this.root);
     this.root.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('button');
       if (!b) return;
@@ -104,13 +103,13 @@ class Hud {
     this.slotKey = ''; this.relKey = '';
     this.last = { hp: -1, xp: -1, t: -1, k: -1, b: -1, k2: -1, kl: -1 };
     this.ultKey = '';
-    this.ann.innerHTML = ''; this.toasts.innerHTML = '';
+    this.ann.innerHTML = '';
     $('[data-a=mute]', this.root).textContent = store.settings.muted ? '🔇' : '🔊';
     this.update(run);
   }
   hide() { this.root.classList.add('hidden'); }
   flashUlt(run: Run) {
-    if (!run.ultimates().length) { run.announce('NO ULTIMATE', '#ff9a9a', 'Forge ${EVOLVE_COST} copies of a Core into an evolved Core in the editor, then equip it.'); return; }
+    if (!run.ultimates().length) { run.announce('NO ULTIMATE', '#ff9a9a'); return; }
     this.ultEls.forEach((e) => { e.classList.remove('nope'); void e.offsetWidth; e.classList.add('nope'); });
   }
   update(run: Run) {
@@ -147,7 +146,7 @@ class Hud {
     if (cn !== this.lastCoin) { this.lastCoin = cn; this.coinEl.textContent = String(cn); }
     const pend = run.pending.filter((q) => q.type !== 'mutation').length;
     this.badge.classList.toggle('hidden', pend === 0 || run.sandbox);
-    if (pend) this.badge.textContent = `★ ${pend} REWARD${pend > 1 ? 'S' : ''} WAITING FOR ROUND END`;
+    if (pend) this.badge.textContent = `★ ${pend}`;
     $('[data-a=editor]', this.root).classList.toggle('hidden', !run.sandbox);
     // ultimates
     const uls = run.ultimates();
@@ -213,18 +212,12 @@ class Hud {
     this.partyEl.innerHTML = list.length < 2 ? '' : list.filter((q) => !q.me).map((q) => `<div class="pm ${q.down ? 'down' : ''}"><span>${q.name}</span><i><b style="width:${Math.max(0, Math.min(100, (q.hp / q.mh) * 100))}%"></b></i></div>`).join('');
   }
 
+  /** Brief feedback for something the player just tried (never for game events: those just happen). */
   announce(text: string, color: string, sub?: string) {
-    if (text.startsWith('NEW ') || text.startsWith('MUTATED')) {
-      while (this.toasts.children.length > 3) this.toasts.firstElementChild!.remove();
-      const t = el(`<div class="toast" style="--c:${color}"><b>${text}</b>${sub ? `<span>${sub}</span>` : ''}</div>`);
-      this.toasts.appendChild(t);
-      setTimeout(() => t.remove(), 6000);
-      return;
-    }
-    while (this.ann.children.length > 2) this.ann.firstElementChild!.remove();
+    while (this.ann.children.length > 0) this.ann.firstElementChild!.remove();
     const n = el(`<div class="ann" style="--c:${color}"><b>${text}</b>${sub ? `<span>${sub}</span>` : ''}</div>`);
     this.ann.appendChild(n);
-    setTimeout(() => n.remove(), 4200);
+    setTimeout(() => n.remove(), 2200);
   }
 }
 
@@ -289,7 +282,7 @@ class UI {
     } else if ((k === 'e' || k === 'E' || k === 'Tab') && !top) {
       e.preventDefault();
       if (this.run.sandbox) this.openEditorFromPlay();
-      else if (this.run.phase === 'fight') this.run.announce('EDITOR LOCKED', '#ff9a9a', 'Spells can only be edited between rounds.');
+      else if (this.run.phase === 'fight') this.run.announce('EDITOR LOCKED', '#ff9a9a');
     } else if (k === 'Tab') e.preventDefault();
   }
 
@@ -307,7 +300,6 @@ class UI {
       const sb = buildSandboxPanel(this, run);
       this.sbox = sb;
       this.root.appendChild(sb);
-      run.announce('SANDBOX', '#9fd8ff', 'All runes unlocked. Press E to edit, spawn enemies on the right.');
     }
   }
   sbox: HTMLElement | null = null;
@@ -347,24 +339,22 @@ class UI {
       const names = ['Stone Warden', 'Plague Matron', 'Storm Colossus', 'The Void Architect'];
       bossHtml = `<div class="bossprev"><canvas width="96" height="96" data-boss="${boss}"></canvas><div>
         <h3>BOSS: ${names[boss].toUpperCase()}</h3>
-        ${d.immune.length ? `<p class="bi">IMMUNE: ${elChips(d.immune)} (elemental damage does nothing)</p>` : ''}
+        ${d.immune.length ? `<p class="bi">Immune: ${elChips(d.immune)}</p>` : ''}
         ${d.resist.length ? `<p>Resists: ${elChips(d.resist)}</p>` : ''}
-        ${d.weak.length ? `<p>Weak to: ${elChips(d.weak)}</p>` : ''}
-        <p class="muted">Arcane (no Core) is never resisted. Bring a mix.</p></div></div>`;
+        ${d.weak.length ? `<p>Weak to: ${elChips(d.weak)}</p>` : ''}</div></div>`;
     }
     const co = run.coop;
     const slots = run.spells.map((s, i) => `<div class="pslot"><b>${i + 1}</b>${s.c.valid && s.c.root ? `${ELEMENTS[s.c.root.element].icon} ${s.c.name}` : '<em>empty</em>'}${s.c.root?.evolved ? ' ★' : ''}</div>`).join('');
     const n = el(`<div class="overlay prepov"><div class="panel prepp">
       <div class="rtitle"><small>${r === 1 ? 'GET READY' : `ROUND ${r - 1} COMPLETE`}</small><h2>ROUND ${r}${boss !== null ? ' · BOSS' : ''} <span class="of">/ ${FINAL_ROUND}</span></h2>
-      <p class="sub">${boss !== null ? 'Defeat the boss to finish the round.' : `Survive ${roundLen(run.quick)} seconds.`} ${boss === null ? `Next boss: round ${Math.ceil(r / 5) * 5}.` : ''}</p></div>
+      <p class="sub">${boss !== null ? 'Defeat the boss.' : `Survive ${roundLen(run.quick)}s.`}</p></div>
       ${co ? '<div data-lobby></div>' : ''}
       ${bossHtml}
-      ${run.forgeReady().length ? `<div class="forgebanner">FORGE READY: you have ${EVOLVE_COST}+ ${run.forgeReady().map((e) => ELEMENTS[e].name).join(', ')} cores. Open the Spell Editor's Forge tab to evolve them into an Ultimate!</div>` : ''}
       <h4>ENEMY MIX THIS ROUND</h4><div class="shares">${shares}</div>
-      ${plan.tip ? `<p class="tip2">TIP: ${plan.tip}</p>` : ''}
       <h4>YOUR LOADOUT</h4><div class="pslots">${slots}</div>
+      ${relicBar(run, () => {}, false).html}
       <div data-rituals></div>
-      <div class="rbtns"><button class="big" data-a="shop">Shop <small>◈ ${Math.floor(run.coins)}</small></button><button class="big ${run.forgeReady().length ? 'glow' : ''}" data-a="editor">Spell Editor${run.forgeReady().length ? ' (FORGE READY!)' : ''}</button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
+      <div class="rbtns"><button class="big" data-a="shop">Shop <small>◈ ${Math.floor(run.coins)}</small></button><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor</button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
     </div></div>`);
     if (co) n.querySelector('[data-lobby]')!.replaceWith(lobbyPanel(this, co as never));
     n.querySelector('[data-rituals]')!.replaceWith(ritualSection(run, () => { const sb = n.querySelector('[data-a=shop] small'); if (sb) sb.textContent = `◈ ${Math.floor(run.coins)}`; if (co?.role === 'guest') { const g = co as unknown as { ready?: boolean; setReady?(on: boolean): void }; if (g.ready) { g.setReady!(false); const rb = n.querySelector('[data-a=ready]'); if (rb) rb.textContent = 'Ready'; } } }));
@@ -408,7 +398,7 @@ class UI {
       <h2>Paused</h2>
       <div class="btns">
         <button class="big" data-a="resume">Resume</button>
-        ${run.sandbox ? '<button class="big" data-a="editor">Spell Editor</button>' : '<p class="muted">Spell editing opens between rounds.</p>'}
+        ${run.sandbox ? '<button class="big" data-a="editor">Spell Editor</button>' : ''}
         <button class="big" data-a="overview">🔮 Spell Overview</button>
         <button class="big" data-a="journal">📜 Journal</button>
         ${run.coop ? '' : '<button class="big" data-a="retry">Restart Run</button>'}
@@ -494,7 +484,6 @@ class UI {
       <div class="rbtns">
         ${mode === 'levelup' ? '<button class="big" data-a="reroll"></button>' : ''}
       </div>
-      <p class="tip">Press 1 / 2 / 3 to choose. ${mode !== 'levelup' ? 'Runes go into your pool: place them in the Spell Editor.' : 'Level-ups boost your stats. Runes and spell upgrades are in the shop.'}</p>
     </div></div>`);
     const cards = $('.cards', n);
     const rerollBtn = n.querySelector('[data-a=reroll]') as HTMLElement | null;
@@ -532,14 +521,12 @@ class UI {
   showMutation(run: Run, sp: Run['spells'][number], track: typeof MUT_TRACKS[number]) {
     const n = el(`<div class="overlay lv mut"><div class="panel rewardp">
       <div class="rtitle"><small>SPELL MUTATION · ${track.title.toUpperCase()}</small><h2>${sp.c.name}</h2>
-      <p class="sub">This spell has ${track.why}. It is evolving, choose how.</p></div>
+</div>
       <div class="cards two">${track.options.map((o, i) => `<div class="card r-epic mutcard" data-i="${i}" style="--rc:#c26bff;--c:#c26bff">
         <div class="ck">${i + 1}</div><div class="cicon">${o.icon}</div><div class="cname">${o.name}</div><div class="crar">Mutation · lasts this run</div><p>${o.desc}</p></div>`).join('')}</div>
-      <p class="tip">Press 1 / 2 to choose. Mutations reset when the run ends.</p>
     </div></div>`);
     const choose = (i: number) => {
       run.applyMutation(sp, track, track.options[i].id);
-      run.announce(`MUTATED: ${track.options[i].name}`, '#c26bff', sp.c.name);
       run.fx.ring(run.player.x, run.player.y, 0xc26bff, 10, 200, 0.6);
       audio.play('level');
       this.pop('mutation');
@@ -603,12 +590,12 @@ class UI {
     const n = el(`<div class="menu">
       <div class="logo"><div class="l1">SPELL</div><div class="l2">ARCHITECT</div><p>Build your magic. Break the horde.</p></div>
       <div class="starter">
-        <h3>Choose your starting Form. You begin with plain Arcane magic and find elements as you go.</h3>
+        <h3>Starting Form</h3>
         <div class="srow forms">${unlockedForms.map((r) => runeChipHtml(r, `${st.starter.form === r.id ? 'sel' : ''}" data-form="${r.id}`)).join('')}</div>
       </div>
       <div class="btns">
         <button class="big primary" data-a="play">Begin Run</button>
-        <label class="quick"><input type="checkbox" ${st.settings.quick ? 'checked' : ''}/> Accelerated test mode <small>(12s rounds, gentler enemies)</small></label>
+        <label class="quick"><input type="checkbox" ${st.settings.quick ? 'checked' : ''}/> Accelerated test mode <small>(12s rounds)</small></label>
         <div class="row">
           <button class="big" data-a="grim">◆ Grimoire <small>${st.shards}</small></button>
           <button class="big" data-a="journal">📜 Journal</button>
@@ -726,16 +713,13 @@ class UI {
 
   showHelp() {
     const m = this.modal('How to Play', `<div class="help">
-      <p><b>Rounds.</b> The run is 20 rounds. Survive each timed round, then you get a break to read the briefing, pick rewards and edit your spells. <b>Every 5th round is a boss.</b> Spells can only be edited between rounds.</p>
-      <p><b>Move</b> with <kbd>WASD</kbd> or arrows. Spells cast on their own. <kbd>Space</kbd> fires an Ultimate once you own one. <kbd>Esc</kbd> pauses.</p>
-      <p><b>Every spell is a FORM</b> in one of your slots (Projectile, Beam, Orb, Aura, Mine, Nova, Meteor). Socket <b>one Core</b> into it for its element; launched Forms inherit it. With no Core a Form deals plain <b>Arcane</b> damage.</p>
-      <p><b>Elements hit harder than Arcane</b> and add an effect (fire burns, ice slows, poison stacks...). But <b>attuned enemies resist their own element</b> and bosses can be fully <b>immune</b> to some. Arcane is never resisted, and the briefing before each round shows what is coming. Use different slots for different elements.</p>
-      <p><b>Augments.</b> <span style="color:${KIND_COLOR.behavior}">Behaviors</span> change how a Form acts, <span style="color:${KIND_COLOR.modifier}">Modifiers</span> tune its numbers. A <span style="color:${KIND_COLOR.trigger}">Trigger</span> launches more Forms when it fires. The editor writes your whole chain as plain sentences.</p>
-      <p><b>Reactions.</b> Elements from different slots interact with each other's puddles, clouds and statuses. Each reaction deals <b>both</b> damage types. The editor's Reactions tab shows which ones your loadout can trigger.</p>
-      <p><b>Evolution.</b> Collect ${EVOLVE_COST} copies of the same Core and forge an evolved Core in the editor's Forge tab: +40% damage, a new passive, and an <b>Ultimate</b> on Space. The editor and briefing flash when you can forge.</p>
-      <p><b>Co-op.</b> Choose <b>Online Co-op</b> in the main menu to host a room or join a friend's with their 5-letter code. You share the arena and the horde; everyone keeps their own build, shop and rewards, and the round starts when the host presses Start after everyone is Ready.</p>
-      <p><b>Shop.</b> Kills and cleared rounds earn coins. After every round, one shelf offers runes, a relic and permanent upgrades (capacity, spell slots, vitality, power...); upgrades never sell out but every copy costs more, and rerolling replaces the whole shelf. You can also sell runes you don't need, and The round-prep screen also offers <b>Rituals</b>: multi-round contracts that pay a permanent upgrade if you meet every objective (in co-op each player has their own, with higher targets). <b>Level-ups</b> instantly give a random stat boost, even mid-round; boss caches give a choice of strong runes.</p>
-      <p><b>Capacity</b> limits runes per spell. <b>Mutations</b> evolve spells that perform well. Spend Arcane Shards in the Grimoire to unlock more runes (behaviors, triggers, modifiers). The <b>Sandbox</b> lets you test any build against any enemy.</p>
+      <p><b>Rounds.</b> Survive 20 timed rounds. Every 5th is a boss. Between rounds you shop, pick rewards and edit spells.</p>
+      <p><b>Move</b> with <kbd>WASD</kbd> or arrows. Spells cast on their own. <kbd>Space</kbd> fires an Ultimate. <kbd>Esc</kbd> pauses.</p>
+      <p><b>Spells.</b> A <b>Form</b> fills a slot. Socket one <b>Core</b> for its element (none = Arcane). <span style="color:${KIND_COLOR.behavior}">Behaviors</span> and <span style="color:${KIND_COLOR.modifier}">Modifiers</span> tune it; a <span style="color:${KIND_COLOR.trigger}">Trigger</span> launches more Forms.</p>
+      <p><b>Elements</b> hit harder than Arcane, but attuned enemies resist their own element and bosses can be immune. The briefing shows what's coming. Elements from different slots <b>react</b>.</p>
+      <p><b>Forge.</b> ${EVOLVE_COST} copies of a Core make an evolved Core with an Ultimate. The Forge tab lights up when you can.</p>
+      <p><b>Shop.</b> Spend coins on runes, relics and upgrades, and sell runes or relics. You wear 6 relics; to buy another, sell one.</p>
+      <p><b>Co-op.</b> Host or join with a 5-letter code. Everyone keeps their own build.</p>
     </div>`);
     this.openModal(m, 'help');
   }
@@ -744,10 +728,10 @@ class UI {
     const kinds: RuneKind[] = ['core', 'form', 'behavior', 'trigger', 'modifier'];
     const build = () => {
       const body = el(`<div class="grim"><div class="shardbar">◆ <b>${store.d.shards}</b> Arcane Shards · ${store.d.unlocked.filter((id) => !RUNE_BY_ID[id]?.evolved && !RUNE_BY_ID[id]?.tierOf).length}/${RUNES.filter((r) => !r.evolved && !r.merged && !r.tierOf).length} runes unlocked</div>${kinds.map((k) => `
-        <h3 style="color:${KIND_COLOR[k]}">${KIND_LABEL[k]} Runes</h3><div class="ggrid">${RUNES.filter((r) => r.kind === k && !r.evolved && !r.merged && !r.tierOf).map((r) => {
+        <h3 style="color:${KIND_COLOR[k]}">${KIND_LABEL[k]}</h3><div class="ggrid">${RUNES.filter((r) => r.kind === k && !r.evolved && !r.merged && !r.tierOf).map((r) => {
           const un = store.isUnlocked(r.id);
-          return `<div class="gcard ${un ? 'un' : 'lock'}" style="--c:${runeColor(r)};--rc:${RARITY[r.rarity].color}">
-            <div class="gi">${r.icon}</div><div class="gb"><b>${r.name}</b><small>${RARITY[r.rarity].name} · cost ${r.cost}</small><p>${r.desc}</p></div>
+          return `<div class="gcard ${un ? 'un' : 'lock'}" title="${r.desc.replace(/"/g, '&quot;')}" style="--c:${runeColor(r)};--rc:${RARITY[r.rarity].color}">
+            <div class="gi">${r.icon}</div><div class="gb"><b>${r.name}</b><small>${RARITY[r.rarity].name} · cost ${r.cost}</small></div>
             ${un ? '<span class="ok">Unlocked</span>' : `<button data-u="${r.id}" ${store.d.shards < r.unlock ? 'disabled' : ''}>◆ ${r.unlock}</button>`}</div>`;
         }).join('')}</div>`).join('')}</div>`);
       return body;
@@ -768,11 +752,11 @@ class UI {
     const j = store.d.journal;
     const reacts = REACTIONS.map((r) => reactionCardHtml(r, null, j.reactions[r.id] ?? 0)).join('');
     const combos = Object.entries(j.combos).sort((a, b) => b[1].count - a[1].count);
-    const comboHtml = combos.length ? combos.map(([sig, c]) => `<div class="jcard"><div class="gi">🧩</div><div><b>${c.name}</b><small>${sig}</small><small>Built ${c.count}×</small></div></div>`).join('') : '<p class="muted">No combinations recorded yet. Build a spell with 3+ runes.</p>';
+    const comboHtml = combos.length ? combos.map(([sig, c]) => `<div class="jcard"><div class="gi">🧩</div><div><b>${c.name}</b><small>${sig}</small><small>Built ${c.count}×</small></div></div>`).join('') : '<p class="muted">None yet.</p>';
     const baseRunes = RUNES.filter((r) => !r.merged);
     const seen = baseRunes.filter((r) => j.runes[r.id]).length;
     const m = this.modal('Discovery Journal', `<div class="journal">
-      <h3>Elemental reactions <small>${Object.keys(j.reactions).length}/${REACTIONS.length} discovered</small></h3><p class="muted">Reactions deal BOTH damage types (split evenly), so an enemy that resists one element still takes the other. You need the listed elements somewhere in your loadout.</p><div class="jgrid">${reacts}</div>
+      <h3>Elemental reactions <small>${Object.keys(j.reactions).length}/${REACTIONS.length} discovered</small></h3><div class="jgrid">${reacts}</div>
       <h3>Spell combinations <small>${combos.length}</small></h3><div class="jgrid">${comboHtml}</div>
       <h3>Runes encountered <small>${seen}/${baseRunes.length}</small></h3>
       <div class="jruns">${baseRunes.map((r) => j.runes[r.id] ? runeChipHtml(r) : '<div class="rchip unk"><span class="ri">?</span></div>').join('')}</div>

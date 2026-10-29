@@ -99,15 +99,10 @@ button.x:hover { background: #a02040; }
 .slot .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(0, 0, 0, 0.62); }
 .slot .mutdot { position: absolute; right: 3px; top: 2px; font-size: 7px; color: #d8a0ff; font-style: normal; }
 .announce { position: absolute; left: 50%; top: 17%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(760px, 94vw); }
-.ann { --c: #fff; text-align: center; animation: ann 4.2s steps(30) forwards; }
-.ann b { display: block; font-size: clamp(14px, 2.6vw, 26px); letter-spacing: 0.08em; color: var(--c); text-shadow: 4px 4px 0 #000, 0 0 20px var(--c); line-height: 1.3; }
+.ann { --c: #fff; text-align: center; animation: ann 2.2s steps(20) forwards; }
+.ann b { display: block; font-size: clamp(10px, 1.6vw, 14px); letter-spacing: 0.08em; color: var(--c); text-shadow: 2px 2px 0 #000; line-height: 1.3; }
 .ann span { display: block; font-size: 8px; color: #fff; text-shadow: 2px 2px 0 #000; margin-top: 8px; line-height: 1.7; }
-@keyframes ann { 0% { opacity: 0; transform: translateY(-14px) scale(1.2); } 8% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
-.toasts { position: absolute; left: 14px; top: 90px; width: min(340px, 60vw); display: flex; flex-direction: column; gap: 8px; }
-.toast { --c: #fff; padding: 8px 10px; background: #14102ce6; border: 3px solid var(--c); box-shadow: 0 0 0 2px var(--ink), 4px 4px 0 2px #000; animation: toastin 6s steps(40) forwards; }
-.toast b { display: block; font-size: 8px; color: var(--c); line-height: 1.5; }
-.toast span { display: block; font-size: 7px; color: #d8d2f5; line-height: 1.7; margin-top: 4px; }
-@keyframes toastin { 0% { opacity: 0; transform: translateX(-20px); } 5% { opacity: 1; transform: none; } 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes ann { 0% { opacity: 0; } 8% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---------- reward cards ---------- */
 .rewardp { padding: 22px 26px 18px; width: min(940px, 96vw); text-align: center; }
@@ -189,7 +184,7 @@ button.x:hover { background: #a02040; }
 
 /* ---------- SPELL EDITOR ---------- */
 .editor-ov { padding: 0; align-items: stretch; background: rgba(5, 3, 12, 0.94); }
-.editor { flex: 1; display: grid; grid-template-rows: auto 1fr auto; min-height: 0; background: radial-gradient(ellipse at 30% 10%, #2a1f66 0%, #0f0a26 65%); }
+.editor { flex: 1; display: grid; grid-template-rows: auto auto 1fr auto; min-height: 0; background: radial-gradient(ellipse at 30% 10%, #2a1f66 0%, #0f0a26 65%); }
 .editor header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 4px solid var(--edge2); background: #120d2af0; }
 .editor header h2 { font-size: 11px; white-space: nowrap; color: var(--gold); text-shadow: 3px 3px 0 #000; }
 .stabs { display: flex; gap: 8px; flex: 1; overflow-x: auto; padding: 4px; }
@@ -284,15 +279,13 @@ button.x:hover { background: #a02040; }
 /* ---------- rounds, prep, ultimates, sandbox, reactions, forge ---------- */
 .timer small { font-size: 8px; color: var(--mut); text-shadow: none; }
 .timer { line-height: 1.3; }
-.rewardbadge { font-size: 7px; color: var(--gold); background: #2a2060e8; border: 3px solid var(--gold); padding: 5px 8px; line-height: 1.5; animation: pulse2 1s steps(2) infinite; }
-@keyframes pulse2 { 50% { background: #4a3a90e8; } }
+.rewardbadge { font-size: 7px; color: var(--gold); background: #2a2060e8; border: 3px solid var(--gold); padding: 5px 8px; line-height: 1.5; }
 .hud-ults { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 10px; }
 .ult { --c: #fff; position: relative; width: 86px; height: 70px; background: #170f3a; border: 3px solid #4a4070; box-shadow: 0 0 0 2px var(--ink), 0 4px 0 2px var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; overflow: hidden; }
 .ult span { font-size: 20px; } .ult small { font-size: 7px; color: var(--mut); } .ult em { font-style: normal; font-size: 5px; color: var(--mut); text-align: center; line-height: 1.4; }
 .ult .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(0, 0, 0, 0.7); }
-.ult.ready { border-color: var(--c); box-shadow: 0 0 0 2px var(--ink), 0 4px 0 2px var(--ink), 0 0 18px var(--c); animation: ultready 0.8s steps(2) infinite; }
+.ult.ready { border-color: var(--c); box-shadow: 0 0 0 2px var(--ink), 0 4px 0 2px var(--ink), 0 0 18px var(--c); }
 .ult.ready small { color: #fff; }
-@keyframes ultready { 50% { transform: translateY(-3px); } }
 .ult.nope { animation: nope 0.3s steps(4); }
 @keyframes nope { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
@@ -344,8 +337,8 @@ button.x:hover { background: #a02040; }
 
 /* ---------- shop, coins, forge highlight ---------- */
 .coinbar { font-size: 10px; color: var(--gold); text-shadow: 2px 2px 0 #000; } .coinbar b { font-weight: normal; }
-.forgebanner { margin: 8px 0; padding: 8px 10px; background: #2a2208; border: 3px solid var(--gold); color: var(--gold); font-size: 7px; line-height: 1.9; animation: pulse2 0.9s steps(2) infinite; }
-button.glow, .itabs button.glow { border-color: var(--gold) !important; color: var(--gold); box-shadow: 0 0 14px var(--gold); animation: pulse2 0.9s steps(2) infinite; }
+/* Static highlight (no flashing) on whatever tab or button has something ready. */
+button.ready, .itabs button.ready { border-color: var(--gold) !important; color: var(--gold); }
 .shopp { padding: 18px 22px; width: min(1040px, 97vw); max-height: 96vh; overflow: auto; }
 .shh { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; } .shh h2 { font-size: 20px; text-shadow: 3px 3px 0 #000; }
 .coins { font-size: 14px; color: var(--gold); text-shadow: 2px 2px 0 #000; margin-left: auto; }
@@ -375,12 +368,14 @@ button.glow, .itabs button.glow { border-color: var(--gold) !important; color: v
 .hrel { position: relative; width: 28px; height: 28px; border: 2px solid var(--rc); background: #120d20; display: grid; place-items: center; font-size: 14px; cursor: help; }
 .hrel.cursed { box-shadow: 0 0 6px #ff5a6a88; }
 .hrel em { position: absolute; bottom: -9px; right: -2px; font: normal 7px 'Press Start 2P', monospace; color: #ffd25a; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
+.swapbox { margin-top: 14px; } .swapbox h4 { margin: 0 0 8px; }
 .relmgr h4 { margin: 10px 0 6px; }
-.relslots { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
-.rslot { border: 2px dashed #3a3060; padding: 8px; min-height: 60px; display: flex; flex-direction: column; gap: 6px; font-size: 9px; color: #8a80b0; }
+.relbar { margin: 6px 0 10px; } .relbh { font-size: 8px; color: var(--gold); margin-bottom: 4px; } .relbh small { color: var(--mut); }
+.relslots { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.rslot { border: 2px dashed #3a3060; padding: 6px; min-height: 52px; display: flex; flex-direction: column; gap: 6px; font-size: 9px; color: #8a80b0; }
 .rslot.full { border: 2px solid #4a3d80; background: #150f26; cursor: pointer; }
 .rslot.full:hover { border-color: #ffd25a; }
-.rslot p { margin: 0; font-size: 8px; line-height: 1.6; color: #c8c0e8; }
+.rslot p { margin: 0; font-size: 7px; line-height: 1.5; color: #c8c0e8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .relic { display: flex; align-items: center; gap: 8px; border-left: 4px solid var(--rc); padding-left: 6px; }
 .relic .rlic { font-size: 20px; }
 .relic .rlt b { display: block; font-size: 9px; color: var(--rc); }
@@ -456,3 +451,8 @@ button.glow, .itabs button.glow { border-color: var(--gold) !important; color: v
 .ritactive { border: 3px solid #c9a6ff; padding: 8px 10px; margin: 6px 0; background: #1c1448; font-size: 8px; line-height: 1.8; }
 .ritdones { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 8px; font-size: 6px; } .ritdone.fulfilled { color: #7cf08a; } .ritdone.lapsed { color: #ff9a9a; }
 .scard.upoffer .scr { color: #9fd8ff; }
+
+.relbar { padding: 0; } .relbar .relslots { grid-template-columns: repeat(6, minmax(0, 1fr)); } .relbar .rslot p { display: none; } .relbar .rslot { min-height: 0; flex-direction: column; justify-content: space-between; }
+.relbar .relic .rlt b { font-size: 8px; } .relbar .relic .rlic { font-size: 16px; }
+.editor .relbar { margin: 0; padding: 6px 12px; background: #0d0922; border-bottom: 3px solid var(--edge2); }
+@media (max-width: 800px) { .relbar .relslots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

@@ -29,6 +29,8 @@ export class Fx {
   bolts: Bolt[] = [];
   texts: Txt[] = [];
   active = 0;
+  activeRings = 0;
+  lastNum = -9; clock = 0;
   pc = 0; rc = 0; bc = 0; tc = 0;
   shakeMag = 0;
   /** Host: receives every effect call before it is thinned or filtered by this machine's own settings. */
@@ -64,9 +66,10 @@ export class Fx {
 
   burst(x: number, y: number, color: number, n: number, speed: number, life: number, size: number, grav = 0, drag = 3) {
     this.rec?.([FxKind.Burst, x, y, color, n, speed, life, size, grav, drag]);
-    // thin out under heavy load
-    if (this.active > 520) n = Math.ceil(n * 0.3);
-    else if (this.active > 380) n = Math.ceil(n * 0.6);
+    // Keep the screen readable: always show a lighter burst, and thin it out further as the field fills up.
+    n = Math.ceil(n * 0.5);
+    if (this.active > 240) n = Math.ceil(n * 0.3);
+    else if (this.active > 140) n = Math.ceil(n * 0.6);
     for (let i = 0; i < n; i++) {
       const p = this.parts[this.pc]; this.pc = (this.pc + 1) % NP;
       if (!p.on) this.active++;
@@ -82,7 +85,7 @@ export class Fx {
   /** Single directional particle (trails, embers). */
   spark(x: number, y: number, vx: number, vy: number, color: number, life: number, size: number, grav = 0, tex = 'dot') {
     this.rec?.([FxKind.Spark, x, y, vx, vy, color, life, size, grav, tex]);
-    if (this.active > 480) return;
+    if (this.active > 180 || Math.random() < 0.55) return; // ambient trails: sparse, and the first to go when busy
     const p = this.parts[this.pc]; this.pc = (this.pc + 1) % NP;
     if (!p.on) this.active++;
     p.on = true; p.vx = vx; p.vy = vy; p.life = p.max = life; p.s0 = size; p.s1 = 0; p.a0 = 0.9; p.drag = 2; p.grav = grav;
@@ -91,6 +94,8 @@ export class Fx {
 
   ring(x: number, y: number, color: number, r0: number, r1: number, life = 0.35, alpha = 1) {
     this.rec?.([FxKind.Ring, x, y, color, r0, r1, life, alpha]);
+    if (Math.max(r0, r1) < 50 || this.activeRings > 8) return; // tiny hit rings are pure noise; cap the rest
+    alpha *= 0.7;
     const g = this.rings[this.rc]; this.rc = (this.rc + 1) % NR;
     g.on = true; g.life = g.max = life; g.s0 = r0 / 60; g.s1 = r1 / 60;
     g.img.setPosition(x, y).setTint(color).setVisible(true).setAlpha(alpha).setScale(g.s0);
@@ -117,7 +122,12 @@ export class Fx {
 
   text(x: number, y: number, s: string, color = '#ffffff', size = 16, life = 0.7, vy = -55) {
     this.rec?.([FxKind.Text, x, y, s, parseInt(color.slice(1), 16) || 0xffffff, size, life, vy]);
+    // Numbers only where they carry information: crits, big hits, damage taken. Chip damage, DoT ticks, status words,
+    // coin pickups and the like are dropped, and ordinary hits are rate-limited so a horde doesn't paint the screen.
     if (!store.settings.numbers && size < 20) return;
+    if (size < 13) return;
+    if (size < 18 && this.clock - this.lastNum < 0.18) return;
+    if (size < 18) this.lastNum = this.clock;
     const t = this.texts[this.tc]; this.tc = (this.tc + 1) % NT;
     t.on = true; t.life = life; t.vy = vy;
     t.t.setText(s).setColor(color).setFontSize(Math.round(size * 0.72)).setPosition(x, y).setVisible(true).setAlpha(1).setScale(1.25);
@@ -148,6 +158,7 @@ export class Fx {
   }
 
   update(dt: number) {
+    this.clock += dt;
     let n = 0;
     for (const p of this.parts) {
       if (!p.on) continue;
@@ -161,13 +172,16 @@ export class Fx {
       p.img.setScale(p.s1 + (p.s0 - p.s1) * k).setAlpha(k * p.a0);
     }
     this.active = n;
+    let rn = 0;
     for (const r of this.rings) {
       if (!r.on) continue;
+      rn++;
       r.life -= dt;
       if (r.life <= 0) { r.on = false; r.img.setVisible(false); continue; }
       const k = 1 - r.life / r.max;
       r.img.setScale(r.s0 + (r.s1 - r.s0) * (1 - (1 - k) * (1 - k))).setAlpha(1 - k);
     }
+    this.activeRings = rn;
     for (const b of this.bolts) {
       if (!b.on) continue;
       b.life -= dt;

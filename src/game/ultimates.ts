@@ -29,7 +29,6 @@ export function castUltimate(run: Run, sp: ActiveSpell) {
   const src = makeSrc(sp, root, 0);
   const dmg = (30 + run.round * 6) * p.dmgMul * 1.6;
   const color = ELEMENTS[el].color;
-  run.announce(`${U.icon} ${U.name.toUpperCase()}`, ELEMENTS[el].css, 'ULTIMATE');
   run.fx.shake(10);
   run.fx.ring(p.x, p.y, color, 10, 520, 0.7);
   run.fx.ring(p.x, p.y, 0xffffff, 10, 320, 0.5);

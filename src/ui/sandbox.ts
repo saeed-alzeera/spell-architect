@@ -56,7 +56,7 @@ export function buildSandboxPanel(ui: UI, run: Run): HTMLElement {
       case 'dummy': run.dummy = !run.dummy; b.textContent = `DUMMIES: ${run.dummy ? 'on' : 'off'}`; b.classList.toggle('on', run.dummy); break;
       case 'clear': run.clearField(); break;
       case 'ult': for (const sp of run.spells) sp.ultCd = 0; break;
-      case 'relics': for (const r of RELICS) run.addRelic(r.id, false); run.announce('RELICS', '#ffd25a', 'All relics granted: manage them in the editor\'s RELICS tab.'); break;
+      case 'relics': for (const r of RELICS) run.addRelic(r.id); break;
       case 'editor': ui.openEditorFromPlay(); break;
     }
     b.blur();

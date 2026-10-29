@@ -11,7 +11,7 @@ import { updateDirector, updateEnemies, openRound } from './enemies';
 import { planFor, roundLen, isBossRound, FINAL_ROUND, ROUND_DIFF, type Plan } from './rounds';
 import { castUltimate, ULT_COOLDOWN } from './ultimates';
 import { newShop, refreshPrices, type Shop } from './shop';
-import { RELIC_BY_ID, RELIC_SLOTS, recomputeMods, onRoundStart, onLethal, onKill, rollRelics } from './relics';
+import { RELIC_BY_ID, RELIC_SLOTS, relicSellPrice, recomputeMods, onRoundStart, onLethal, onKill, rollRelics } from './relics';
 import { saveRunRecord, installId, versionStamp, type RunRecord, type RoundRec } from '../core/analytics';
 import { ruleMods } from '../core/spell';
 import { generateRewards } from './rewards';
@@ -74,7 +74,7 @@ export interface RunSummary {
 export interface Build {
   spells: { def: SpellDef; mutations: string[]; tiers: Record<string, number>; st: ActiveSpell['st']; damage: number; ultCd: number }[];
   player: Omit<Player, 'x' | 'y' | 'vx' | 'vy' | 'inv' | 'hurtFlash' | 'walkT' | 'pullX' | 'pullY' | 'pullT' | 'faceX'>;
-  owned: string[]; equipped: string[]; relicState: Record<string, Record<string, number>>;
+  equipped: string[]; relicState: Record<string, Record<string, number>>;
   rituals?: ActiveRitual[]; ritualBonus?: RitualBonus;
 }
 
@@ -89,8 +89,6 @@ export class Run {
   ownerMap = new WeakMap<object, Run>();
   /** Set by the co-op session on the host: delivers a reward to a remote player. */
   onRemotePending: (pr: Run, item: Pending) => void = () => {};
-  /** Set by the co-op host: show a banner to one remote player only. */
-  onRemoteNotice: (pr: Run, title: string, color: string, sub: string) => void = () => {};
   coopSize(): number { return this.world.coop?.size?.() ?? 1; }
   private _boss: Enemy | null = null;
   private _sb = 36;
@@ -127,7 +125,7 @@ export class Run {
   shopOpened = true;
   seed = (Math.random() * 2147483647) | 0;
   startedAt = Date.now();
-  owned: string[] = [];
+  /** Worn relics. There is no stash: a full set must be sold down to make room. */
   equipped: string[] = [];
   relicState: Record<string, Record<string, number>> = {};
   inRelic = false;
@@ -266,7 +264,7 @@ export class Run {
     const p = this.freshPlayer();
     Object.assign(s, {
       pid, pname: name, remote: true, down: false,
-      player: p, spells: [] as ActiveSpell[], slots: 0, inv: {}, coins: 0, buys: {}, owned: [] as string[], equipped: [] as string[],
+      player: p, spells: [] as ActiveSpell[], slots: 0, inv: {}, coins: 0, buys: {}, equipped: [] as string[],
       relicState: {}, inRelic: false, critKill: false, kills: 0, totalDamage: 0, reactionCount: 0, hurtBy: {}, lastHurt: '', pending: [] as Pending[],
       boosts: [] as string[], input: { x: 0, y: 0 }, ultTrack: null, capExtra: 0, rituals: [] as ActiveRitual[], ritualRound: { hurt: 0, react: new Set<string>() }, ritualBonus: freshBonus(), cmdQ: [] as Cmd[], cmdCredit: 0.25, cmdSeq: 0, cmdAck: 0,
       mods: { elements: 0, poisonCap: 0, coinMul: 1, priceMul: 1, rerollMul: 1, rerollMinus: 0, forgeMinus: 0 },
@@ -297,7 +295,7 @@ export class Run {
     void x; void y; void vx; void vy; void inv; void hurtFlash; void walkT; void pullX; void pullY; void pullT; void faceX;
     return {
       spells: this.spells.map((sp) => ({ def: JSON.parse(JSON.stringify(sp.def)), mutations: [...sp.mutations], tiers: { ...sp.tiers }, st: { ...sp.st }, damage: sp.damage, ultCd: sp.ultCd })),
-      player: { ...stats }, owned: [...this.owned], equipped: [...this.equipped], relicState: JSON.parse(JSON.stringify(this.relicState)),
+      player: { ...stats }, equipped: [...this.equipped], relicState: JSON.parse(JSON.stringify(this.relicState)),
       rituals: JSON.parse(JSON.stringify(this.rituals)), ritualBonus: { ...this.ritualBonus },
     };
   }
@@ -306,7 +304,7 @@ export class Run {
   applyBuild(b: Build) {
     const w = this.world;
     Object.assign(this.player, b.player);
-    this.owned = [...b.owned]; this.equipped = [...b.equipped];
+    this.equipped = [...b.equipped];
     this.relicState = JSON.parse(JSON.stringify(b.relicState));
     this.rituals = JSON.parse(JSON.stringify(b.rituals ?? []));
     this.ritualBonus = { ...freshBonus(), ...(b.ritualBonus ?? {}) };
@@ -370,7 +368,6 @@ export class Run {
       const first = store.discoverCombo(sp.c.signature, sp.c.name);
       if (first && !silent) {
         this.discoveries.push(`combo:${sp.c.signature}`);
-        this.announce('NEW COMBINATION', '#7cf0ff', `${sp.c.name} added to the Discovery Journal`);
       }
     }
   }
@@ -400,26 +397,26 @@ export class Run {
     for (const sp of this.spells) this.recompile(sp, true);
     if (!this.remote) refreshPrices(this); // Bargain Bell & co. take effect on the shelf immediately
   }
-  addRelic(id: string, announce = true) {
-    if (this.owned.includes(id)) return;
-    this.owned.push(id);
-    const d = RELIC_BY_ID[id];
-    if (this.equipped.length < RELIC_SLOTS) this.equipRelic(id);
-    if (announce) this.announce(`RELIC: ${d.name.toUpperCase()}`, d.cursed ? '#ff5a6a' : '#ffd25a', this.equipped.includes(id) ? d.desc : 'Stored in your stash. Swap it in between rounds.');
-  }
-  equipRelic(id: string): boolean {
-    if (!this.owned.includes(id) || this.equipped.includes(id) || this.equipped.length >= RELIC_SLOTS) return false;
+  /** True when every relic slot is taken. */
+  get relicsFull() { return this.equipped.length >= RELIC_SLOTS; }
+  /** Wear a relic. Returns false (and does nothing) when there is no free slot or it is already worn. */
+  addRelic(id: string): boolean {
+    if (this.equipped.includes(id) || this.relicsFull) return false;
     this.equipped.push(id);
     RELIC_BY_ID[id].onEquip?.(this);
     this.recomputeRelics();
     return true;
   }
-  unequipRelic(id: string) {
+  /** Sell a worn relic for coins, freeing its slot. Returns the coins paid. */
+  sellRelic(id: string): number {
     const i = this.equipped.indexOf(id);
-    if (i < 0) return;
+    if (i < 0) return 0;
     RELIC_BY_ID[id].onUnequip?.(this);
     this.equipped.splice(i, 1);
+    const v = relicSellPrice(RELIC_BY_ID[id]);
+    this.coins += v;
     this.recomputeRelics();
+    return v;
   }
   /** Merge two same-type triggers from the pool into one with the summed chance. Returns an error message or null. */
   mergeTriggers(a: string, b: string): string | null {
@@ -640,7 +637,6 @@ export class Run {
     this.down = true;
     this.fx.burst(this.player.x, this.player.y, 0xff4a4a, 16, 220, 0.6, 1.2);
     w.lastHurt = this.lastHurt;
-    if (w.players.length > 1) w.announce(`${this.pname.toUpperCase()} IS DOWN`, '#ff6b6b', this === w ? 'Your teammates can carry on. You return next round.' : 'They return next round.');
     if (w.players.every((q) => q.down)) w.finish(false);
   }
 
@@ -670,13 +666,9 @@ export class Run {
           if (opts.length) pr.pushPending({ type: 'relic', options: opts.map((r) => r.id) });
         }
       }
-      this.announce(`${e.boss!.name.toUpperCase()} DEFEATED`, '#ffd25a', 'A Rune Cache has dropped. Collecting your spoils...');
       for (const pr of this.players) pr.addCoins(8 + 2 * kind);
       if (!this.sandbox) this.later(1.8, () => this.endRound());
-    } else if (this.sandbox) {
-      this.announce('BOSS DEFEATED', '#ffd25a');
-    } else {
-      this.announce('THE VOID ARCHITECT FALLS', '#ffd25a', 'Victory is yours!');
+    } else if (!this.sandbox) {
       this.victoryT = 2.4;
       for (const en of this.enemies) if (en !== e && !en.dead) { en.hp = 0; en.dead = true; this.fx.burst(en.x, en.y, 0xffd25a, 4, 120, 0.5, 1); this.freeImg(en.spr); this.freeImg(en.shadow); this.freeImg(en.badge); }
     }
@@ -915,7 +907,6 @@ export class Run {
     this.dtime = (this.round - 1) * ROUND_DIFF;
     openRound(this);
     const boss = isBossRound(this.round);
-    this.announce(boss ? `ROUND ${this.round}: BOSS` : `ROUND ${this.round}`, boss ? '#ff6b6b' : '#9fd8ff', boss ? 'Defeat the boss to finish the round.' : `Survive ${roundLen(this.quick)} seconds.`);
     audio.play(boss ? 'boss' : 'warn');
     this.coop?.onStart?.();
   }
@@ -948,7 +939,6 @@ export class Run {
     for (const t of this.tels) t.dead = true;
     for (const k of this.pickups) k.fly = true;
     this.boss = null;
-    this.announce(`ROUND ${this.round} CLEARED`, '#ffd25a');
     audio.play('level');
   }
 
