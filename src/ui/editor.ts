@@ -15,8 +15,7 @@ import { audio } from '../core/audio';
 import { earlyPower, type Run } from '../game/run';
 import type { ActiveSpell } from '../game/types';
 import { el, type UI } from './ui';
-import { relicManager } from './relics';
-import { RELIC_SLOTS } from '../game/relics';
+import { relicBar } from './relics';
 import { showSpellOverview } from './overview';
 
 export function openEditor(ui: UI, run: Run) { new Editor(ui, run).open(); }
@@ -32,7 +31,7 @@ class Editor {
   menu: HTMLElement | null = null;
   hint = '';
   hintBad = false;
-  tab: 'spell' | 'react' | 'forge' | 'relics' | 'stats' = 'spell';
+  tab: 'spell' | 'react' | 'forge' | 'stats' = 'spell';
   mergeSel: string[] = [];
 
   constructor(private ui: UI, private run: Run) {
@@ -347,7 +346,7 @@ class Editor {
 
     let graph: string;
     if (!sp.def.root) {
-      graph = `<div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}"><div class="eri">✦</div><b>EMPTY SLOT</b><p>Pick a <span style="color:${KIND_COLOR.form}">Form</span> from your rune pool and click here (or drag it in). Then socket a <span style="color:${KIND_COLOR.core}">Core</span> into it to choose its element.</p></div>`;
+      graph = `<div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}"><div class="eri">✦</div><b>EMPTY SLOT</b><p>Pick a <span style="color:${KIND_COLOR.form}">Form</span> and click here.</p></div>`;
     } else {
       graph = this.formCard(sp.def.root, 'arcane', true);
     }
@@ -382,7 +381,6 @@ class Editor {
         <div><b>${cd.toFixed(2)}s</b><span>Cooldown</span></div>
         <div><b>${(est.dps * pm.dmgMul / pm.cdMul).toFixed(0)}</b><span>Est. DPS</span></div>
         <div><b>${c.runeCount}</b><span>Runes</span></div></div>` : ''}
-      ${rootC && rootC.element !== 'arcane' ? `<p class="muted">${ELEMENTS[rootC.element].name} hits harder than Arcane (x${(ELEMENTS[rootC.element].dmg * (rootC.evolved ? 1.4 : 1)).toFixed(2)}). ${ELEMENTS[rootC.element].blurb} Enemies attuned to ${ELEMENTS[rootC.element].name} resist it. Arcane never is.</p>` : rootC ? '<p class="muted">Arcane: no element, no effect, but never resisted by any enemy.</p>' : ''}
       ${potHtml}
       ${c.warnings.length ? `<div class="warns">${c.warnings.map((w) => `<div>⚠ ${w}</div>`).join('')}</div>` : ''}
       ${muts ? `<h4>Mutations</h4><div>${muts}</div>` : ''}
@@ -396,7 +394,7 @@ class Editor {
     const reactList = [...REACTIONS].sort((a, b) => Number(b.needs.every((e) => present.has(e))) - Number(a.needs.every((e) => present.has(e))));
     const reactInfo = `
       <div class="spname">REACTIONS</div>
-      <p class="muted">Elements from <b>different slots</b> react with each other's puddles, clouds and statuses. A reaction deals <b>both</b> of its damage types (split evenly), so an enemy resisting one still takes the other. Your loadout elements: ${present.size ? [...present].map((e) => `<span class="elchip" style="--c:${ELEMENTS[e].css}">${ELEMENTS[e].icon} ${ELEMENTS[e].name}</span>`).join(' ') : 'none yet (Arcane has no reactions)'}</p>
+      <p class="muted">Elements in <b>different slots</b> react. Yours: ${present.size ? [...present].map((e) => `<span class="elchip" style="--c:${ELEMENTS[e].css}">${ELEMENTS[e].icon} ${ELEMENTS[e].name}</span>`).join(' ') : 'none yet (Arcane has no reactions)'}</p>
       <div class="rlist">${reactList.map((r) => reactionCardHtml(r, present, seenR[r.id] ?? 0)).join('')}</div>`;
 
     // Forge tab: 4 cores -> evolved core
@@ -405,16 +403,16 @@ class Editor {
     const mres = this.mergeSel.length === 2 ? mergeResult(this.mergeSel[0], this.mergeSel[1]) : null;
     const tres = this.mergeSel.length === 2 ? tierUpResult(this.mergeSel[0], this.mergeSel[1]) : null;
     const mergeHtml = `<div class="spname" style="margin-top:14px">FORGE TRIGGERS</div>
-      <div class="mergebox"><b>Level up:</b> two identical triggers of one level forge into one of the next level (two level 1 On Hits make an On Hit II, two IIs make a III, up to IV).
+      <div class="mergebox">Two identical triggers make the next level (up to IV).
         ${tres === null ? '' : typeof tres === 'string' ? '' : `<br>Level up result: <b style="color:#ffd25a">${tres.icon} ${tres.name}</b> (${Math.round((tres.chance ?? 1) * 100)}%)`}</div>
       <div class="spname" style="margin-top:10px">MERGE TRIGGERS</div>
-      <div class="mergebox">Combine <b>two triggers of the same type</b> from your rune pool into ONE trigger whose chance is the sum (max 80%). Two 10% On Hits become one 20% On Hit. It also frees capacity and the Form's single trigger slot.
-        ${mres === null ? '<br><span class="muted">Pick two below.</span>' : typeof mres === 'string' ? `<br><span style="color:#ff9a9a">${mres}</span>` : `<br>Result: <b style="color:#ffd25a">${mres.icon} ${mres.name}</b> (cost ${mres.cost})`}</div>
+      <div class="mergebox">Two triggers of one type become one with the summed chance (max 80%).
+        ${mres === null ? '<br><span class="muted">Pick two.</span>' : typeof mres === 'string' ? `<br><span style="color:#ff9a9a">${mres}</span>` : `<br>Result: <b style="color:#ffd25a">${mres.icon} ${mres.name}</b> (cost ${mres.cost})`}</div>
       ${mergeable.length ? `<div class="mchips">${mergeable.map((r) => { const n = this.mergeSel.filter((x) => x === r.id).length; return `<button class="mchip ${n ? 'sel' : ''}" data-mpick="${r.id}">${r.icon} ${r.name}${triggerLevel(r.id) ? ` (L${triggerLevel(r.id)})` : ''} ${Math.round((r.chance ?? 1) * 100)}% ×${run.inv[r.id]}${n ? ` (picked ${n})` : ''}</button>`; }).join('')}</div>
-      <button class="addchip" data-tierup="1" ${tres && typeof tres !== 'string' ? '' : 'disabled'}>FORGE UP A LEVEL</button> <button class="addchip" data-merge="1" ${mres && typeof mres !== 'string' ? '' : 'disabled'}>MERGE INTO ONE (add chances)</button>` : '<p class="muted">You have no On Hit / On Kill / On Critical Hit triggers in your pool. Triggers placed on a spell must be removed first.</p>'}`;
+      <button class="addchip" data-tierup="1" ${tres && typeof tres !== 'string' ? '' : 'disabled'}>FORGE UP A LEVEL</button> <button class="addchip" data-merge="1" ${mres && typeof mres !== 'string' ? '' : 'disabled'}>MERGE INTO ONE (add chances)</button>` : '<p class="muted">No triggers in your pool.</p>'}`;
     const forgeInfo = `
       <div class="spname">FORGE</div>
-      <p class="muted">Combine <b>${EVOLVE_COST} copies</b> of the same Core (from your pool or equipped) into an <b>evolved Core</b>: +40% damage, a new passive, and an <b>Ultimate</b> on Space while it is equipped.</p>
+      <p class="muted">${EVOLVE_COST} of the same Core make an evolved Core: +40% damage, a passive and an Ultimate.</p>
       ${(Object.keys(BASE_CORE_OF) as Element[]).map((e2) => {
         const n = run.coreCopies(e2), have = owned(EVOLVED_OF[e2]);
         const evo = RUNE_BY_ID[EVOLVED_OF[e2]], U = ULTIMATES[e2];
@@ -426,17 +424,16 @@ class Editor {
           <button class="addchip" data-forge="${e2}" ${n >= EVOLVE_COST ? '' : 'disabled'}>FORGE ${evo.name.toUpperCase()}</button></div>`;
       }).join('')}
       ${mergeHtml}`;
-    const tabsHtml = `<div class="itabs">${(['spell', 'react', 'forge', 'relics', 'stats'] as const).map((t) => `<button data-tab="${t}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'ready' : ''}">${t === 'spell' ? 'SPELL' : t === 'react' ? 'REACTIONS' : t === 'relics' ? `RELICS ${run.equipped.length}/${RELIC_SLOTS}` : t === 'stats' ? 'STATS' : 'FORGE'}</button>`).join('')}</div>`;
-    const rm = this.tab === 'relics' ? relicManager(run, () => this.render()) : null;
+    const tabsHtml = `<div class="itabs">${(['spell', 'react', 'forge', 'stats'] as const).map((t) => `<button data-tab="${t}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'ready' : ''}">${t === 'spell' ? 'SPELL' : t === 'react' ? 'REACTIONS' : t === 'stats' ? 'STATS' : 'FORGE'}</button>`).join('')}</div>`;
+    const rm = relicBar(run, () => this.render());
     const pl = run.player;
     const statsInfo = `<div class="spname">STATS</div><div class="statgrid">
       <span>Spell power</span><b>x${pl.dmgMul.toFixed(2)}${earlyPower(run.round) > 1.001 ? ` (+${Math.round((earlyPower(run.round) - 1) * 100)}% early)` : ''}</b><span>Cooldown</span><b>x${pl.cdMul.toFixed(2)}</b>
       <span>Crit chance</span><b>${Math.round(pl.crit * 100)}%</b><span>Crit damage</span><b>x${pl.critMul.toFixed(2)}</b>
       <span>Max health</span><b>${Math.round(pl.maxHp)}</b><span>Regen</span><b>${pl.regen.toFixed(2)}/s</b>
       <span>Move speed</span><b>${Math.round(pl.speed)}</b><span>Kills</span><b>${run.kills}</b>
-      <span>Level</span><b>${pl.level}</b><span>Coins</span><b>${Math.floor(run.coins)}</b></div>
-      <p class="muted">Crit chance and Crit damage come from the shop's Keen Edge upgrade, level-up boosts, Lightning cores and relics. Triggers like On Critical Hit fire on crits.</p>`;
-    const info = tabsHtml + (this.tab === 'spell' ? spellInfo : this.tab === 'react' ? reactInfo : this.tab === 'relics' ? `<div class="spname">RELICS</div>${rm!.html}` : this.tab === 'stats' ? statsInfo : forgeInfo);
+      <span>Level</span><b>${pl.level}</b><span>Coins</span><b>${Math.floor(run.coins)}</b></div>`;
+    const info = tabsHtml + (this.tab === 'spell' ? spellInfo : this.tab === 'react' ? reactInfo : this.tab === 'stats' ? statsInfo : forgeInfo);
 
     const kinds: (RuneKind | 'all')[] = ['all', 'form', 'core', 'behavior', 'trigger', 'modifier'];
     const invRunes = RUNES.filter((r) => (run.inv[r.id] ?? 0) > 0 && (this.filter === 'all' || r.kind === this.filter));
@@ -446,21 +443,22 @@ class Editor {
 
     ed.innerHTML = `
       <header><h2>SPELL EDITOR</h2><div class="stabs">${tabs}</div><button class="mini ovbtn" data-overview="1" title="See every spell at a glance">🔮 OVERVIEW</button><button class="x" data-a="close" title="Close (Esc / E)">X</button></header>
+      ${rm.html}
       <main>
         <section class="graphwrap">
           <div class="legend"><span style="--c:${KIND_COLOR.form}">FORM = the spell</span><span style="--c:${KIND_COLOR.core}">CORE = its element</span><span style="--c:${KIND_COLOR.behavior}">AUGMENTS = tweaks</span><span style="--c:${KIND_COLOR.trigger}">TRIGGER = launches more Forms</span></div>
           <div class="graph">${graph}</div>
-          <div class="hintbar ${this.hintBad ? 'bad' : ''}">${this.hint || (this.sel ? `Selected ${RUNE_BY_ID[this.sel].name}. Click a glowing card to place it.` : 'Click a rune in your pool, then click a glowing card, or use the + buttons. Right-click removes.')}</div></section>
+          <div class="hintbar ${this.hintBad ? 'bad' : ''}">${this.hint || (this.sel ? `Selected ${RUNE_BY_ID[this.sel].name}. Click a glowing card to place it.` : 'Pick a rune, then click a glowing card. Right-click removes.')}</div></section>
         <aside class="info">${info}</aside>
       </main>
       <footer class="inventory">
         <div class="invh"><b>RUNE POOL</b> <small>${total} rune${total === 1 ? '' : 's'}</small>
           <div class="filters">${kinds.map((k) => `<button data-filter="${k}" class="${this.filter === k ? 'on' : ''}" style="${k !== 'all' ? `--c:${KIND_COLOR[k]}` : ''}">${k === 'all' ? 'ALL' : KIND_LABEL[k].toUpperCase()}</button>`).join('')}
           ${this.sel ? '<button data-clear class="clr">DESELECT</button>' : ''}</div></div>
-        <div class="chips">${chips || '<p class="muted">Nothing here. Level up and open Rune Caches to find more.</p>'}</div>
+        <div class="chips">${chips || '<p class="muted">No runes.</p>'}</div>
       </footer>`;
     const g2 = ed.querySelector('.graph') as HTMLElement;
     g2.scrollLeft = sl; g2.scrollTop = st;
-    rm?.bind(ed.querySelector('.info') as HTMLElement);
+    rm.bind(ed.querySelector('.relbar') as HTMLElement);
   }
 }

@@ -13,7 +13,7 @@ import { reactionCardHtml } from './reactions';
 import { buildSandboxPanel } from './sandbox';
 import { showShop } from './shop';
 import { loadRuns, exportRuns, type RunRecord } from '../core/analytics';
-import { showRelicPick } from './relics';
+import { showRelicPick, relicBar } from './relics';
 import { RELIC_BY_ID, relicColor } from '../game/relics';
 import { EVOLVE_COST } from '../data/runes';
 import { describeRes, FINAL_ROUND, roundLen, WEAK_TO, isBossRound, type Aff } from '../game/rounds';
@@ -352,6 +352,7 @@ class UI {
       ${bossHtml}
       <h4>ENEMY MIX THIS ROUND</h4><div class="shares">${shares}</div>
       <h4>YOUR LOADOUT</h4><div class="pslots">${slots}</div>
+      ${relicBar(run, () => {}, false).html}
       <div data-rituals></div>
       <div class="rbtns"><button class="big" data-a="shop">Shop <small>◈ ${Math.floor(run.coins)}</small></button><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor</button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
     </div></div>`);
@@ -754,11 +755,11 @@ class UI {
     const j = store.d.journal;
     const reacts = REACTIONS.map((r) => reactionCardHtml(r, null, j.reactions[r.id] ?? 0)).join('');
     const combos = Object.entries(j.combos).sort((a, b) => b[1].count - a[1].count);
-    const comboHtml = combos.length ? combos.map(([sig, c]) => `<div class="jcard"><div class="gi">🧩</div><div><b>${c.name}</b><small>${sig}</small><small>Built ${c.count}×</small></div></div>`).join('') : '<p class="muted">No combinations recorded yet. Build a spell with 3+ runes.</p>';
+    const comboHtml = combos.length ? combos.map(([sig, c]) => `<div class="jcard"><div class="gi">🧩</div><div><b>${c.name}</b><small>${sig}</small><small>Built ${c.count}×</small></div></div>`).join('') : '<p class="muted">None yet.</p>';
     const baseRunes = RUNES.filter((r) => !r.merged);
     const seen = baseRunes.filter((r) => j.runes[r.id]).length;
     const m = this.modal('Discovery Journal', `<div class="journal">
-      <h3>Elemental reactions <small>${Object.keys(j.reactions).length}/${REACTIONS.length} discovered</small></h3><p class="muted">Reactions deal BOTH damage types (split evenly), so an enemy that resists one element still takes the other. You need the listed elements somewhere in your loadout.</p><div class="jgrid">${reacts}</div>
+      <h3>Elemental reactions <small>${Object.keys(j.reactions).length}/${REACTIONS.length} discovered</small></h3><div class="jgrid">${reacts}</div>
       <h3>Spell combinations <small>${combos.length}</small></h3><div class="jgrid">${comboHtml}</div>
       <h3>Runes encountered <small>${seen}/${baseRunes.length}</small></h3>
       <div class="jruns">${baseRunes.map((r) => j.runes[r.id] ? runeChipHtml(r) : '<div class="rchip unk"><span class="ri">?</span></div>').join('')}</div>

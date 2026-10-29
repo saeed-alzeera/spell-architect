@@ -12,15 +12,15 @@ export const relicCard = (id: string, run: Run | null, extra = '') => {
     <span class="rlic">${r.icon}</span><div class="rlt"><b>${r.name}</b><small>${r.cursed ? 'Cursed' : RARITY[r.rarity].name}</small></div>${badge}${extra}</div>`;
 };
 
-/** Worn relics, with a Sell button on each. There is no stash: a full set must be sold down for a new relic. */
-export function relicManager(run: Run, rerender: () => void): { html: string; bind: (root: HTMLElement) => void } {
+/** Always-visible strip of the worn relics (empty slots included). With `sell`, each relic gets a Sell button; relics
+ *  are never stored, so selling is how you make room for a new one. */
+export function relicBar(run: Run, rerender: () => void, sell = true): { html: string; bind: (root: HTMLElement) => void } {
   const slots = Array.from({ length: RELIC_SLOTS }, (_, i) => run.equipped[i]);
-  const html = `<div class="relmgr">
-    <h4>RELICS <small>${run.equipped.length}/${RELIC_SLOTS}</small></h4>
-    <div class="relslots">${slots.map((id) => id ? `<div class="rslot full" data-sell="${id}">${relicCard(id, run)}<button class="mini">Sell ◈ ${relicSellPrice(RELIC_BY_ID[id])}</button></div>` : '<div class="rslot"><span>empty</span></div>').join('')}</div>
-  </div>`;
+  const html = `<div class="relbar"><div class="relbh">RELICS <small>${run.equipped.length}/${RELIC_SLOTS}</small></div><div class="relslots">${slots.map((id) => id
+    ? `<div class="rslot full">${relicCard(id, run)}<p>${RELIC_BY_ID[id].desc}</p>${sell ? `<button class="mini" data-sell="${id}">Sell ◈ ${relicSellPrice(RELIC_BY_ID[id])}</button>` : ''}</div>`
+    : '<div class="rslot"><span>empty</span></div>').join('')}</div></div>`;
   const bind = (root: HTMLElement) => {
-    root.querySelectorAll<HTMLElement>('[data-sell]').forEach((b) => b.addEventListener('click', () => { run.sellRelic(b.dataset.sell!); audio.play('gem'); rerender(); }));
+    root.querySelectorAll<HTMLElement>('.relbar [data-sell]').forEach((b) => b.addEventListener('click', () => { run.sellRelic(b.dataset.sell!); audio.play('gem'); rerender(); }));
   };
   return { html, bind };
 }
