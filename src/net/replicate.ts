@@ -13,7 +13,7 @@ import { tintKey } from '../game/render';
 import type { Run } from '../game/run';
 import type { Img } from '../game/types';
 import { TEXTURE_ID } from '../gfx/textures';
-import { BOSS_BASE, DGRAM, E, ELEMENT_IDS, ETYPES, HDR, K, O, PHASES, POS, S, SFX_IDS, SFX_NET, SNAP_HZ } from './proto';
+import { BOSS_BASE, DGRAM, E, ELEMENT_IDS, ETYPES, FLOOR_BYTES, HDR, K, O, PHASES, POS, S, SFX_IDS, SFX_NET, SNAP_HZ } from './proto';
 import { clamp, Writer } from './wire';
 
 void BOSSES;
@@ -120,13 +120,13 @@ export class Replicator {
     const n = a.state.length;
     const timers: number[] = [];
     for (let i = 0; i < n; i++) if (a.state[i] === 1 || a.state[i] === 2) timers.push(i);
-    pk.rec(S.Floor, 31 + 1 + timers.length * 2, (w) => {
-      const bytes = new Uint8Array(31);
+    pk.rec(S.Floor, FLOOR_BYTES + 3 + timers.length * 3, (w) => {
+      const bytes = new Uint8Array(FLOOR_BYTES);
       for (let i = 0; i < n; i++) bytes[i >> 2] |= (a.state[i] & 3) << ((i & 3) * 2);
       for (const b of bytes) w.u8(b);
       w.u8(a.active ? 1 : 0);
-      w.u8(timers.length);
-      for (const i of timers) { w.u8(i); w.u8(clamp(Math.round(a.timer[i] * 50), 0, 255)); }
+      w.u16(timers.length);
+      for (const i of timers) { w.u16(i); w.u8(clamp(Math.round(a.timer[i] * 50), 0, 255)); }
     });
     for (const t of run.tels) {
       if (t.dead) continue;

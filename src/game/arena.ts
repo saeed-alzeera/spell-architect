@@ -1,16 +1,15 @@
-// The arena floor: an 11x11 grid of tiles. Each round a seeded share of the tiles crumbles away in three waves
-// (10% in round 1, 20% from round 2 on; it resets every round, it is not cumulative). Doomed tiles flash and
-// crack for a few seconds first. The tiles that remain are always connected, so nobody is ever stranded.
+// The arena floor: a 22x22 grid of small tiles. Each round a seeded share of the tiles crumbles away in a steady
+// trickle, one tile every fraction of a second (10% in round 1, 20% from round 2 on; it resets every round, it is
+// not cumulative). Doomed tiles flash and crack for a few seconds first. The tiles that remain are always connected, so nobody is ever stranded.
 import type Phaser from 'phaser';
 
-export const TILE = 100;
-export const TN = 11;
+export const TILE = 50;
+export const TN = 22;
 export const ARENA = TILE * TN;
 
 const SOLID = 0, WARN = 1, FALL = 2, VOID = 3;
 const CENTER = (TN >> 1) * TN + (TN >> 1);
-const WAVES = 3;
-const WAVE_AT = [0.16, 0.44, 0.72]; // fraction of the round at which each wave is announced
+const TRICKLE_FROM = 0.12, TRICKLE_TO = 0.75; // fraction of the round over which the tiles are announced, evenly spaced
 const FALL_ANIM = 0.5;
 /** How strongly the collapse favours the edges and corners (0 = uniform). A corner is ~9x as likely as a centre tile to go early; half of all falling tiles come from the outer ring. */
 const EDGE_BIAS = 8;
@@ -34,7 +33,8 @@ export const tileCy = (i: number) => Math.floor(i / TN) * TILE + TILE / 2;
 export class Arena {
   state = new Uint8Array(TN * TN);
   timer = new Float32Array(TN * TN);
-  waves: number[][] = [];
+  queue: number[] = [];
+  warnAt: number[] = [];
   warned = 0;
   fell = 0;
   elapsed = 0;
@@ -49,7 +49,7 @@ export class Arena {
   /** Solid again, no waves queued. */
   reset() {
     this.state.fill(SOLID); this.timer.fill(0);
-    this.waves = []; this.warned = 0; this.fell = 0; this.elapsed = 0; this.active = false;
+    this.queue = []; this.warnAt = []; this.warned = 0; this.fell = 0; this.elapsed = 0; this.active = false;
     this.version++;
   }
 
@@ -80,8 +80,8 @@ export class Arena {
       gone[t] = 1;
       if (this.connected(gone)) removed.push(t); else gone[t] = 0;
     }
-    const per = Math.ceil(removed.length / WAVES);
-    for (let w = 0; w < WAVES; w++) this.waves.push(removed.slice(w * per, (w + 1) * per));
+    this.queue = removed;
+    this.warnAt = removed.map((_, j) => (TRICKLE_FROM + (TRICKLE_TO - TRICKLE_FROM) * (j / removed.length)) * roundLen);
     this.active = removed.length > 0;
   }
 
@@ -111,10 +111,9 @@ export class Arena {
     const out = { warned: [] as number[], fell: [] as number[] };
     if (!this.active) return out;
     this.elapsed += dt;
-    while (this.warned < WAVES && this.elapsed >= WAVE_AT[this.warned] * this.roundLen) {
-      for (const t of this.waves[this.warned]) { if (this.state[t] === SOLID) { this.state[t] = WARN; this.timer[t] = this.warnLen; } }
-      out.warned.push(...this.waves[this.warned]);
-      this.warned++; this.version++;
+    while (this.warned < this.queue.length && this.elapsed >= this.warnAt[this.warned]) {
+      const t = this.queue[this.warned++];
+      if (this.state[t] === SOLID) { this.state[t] = WARN; this.timer[t] = this.warnLen; out.warned.push(t); this.version++; }
     }
     for (let i = 0; i < this.state.length; i++) {
       const s = this.state[i];
@@ -130,7 +129,7 @@ export class Arena {
   }
 
   /** True while any tile can still crumble (used for the HUD hint). */
-  get pending(): boolean { return this.active && (this.warned < WAVES || this.state.some((s) => s === WARN)); }
+  get pending(): boolean { return this.active && (this.warned < this.queue.length || this.state.some((s) => s === WARN)); }
   get voids(): boolean { return this.active && this.state.some((s) => s >= FALL); }
 
   solid(x: number, y: number): boolean { return this.state[tileOf(x, y)] < FALL; }
@@ -253,14 +252,15 @@ export class Arena {
         const pulse = 0.5 + 0.5 * Math.sin(time * rate + i);
         g.fillStyle(0xff3a3a, 0.12 + 0.2 * pulse + (left < 1.2 ? 0.12 : 0));
         g.fillRect(x, y, TILE, TILE);
-        g.lineStyle(3, 0xff6a5a, 0.55 + 0.4 * pulse);
-        g.strokeRect(x + 3, y + 3, TILE - 6, TILE - 6);
+        g.lineStyle(2, 0xff6a5a, 0.55 + 0.4 * pulse);
+        g.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4);
         // cracks
-        g.lineStyle(2, 0x2a0608, 0.85);
+        g.lineStyle(1.5, 0x2a0608, 0.85);
         const o = (i * 53) % 17;
         g.beginPath();
-        g.moveTo(x + 12 + o, y + 8); g.lineTo(x + 40, y + 36); g.lineTo(x + 34, y + 58); g.lineTo(x + 66, y + 80); g.lineTo(x + 78, y + 94);
-        g.moveTo(x + 40, y + 36); g.lineTo(x + 78, y + 28); g.lineTo(x + 92, y + 50);
+        const c = TILE / 100, ox = x + 12 * c + o * c;
+        g.moveTo(ox, y + 8 * c); g.lineTo(x + 40 * c, y + 36 * c); g.lineTo(x + 34 * c, y + 58 * c); g.lineTo(x + 66 * c, y + 80 * c); g.lineTo(x + 78 * c, y + 94 * c);
+        g.moveTo(x + 40 * c, y + 36 * c); g.lineTo(x + 78 * c, y + 28 * c); g.lineTo(x + 92 * c, y + 50 * c);
         g.strokePath();
       } else if (s === FALL) {
         const k = Math.max(0, this.timer[i] / FALL_ANIM);

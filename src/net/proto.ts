@@ -10,8 +10,11 @@
 // no packet is large enough for SCTP to fragment (a lost fragment would discard the entire message).
 import { ELEMENTS } from '../data/runes';
 import { textureHash } from '../gfx/textures';
+import { TN } from '../game/arena';
 
-export const PROTO = 4;
+export const PROTO = 5;
+/** Floor tile states packed 2 bits per tile. */
+export const FLOOR_BYTES = Math.ceil((TN * TN) / 4);
 /** Largest payload we put in one datagram; under the ~1200 byte path MTU WebRTC data channels assume. */
 export const DGRAM = 1000;
 export const SNAP_HZ = 30;
