@@ -1,0 +1,13 @@
+name = "spell-architect-mp"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# One tiny Durable Object per room code, used only to pass the WebRTC
+# handshake between players (public routes under /mp/*).
+[[durable_objects.bindings]]
+name = "MP"
+class_name = "MPRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MPRoom"]

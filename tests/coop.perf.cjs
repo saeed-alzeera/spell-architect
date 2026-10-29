@@ -1,7 +1,7 @@
 // Co-op responsiveness, correctness and payload under load, on a clean link and under SIMULATED impairment
 // (loss / one-way delay / jitter are injected at the sender, on top of a real loopback WebRTC connection: not a real WAN).
 //   npm run build && npx vite preview --port 4173 &
-//   (cd <verdict-cat checkout>/sync-worker && npx wrangler dev --local --port 8799) &
+//   (cd worker && npx wrangler dev --local --port 8799) &
 //   NODE_PATH=$(npm root -g) node tests/coop.perf.cjs
 // Each scenario opens one room (the worker allows 12 room creations per 10 minutes per IP; restart it between runs).
 const { session, ev, game, check, done, stats, install, read, latency, frameDeltas } = require('./_mp.cjs');

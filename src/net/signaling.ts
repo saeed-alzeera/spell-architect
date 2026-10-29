@@ -1,6 +1,6 @@
-// Client for the sync worker's public /mp/* routes: room codes and the WebRTC handshake only (see sync-worker/mp.js).
+// Client for the signaling worker's /mp/* routes: room codes and the WebRTC handshake only (see worker/mp.js).
 
-const DEFAULT_BASE = 'https://verdict-cat-sync.saeed-a-alzeera.workers.dev';
+const DEFAULT_BASE = 'https://spell-architect-mp.saeed-a-alzeera.workers.dev';
 
 /** `?mp=http://localhost:8799` (or localStorage `sa-mp-base`) points the game at another signaling server, e.g. a local `wrangler dev`. */
 export function mpBase(): string {

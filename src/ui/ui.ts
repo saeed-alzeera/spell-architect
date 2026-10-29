@@ -12,7 +12,7 @@ import { REACTIONS, REACTION_BY_ID } from '../data/reactions';
 import { reactionCardHtml } from './reactions';
 import { buildSandboxPanel } from './sandbox';
 import { showShop } from './shop';
-import { loadRuns, syncRuns, syncAvailable, type RunRecord } from '../core/analytics';
+import { loadRuns, type RunRecord } from '../core/analytics';
 import { showRelicPick } from './relics';
 import { RELIC_BY_ID, relicColor } from '../game/relics';
 import { EVOLVE_COST } from '../data/runes';
@@ -778,7 +778,7 @@ class UI {
     </div>`, 'wide');
     this.openModal(m, 'journal');
   }
-  /** Saved runs (local, plus synced with the hub's sync key when present). */
+  /** Saved runs (local only). */
   showHistory() {
     const body = el('<div class="history"></div>');
     const fmtD = (t: number) => new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -793,9 +793,8 @@ class UI {
         </div></div>`).join('');
       body.innerHTML = `<p class="muted">${note}</p>${rows || '<p class="muted">No finished runs yet. Play one!</p>'}`;
     };
-    draw(loadRuns(), syncAvailable() ? 'Syncing with your hub…' : 'Saved on this device. Open the game from your hub (same site) to sync across devices.');
+    draw(loadRuns(), 'Saved on this device.');
     body.addEventListener('click', (e) => { const h = (e.target as HTMLElement).closest('.hrow'); h?.querySelector('.hd')?.classList.toggle('hidden'); });
-    syncRuns().then((r) => draw(r.runs, r.ok ? 'Synced with your hub.' : 'Saved on this device.'));
     const m = this.modal('Run History', body, 'wide');
     this.openModal(m, 'history');
   }

@@ -75,7 +75,7 @@ Costs: host replication about 0.3-1.1 ms per snapshot (including all joiners' pa
 * `tests/coop.perf.cjs`: responsiveness, host/joiner agreement (enemies, spell sprites), datagram sizes, prediction, on a clean link and under simulated impairment.
 * `tests/coop.flow.cjs`: connection drop and automatic reconnect, host pause and resume, joiner leaves, host ends the game, version mismatch refused.
 * `tests/coop.e2e.cjs`: lobby, ready flow, rewards, round result merge, game over.
-* `sync-worker/mp.test.mjs`: signaling rooms, including the lock route.
+* `worker/mp.test.mjs`: signaling rooms, including the lock route.
 
 Each file's header says how to run it (a built game on :4173 and the worker on :8799). The worker allows 12 room creations per 10 minutes per address; restart it between full runs.
 
