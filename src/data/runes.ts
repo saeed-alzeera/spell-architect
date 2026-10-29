@@ -28,7 +28,7 @@ export interface RuneDef {
   merged?: boolean; // trigger made by merging two triggers (never sold, rewarded or unlocked)
   forms?: FormId[]; // compatible forms (omitted = all)
   maxStack?: number; // how many may sit on one form
-  unlock: number; // arcane shards to unlock permanently (0 = from start)
+  unlock: number; // order in which runes unlock by playing (0 = from the start, lower comes sooner)
 }
 
 export const RARITY: Record<Rarity, { name: string; color: string; weight: number }> = {
@@ -182,7 +182,7 @@ export const RUNES: RuneDef[] = [
     desc: '-20% cooldown on this spell (multiplicative).' },
 ];
 
-/** Runes available from the very first run (everything else is bought with Arcane Shards in the Grimoire). */
+/** Runes available from the very first run (everything else unlocks by finishing runs, see store.unlockNext). */
 export const STARTER_RUNES = ['c_fire', 'f_projectile', 'f_nova', 'b_pierce', 't_hit', 'm_grow'];
 
 // Trigger rarity tiers: Hit / Kill / Crit triggers fire only a fraction of the time.

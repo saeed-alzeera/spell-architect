@@ -55,7 +55,7 @@ export function validateBuild(b: unknown): string | null {
     if (sp.def.root) { const e = walk(sp.def.root as never, 0); if (e) return e; if (RUNE_BY_ID[sp.def.root.rune].kind !== 'form') return 'root is not a form'; }
     if (!Array.isArray(sp.mutations) || sp.mutations.length > 20) return 'bad mutations';
   }
-  return validateRituals(x.rituals ?? [], x.ritualBonus);
+  return validateRituals(x.rituals ?? []);
 }
 
 
@@ -273,7 +273,7 @@ export class HostSession implements CoopLink {
     // each joiner's ritual progress, about once a second, for their HUD
     if (this.run.phase === 'fight' && (this.ritT -= dt) <= 0) {
       this.ritT = 1;
-      for (const g of this.guests.values()) if (!g.offline && g.shell.rituals.length) this.net.sendCtl(g.id, { t: 'rit', p: g.shell.rituals.map((r) => [r.state, r.roundsDone, ...r.prog]), hurt: Math.round(g.shell.ritualRound.hurt) });
+      for (const g of this.guests.values()) if (!g.offline && g.shell.rituals.length) this.net.sendCtl(g.id, { t: 'rit', p: g.shell.rituals.map((r) => [r.state, r.roundsDone, ...r.prog]), fell: g.shell.ritualRound.fell });
     }
   }
 
@@ -433,7 +433,7 @@ export class GuestSession implements CoopLink {
       case 'rit': {
         const run = this.run;
         (m.p as [string, number, ...number[]][]).forEach((q, i) => { const r = run.rituals[i]; if (r) { r.state = q[0] as never; r.roundsDone = q[1]; r.prog = q.slice(2) as number[]; } });
-        run.ritualRound.hurt = Number(m.hurt) || 0;
+        run.ritualRound.fell = !!m.fell;
         break;
       }
       case 'lobby': {
@@ -486,7 +486,7 @@ export class GuestSession implements CoopLink {
     // the host's copy of this character is authoritative for what the round changed (level-ups, mutation progress, relic counters)
     const keep = { x: run.player.x, y: run.player.y };
     Object.assign(run.player, r.build.player, keep);
-    while (run.spells.length < r.build.spells.length) run.addSlot(); // a ritual can grant a slot
+    while (run.spells.length < r.build.spells.length) run.addSlot();
     r.build.spells.forEach((bs, i) => {
       const sp = run.spells[i];
       if (!sp) return;
@@ -495,7 +495,6 @@ export class GuestSession implements CoopLink {
     });
     run.relicState = r.build.relicState;
     if (r.build.rituals) run.rituals = r.build.rituals;
-    if (r.build.ritualBonus) run.ritualBonus = { ...run.ritualBonus, ...r.build.ritualBonus };
     run.recomputeRelics();
     run.coins = this.coinBase + r.coins;
     this.myKills += r.kills; this.myDamage += r.damage; run.kills = this.myKills; run.totalDamage = this.myDamage;
@@ -529,9 +528,7 @@ export class GuestSession implements CoopLink {
     const r = m.res;
     Object.assign(run.player, r.build.player);
     this.myKills += r.kills; this.myDamage += r.damage; run.kills = this.myKills; run.totalDamage = this.myDamage;
-    const base = (m.round - 1) * 6 + Math.floor(run.kills / 25) + m.bosses * 25 + (m.won ? 150 : 0);
-    const shards = Math.max(5, Math.round(base));
-    store.addShards(shards);
+    const unlocked = store.unlockNext(2);
     const s = store.d.stats; s.runs++; if (m.won) s.wins++; s.bestTime = Math.max(s.bestTime, Math.floor(m.time)); s.kills += run.kills; store.d.stats = s;
     const spells = r.build.spells.map((bs) => {
       const sp = run.spells[r.build.spells.indexOf(bs)];
@@ -539,7 +536,7 @@ export class GuestSession implements CoopLink {
     }).filter(Boolean) as RunSummary['spells'];
     audio.play(m.won ? 'win' : 'lose');
     ui.showGameOver({
-      id: `mp-${this.code}-${Date.now()}`, won: m.won, time: m.time, level: run.player.level, kills: run.kills, damage: run.totalDamage, shards, spells,
+      id: `mp-${this.code}-${Date.now()}`, won: m.won, time: m.time, level: run.player.level, kills: run.kills, damage: run.totalDamage, unlocked, spells,
       discoveries: [], quick: false, bosses: m.bosses, reactions: m.reactions, round: m.round,
     });
   }

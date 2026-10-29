@@ -1,5 +1,4 @@
 // Damage pipeline, status effects, elemental reactions and kill handling.
-import { ritualEvent } from './rituals';
 import { ELEMENTS, type Element } from '../data/runes';
 import { REACTION_BY_ID } from '../data/reactions';
 import { store } from '../core/save';
@@ -41,7 +40,6 @@ export function reaction(run: Run, id: string, x: number, y: number, src: Src | 
   const passive = id === 'wildfire' || id === 'plague';
   if (src && (!passive || Math.random() < 0.2)) src.sp.st.reactions++;
   run.reactionCount++;
-  ritualEvent(run, { t: 'reaction', id });
   const first = run.remote ? false : store.discoverReaction(id);
   onReaction(run, id);
   const last = run.reactTxt[id] ?? -9;
@@ -428,7 +426,6 @@ export function killEnemy(run: Run, e: Enemy, src: Src | null, el: Element) {
   e.dead = true;
   if (src) run = run.owner(src.sp); // the caster's stats, relics and rewards apply
   run.kills++;
-  ritualEvent(run, { t: 'kill', elite: e.elite && e.type !== 'boss', els: src ? src.sp.c.elements : [] });
   for (const sp of run.spells) if (sp.ultCd > 0) sp.ultCd = Math.max(0, sp.ultCd - 0.2);
   const wasBurn = e.burn > 0, wasPoison = e.poison > 0, wasFrozen = e.freeze > 0;
   const psrc = e.poisonSrc;

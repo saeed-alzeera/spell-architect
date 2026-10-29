@@ -6,17 +6,18 @@ export interface Settings {
 }
 export interface SaveData {
   v: 1;
-  /** 2 = constrained starter set (see STARTER_RUNES). Older saves are reset to it and refunded their shard purchases. */
+  /** 2 = constrained starter set (see STARTER_RUNES). 3 = no shard currency: runes unlock by playing (see unlockNext). */
   unlockVer?: number;
   settings: Settings;
-  shards: number;
+  /** Legacy currency, only read once to convert an old save (see load). */
+  shards?: number;
   unlocked: string[];
   journal: {
     reactions: Record<string, number>;
     combos: Record<string, { name: string; count: number }>;
     runes: Record<string, number>;
   };
-  stats: { runs: number; wins: number; bestTime: number; kills: number; shardsEarned: number };
+  stats: { runs: number; wins: number; bestTime: number; kills: number };
   starter: { core: string; form: string };
 }
 
@@ -28,13 +29,17 @@ function fresh(): SaveData {
   return {
     v: 1,
     settings: { master: 0.7, sfx: 0.8, music: 0.5, muted: false, shake: true, numbers: true, quick: false },
-    shards: 0,
-    unlockVer: 2,
+    unlockVer: 3,
     unlocked: [...STARTER_RUNES],
     journal: { reactions: {}, combos: {}, runes: {} },
-    stats: { runs: 0, wins: 0, bestTime: 0, kills: 0, shardsEarned: 0 },
+    stats: { runs: 0, wins: 0, bestTime: 0, kills: 0 },
     starter: { core: 'c_fire', form: 'f_projectile' },
   };
+}
+
+/** Base runes in the order they unlock: the old shard price decides how soon a rune comes (cheapest first). */
+function unlockOrder() {
+  return RUNES.filter((r) => !r.evolved && !r.merged && !r.tierOf).map((r, i) => ({ r, i })).sort((a, b) => a.r.unlock - b.r.unlock || a.i - b.i).map((x) => x.r);
 }
 
 let data: SaveData = load();
@@ -55,10 +60,22 @@ function load(): SaveData {
       // make sure default unlocks always exist (new runes added in later versions)
       if (p.unlockVer !== 2) {
         // earlier builds started with almost everything unlocked: refund what was bought, then start from the small set
+        d.shards = d.shards ?? 0;
         for (const id of d.unlocked) { const r = RUNE_BY_ID[id]; if (r && !STARTER_RUNES.includes(id) && LEGACY_PAID.includes(id)) d.shards += r.unlock; }
         d.unlocked = [...STARTER_RUNES];
         d.unlockVer = 2;
       }
+      d.unlocked = d.unlocked.filter((id) => RUNES.some((r) => r.id === id));
+      if (d.unlockVer !== 3) {
+        // the shard currency is gone: turn any shards left over into runes, cheapest first
+        let left = d.shards ?? 0;
+        for (const r of unlockOrder()) {
+          if (left < r.unlock) break;
+          if (!d.unlocked.includes(r.id)) { left -= r.unlock; d.unlocked.push(r.id); }
+        }
+        d.unlockVer = 3;
+      }
+      delete d.shards; delete (d.stats as Record<string, unknown>).shardsEarned;
       d.unlocked = d.unlocked.filter((id) => RUNES.some((r) => r.id === id));
       for (const id of STARTER_RUNES) if (!d.unlocked.includes(id)) d.unlocked.push(id);
       const kind = (id: string) => RUNES.find((r) => r.id === id)?.kind;
@@ -86,14 +103,16 @@ export const store = {
   get d() { return data; },
   get settings() { return data.settings; },
   isUnlocked(id: string): boolean { const t = RUNE_BY_ID[id]?.tierOf; return t ? data.unlocked.includes(t) : data.unlocked.includes(id); },
-  unlock(id: string, cost: number): boolean {
-    if (data.unlocked.includes(id) || data.shards < cost) return false;
-    data.shards -= cost;
-    data.unlocked.push(id);
-    saveNow();
-    return true;
+  /** Unlock the next `n` runes in order (a finished run earns them); returns the ids unlocked. */
+  unlockNext(n: number): string[] {
+    const out: string[] = [];
+    for (const r of unlockOrder()) {
+      if (out.length >= n) break;
+      if (!data.unlocked.includes(r.id)) { data.unlocked.push(r.id); out.push(r.id); }
+    }
+    if (out.length) saveNow();
+    return out;
   },
-  addShards(n: number) { data.shards += n; data.stats.shardsEarned += n; save(); },
   discoverReaction(id: string): boolean {
     const first = !data.journal.reactions[id];
     data.journal.reactions[id] = (data.journal.reactions[id] ?? 0) + 1;

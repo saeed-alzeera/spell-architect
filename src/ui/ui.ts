@@ -24,7 +24,7 @@ import { store, save, saveNow } from '../core/save';
 import { audio } from '../core/audio';
 import { spellCooldown } from '../core/spell';
 import type { Run, RunOpts, RunSummary } from '../game/run';
-import { objectiveMet, objectiveProgress, objectiveText } from '../game/rituals';
+import { ritualProgress } from '../game/rituals';
 import { generateRewards, type Reward } from '../game/rewards';
 import { openEditor } from './editor';
 import { ritualSection } from './rituals';
@@ -196,10 +196,10 @@ class Hud {
   /** The running rituals' objectives under the health bars. */
   updateRituals(run: Run) {
     const act = run.rituals.filter((r) => r.state === 'active');
-    const key = act.map((r) => `${r.def.id}${r.roundsDone}${r.prog.join(',')}${Math.round(run.ritualRound.hurt)}`).join('|');
+    const key = act.map((r) => `${r.def.id}${r.roundsDone}${r.prog.join(',')}${run.ritualRound.fell}`).join('|');
     if (key === this.ritKey) return;
     this.ritKey = key;
-    this.ritEl.innerHTML = act.map((r) => `<div class="rit"><b>${r.def.icon} ${r.def.name}</b> <small>${r.def.rounds - r.roundsDone} round${r.def.rounds - r.roundsDone === 1 ? '' : 's'} left</small>${r.def.objectives.map((o, k) => `<div class="${objectiveMet(r, k) ? 'met' : ''}">${objectiveText(o)} <em>${objectiveProgress(r, k, run)}</em></div>`).join('')}</div>`).join('');
+    this.ritEl.innerHTML = act.map((r) => `<div class="rit"><b>${r.def.icon} ${r.def.name}</b> <small>${r.def.rounds - r.roundsDone} round${r.def.rounds - r.roundsDone === 1 ? '' : 's'} left</small><div class="${run.ritualRound.fell ? 'met' : ''}">${r.def.challenge} <em>${ritualProgress(r, run)}</em></div></div>`).join('');
   }
   /** Teammates' health (co-op). */
   updateParty(run: Run) {
@@ -564,8 +564,8 @@ class UI {
       ${best ? `<div class="best">Most effective spell: <b>${best.name}</b> — ${Math.round(best.damage / total * 100)}% of damage</div>` : ''}
       <div class="sbars">${s.spells.map((sp) => `<div class="sbar"><span>${sp.elements.map((e) => ELEMENTS[e as keyof typeof ELEMENTS].icon).join('')} ${sp.name}</span><div><i style="width:${sp.damage / total * 100}%"></i></div><em>${Math.round(sp.damage).toLocaleString()} · ${sp.kills} kills</em></div>`).join('')}</div>
       ${disc.length ? `<div class="disc"><h3>Discovered this run</h3>${disc.map((d) => `<span>${d}</span>`).join('')}</div>` : ''}
-      <div class="shards">+${s.shards} ◆ Arcane Shards <small>(${store.d.shards} total)</small></div>
-      <div class="btns row"><button class="big primary" data-a="retry">Try Again <small>R</small></button><button class="big" data-a="grim">◆ Grimoire</button><button class="big" data-a="menu">Menu</button></div>
+      ${s.unlocked.length ? `<div class="shards">New runes unlocked: ${s.unlocked.map((id) => `${RUNE_BY_ID[id].icon} ${RUNE_BY_ID[id].name}`).join(', ')}</div>` : ''}
+      <div class="btns row"><button class="big primary" data-a="retry">Try Again <small>R</small></button><button class="big" data-a="grim">📖 Grimoire</button><button class="big" data-a="menu">Menu</button></div>
     </div></div>`);
     n.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('button[data-a]') as HTMLElement | null;
@@ -597,7 +597,7 @@ class UI {
         <button class="big primary" data-a="play">Begin Run</button>
         <label class="quick"><input type="checkbox" ${st.settings.quick ? 'checked' : ''}/> Accelerated test mode <small>(12s rounds)</small></label>
         <div class="row">
-          <button class="big" data-a="grim">◆ Grimoire <small>${st.shards}</small></button>
+          <button class="big" data-a="grim">📖 Grimoire</button>
           <button class="big" data-a="journal">📜 Journal</button>
         </div>
         <div class="row"><button class="big primary" data-a="mp">🌐 Online Co-op</button></div>
@@ -726,26 +726,15 @@ class UI {
 
   showGrimoire() {
     const kinds: RuneKind[] = ['core', 'form', 'behavior', 'trigger', 'modifier'];
-    const build = () => {
-      const body = el(`<div class="grim"><div class="shardbar">◆ <b>${store.d.shards}</b> Arcane Shards · ${store.d.unlocked.filter((id) => !RUNE_BY_ID[id]?.evolved && !RUNE_BY_ID[id]?.tierOf).length}/${RUNES.filter((r) => !r.evolved && !r.merged && !r.tierOf).length} runes unlocked</div>${kinds.map((k) => `
-        <h3 style="color:${KIND_COLOR[k]}">${KIND_LABEL[k]}</h3><div class="ggrid">${RUNES.filter((r) => r.kind === k && !r.evolved && !r.merged && !r.tierOf).map((r) => {
-          const un = store.isUnlocked(r.id);
-          return `<div class="gcard ${un ? 'un' : 'lock'}" title="${r.desc.replace(/"/g, '&quot;')}" style="--c:${runeColor(r)};--rc:${RARITY[r.rarity].color}">
-            <div class="gi">${r.icon}</div><div class="gb"><b>${r.name}</b><small>${RARITY[r.rarity].name} · cost ${r.cost}</small></div>
-            ${un ? '<span class="ok">Unlocked</span>' : `<button data-u="${r.id}" ${store.d.shards < r.unlock ? 'disabled' : ''}>◆ ${r.unlock}</button>`}</div>`;
-        }).join('')}</div>`).join('')}</div>`);
-      return body;
-    };
-    let body = build();
-    const m = this.modal('Grimoire', body, 'wide');
-    const refresh = () => { const nb = build(); body.replaceWith(nb); body = nb; $('.mbody', m).innerHTML = ''; $('.mbody', m).appendChild(nb); };
-    m.addEventListener('click', (e) => {
-      const b = (e.target as HTMLElement).closest('button[data-u]') as HTMLElement | null;
-      if (!b) return;
-      const r = RUNE_BY_ID[b.dataset.u!];
-      if (store.unlock(r.id, r.unlock)) { audio.play('pick'); refresh(); }
-    });
-    this.openModal(m, 'grimoire');
+    const all = RUNES.filter((r) => !r.evolved && !r.merged && !r.tierOf);
+    const body = el(`<div class="grim"><div class="shardbar">${all.filter((r) => store.isUnlocked(r.id)).length}/${all.length} runes unlocked · every finished run unlocks 2 more</div>${kinds.map((k) => `
+      <h3 style="color:${KIND_COLOR[k]}">${KIND_LABEL[k]}</h3><div class="ggrid">${all.filter((r) => r.kind === k).map((r) => {
+        const un = store.isUnlocked(r.id);
+        return `<div class="gcard ${un ? 'un' : 'lock'}" title="${r.desc.replace(/"/g, '&quot;')}" style="--c:${runeColor(r)};--rc:${RARITY[r.rarity].color}">
+          <div class="gi">${r.icon}</div><div class="gb"><b>${r.name}</b><small>${RARITY[r.rarity].name} · cost ${r.cost}</small></div>
+          ${un ? '<span class="ok">Unlocked</span>' : '<span>Locked</span>'}</div>`;
+      }).join('')}</div>`).join('')}</div>`);
+    this.openModal(this.modal('Grimoire', body, 'wide'), 'grimoire');
   }
 
   showJournal() {

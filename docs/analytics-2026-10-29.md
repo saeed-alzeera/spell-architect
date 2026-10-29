@@ -27,7 +27,7 @@ Damage taken grows about 2.4x then 1.6x per round while there is almost no recov
 
 ## What this suggests
 
-- **Add a health income.** Even a small baseline regen (0.1-0.2 HP/s is about 5-9 HP per 45 s round), a larger round-start heal (about 8-10%), or hearts that drop in proportion to damage taken would break the attrition spiral without making fights easier. Current scarcity left no recovery lever at all. Rituals (see `rituals.md`) can add earned regen/HP later.
+- **Add a health income.** Even a small baseline regen (0.1-0.2 HP/s is about 5-9 HP per 45 s round), a larger round-start heal (about 8-10%), or hearts that drop in proportion to damage taken would break the attrition spiral without making fights easier. Current scarcity left no recovery lever at all. (Rituals, see `rituals.md`, are now a three-round challenge that pays in damage, not health.)
 - **Cut swarmer pressure, not swarmer count.** Lower contact damage (5 to 3-4) or give a short post-hit invulnerability/knockback so a pack cannot chain hits; keep the visual threat.
 - **Make the starter pull its weight.** Raise Arcane Bolt output or cadence (target 25-30 dps in round 1) or equalise Beam/Nova/Projectile starters; consider letting Beam back into the starter set.
 - **Fix the early shop/slot funnel.** Slots 2-3 are underused; consider a cheap first extra slot or a free second Form early so builds diversify before round 4.

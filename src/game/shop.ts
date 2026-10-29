@@ -6,7 +6,6 @@ import { store } from '../core/save';
 import { formsInPlay, relevance } from './rewards';
 import { RELIC_BY_ID, RELICS, relicPrice, rollRelics } from './relics';
 import type { Run } from './run';
-import { rollRituals, type RitualDef } from './rituals';
 
 export interface Offer {
   id: string;
@@ -18,7 +17,7 @@ export interface Offer {
   price: number;
   sold: boolean;
 }
-export interface Shop { stock: Offer[]; rerolls: number; /** ritual offers (see rituals.ts) */ rituals: RitualDef[] }
+export interface Shop { stock: Offer[]; rerolls: number }
 
 export const RUNE_OFFERS = 3;
 export const RELIC_OFFERS = 1;
@@ -88,13 +87,12 @@ export function reroll(run: Run): boolean {
   if (run.coins < c) return false;
   run.coins -= c;
   run.shop.rerolls++;
-  run.shop.rituals = rollRituals(run);
   run.shop.stock = generateStock(run); // a whole new shelf: nothing you bought can take a slot away
   refreshPrices(run);
   return true;
 }
 
-export function newShop(run: Run): Shop { return { stock: generateStock(run), rerolls: 0, rituals: rollRituals(run) }; }
+export function newShop(run: Run): Shop { return { stock: generateStock(run), rerolls: 0 }; }
 
 export function buyOffer(run: Run, offer: Offer, spellIndex = -1): string | null {
   if (offer.upgrade) return buyUpgrade(run, offer, spellIndex);
