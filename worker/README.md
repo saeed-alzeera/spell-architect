@@ -7,9 +7,11 @@ host key and per-guest keys, and expires after two hours. Logic is in `mp.js`
 (Durable Object `MPRoom`), tests in `mp.test.mjs`.
 
 ```bash
-node --test worker/mp.test.mjs        # unit tests
+node --test worker/mp.test.mjs worker/runs.test.mjs   # unit tests
 cd worker && npx wrangler dev --local --port 8799   # local server (open the game with ?mp=http://localhost:8799)
 ```
+
+Also stores run analytics at `/runs` (public upload, admin-key read; see `runs.js` and `../docs/analytics.md`). Set the read key once: `npx wrangler secret put ADMIN_KEY`. Tests: `node --test worker/mp.test.mjs worker/runs.test.mjs`.
 
 Deployed by `.github/workflows/deploy-worker.yml` to
 `https://spell-architect-mp.saeed-a-alzeera.workers.dev`. It needs the

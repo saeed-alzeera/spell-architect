@@ -8,6 +8,16 @@ compatibility_date = "2024-09-23"
 name = "MP"
 class_name = "MPRoom"
 
+# Every uploaded run (analytics). Public POST, admin-key GET; see runs.js.
+# Secret (not stored here):  wrangler secret put ADMIN_KEY
+[[durable_objects.bindings]]
+name = "RUNS"
+class_name = "RunStore"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["MPRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["RunStore"]

@@ -110,7 +110,7 @@ Passive items with conditions, found from bosses, elites and the shop. Wear up t
 
 ### Run history
 
-Every run (won, lost or abandoned) is recorded with its spells, relics, per-round log and cause of death. See them under **Run History** in the main menu. Runs are kept in this browser's localStorage only.
+Every run (won, lost or abandoned) is recorded with its spells, relics, per-round log and cause of death. See them under **Run History** in the main menu. Every run is kept on the device and uploaded for analytics with the game version it was played on; see [`docs/analytics.md`](docs/analytics.md).
 
 ### Evolutions and Ultimates
 
