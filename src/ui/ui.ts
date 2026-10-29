@@ -590,12 +590,12 @@ class UI {
     const n = el(`<div class="menu">
       <div class="logo"><div class="l1">SPELL</div><div class="l2">ARCHITECT</div><p>Build your magic. Break the horde.</p></div>
       <div class="starter">
-        <h3>Choose your starting Form. You begin with plain Arcane magic and find elements as you go.</h3>
+        <h3>Starting Form</h3>
         <div class="srow forms">${unlockedForms.map((r) => runeChipHtml(r, `${st.starter.form === r.id ? 'sel' : ''}" data-form="${r.id}`)).join('')}</div>
       </div>
       <div class="btns">
         <button class="big primary" data-a="play">Begin Run</button>
-        <label class="quick"><input type="checkbox" ${st.settings.quick ? 'checked' : ''}/> Accelerated test mode <small>(12s rounds, gentler enemies)</small></label>
+        <label class="quick"><input type="checkbox" ${st.settings.quick ? 'checked' : ''}/> Accelerated test mode <small>(12s rounds)</small></label>
         <div class="row">
           <button class="big" data-a="grim">◆ Grimoire <small>${st.shards}</small></button>
           <button class="big" data-a="journal">📜 Journal</button>
@@ -713,16 +713,13 @@ class UI {
 
   showHelp() {
     const m = this.modal('How to Play', `<div class="help">
-      <p><b>Rounds.</b> The run is 20 rounds. Survive each timed round, then you get a break to read the briefing, pick rewards and edit your spells. <b>Every 5th round is a boss.</b> Spells can only be edited between rounds.</p>
-      <p><b>Move</b> with <kbd>WASD</kbd> or arrows. Spells cast on their own. <kbd>Space</kbd> fires an Ultimate once you own one. <kbd>Esc</kbd> pauses.</p>
-      <p><b>Every spell is a FORM</b> in one of your slots (Projectile, Beam, Orb, Aura, Mine, Nova, Meteor). Socket <b>one Core</b> into it for its element; launched Forms inherit it. With no Core a Form deals plain <b>Arcane</b> damage.</p>
-      <p><b>Elements hit harder than Arcane</b> and add an effect (fire burns, ice slows, poison stacks...). But <b>attuned enemies resist their own element</b> and bosses can be fully <b>immune</b> to some. Arcane is never resisted, and the briefing before each round shows what is coming. Use different slots for different elements.</p>
-      <p><b>Augments.</b> <span style="color:${KIND_COLOR.behavior}">Behaviors</span> change how a Form acts, <span style="color:${KIND_COLOR.modifier}">Modifiers</span> tune its numbers. A <span style="color:${KIND_COLOR.trigger}">Trigger</span> launches more Forms when it fires. The editor writes your whole chain as plain sentences.</p>
-      <p><b>Reactions.</b> Elements from different slots interact with each other's puddles, clouds and statuses. Each reaction deals <b>both</b> damage types. The editor's Reactions tab shows which ones your loadout can trigger.</p>
-      <p><b>Evolution.</b> Collect ${EVOLVE_COST} copies of the same Core and forge an evolved Core in the editor's Forge tab: +40% damage, a new passive, and an <b>Ultimate</b> on Space. The Forge tab lights up when you can forge.</p>
-      <p><b>Co-op.</b> Choose <b>Online Co-op</b> in the main menu to host a room or join a friend's with their 5-letter code. You share the arena and the horde; everyone keeps their own build, shop and rewards, and the round starts when the host presses Start after everyone is Ready.</p>
-      <p><b>Shop.</b> Kills and cleared rounds earn coins. After every round, one shelf offers runes, a relic and permanent upgrades (capacity, spell slots, vitality, power...); upgrades never sell out but every copy costs more, and rerolling replaces the whole shelf. You can also sell runes you don't need, and The round-prep screen also offers <b>Rituals</b>: multi-round contracts that pay a permanent upgrade if you meet every objective (in co-op each player has their own, with higher targets). <b>Level-ups</b> instantly give a random stat boost, even mid-round; boss caches give a choice of strong runes.</p>
-      <p><b>Capacity</b> limits runes per spell. <b>Mutations</b> evolve spells that perform well. Spend Arcane Shards in the Grimoire to unlock more runes (behaviors, triggers, modifiers). The <b>Sandbox</b> lets you test any build against any enemy.</p>
+      <p><b>Rounds.</b> Survive 20 timed rounds. Every 5th is a boss. Between rounds you shop, pick rewards and edit spells.</p>
+      <p><b>Move</b> with <kbd>WASD</kbd> or arrows. Spells cast on their own. <kbd>Space</kbd> fires an Ultimate. <kbd>Esc</kbd> pauses.</p>
+      <p><b>Spells.</b> A <b>Form</b> fills a slot. Socket one <b>Core</b> for its element (none = Arcane). <span style="color:${KIND_COLOR.behavior}">Behaviors</span> and <span style="color:${KIND_COLOR.modifier}">Modifiers</span> tune it; a <span style="color:${KIND_COLOR.trigger}">Trigger</span> launches more Forms.</p>
+      <p><b>Elements</b> hit harder than Arcane, but attuned enemies resist their own element and bosses can be immune. The briefing shows what's coming. Elements from different slots <b>react</b>.</p>
+      <p><b>Forge.</b> ${EVOLVE_COST} copies of a Core make an evolved Core with an Ultimate. The Forge tab lights up when you can.</p>
+      <p><b>Shop.</b> Spend coins on runes, relics and upgrades, and sell runes or relics. You wear 6 relics; to buy another, sell one.</p>
+      <p><b>Co-op.</b> Host or join with a 5-letter code. Everyone keeps their own build.</p>
     </div>`);
     this.openModal(m, 'help');
   }
@@ -731,10 +728,10 @@ class UI {
     const kinds: RuneKind[] = ['core', 'form', 'behavior', 'trigger', 'modifier'];
     const build = () => {
       const body = el(`<div class="grim"><div class="shardbar">◆ <b>${store.d.shards}</b> Arcane Shards · ${store.d.unlocked.filter((id) => !RUNE_BY_ID[id]?.evolved && !RUNE_BY_ID[id]?.tierOf).length}/${RUNES.filter((r) => !r.evolved && !r.merged && !r.tierOf).length} runes unlocked</div>${kinds.map((k) => `
-        <h3 style="color:${KIND_COLOR[k]}">${KIND_LABEL[k]} Runes</h3><div class="ggrid">${RUNES.filter((r) => r.kind === k && !r.evolved && !r.merged && !r.tierOf).map((r) => {
+        <h3 style="color:${KIND_COLOR[k]}">${KIND_LABEL[k]}</h3><div class="ggrid">${RUNES.filter((r) => r.kind === k && !r.evolved && !r.merged && !r.tierOf).map((r) => {
           const un = store.isUnlocked(r.id);
-          return `<div class="gcard ${un ? 'un' : 'lock'}" style="--c:${runeColor(r)};--rc:${RARITY[r.rarity].color}">
-            <div class="gi">${r.icon}</div><div class="gb"><b>${r.name}</b><small>${RARITY[r.rarity].name} · cost ${r.cost}</small><p>${r.desc}</p></div>
+          return `<div class="gcard ${un ? 'un' : 'lock'}" title="${r.desc.replace(/"/g, '&quot;')}" style="--c:${runeColor(r)};--rc:${RARITY[r.rarity].color}">
+            <div class="gi">${r.icon}</div><div class="gb"><b>${r.name}</b><small>${RARITY[r.rarity].name} · cost ${r.cost}</small></div>
             ${un ? '<span class="ok">Unlocked</span>' : `<button data-u="${r.id}" ${store.d.shards < r.unlock ? 'disabled' : ''}>◆ ${r.unlock}</button>`}</div>`;
         }).join('')}</div>`).join('')}</div>`);
       return body;
