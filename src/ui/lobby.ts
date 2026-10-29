@@ -16,7 +16,7 @@ export function showNotice(ui: UI, title: string, text: string, onClose?: () => 
   ui.openModal(m, 'notice');
 }
 
-/** Join links look like  .../games/spell-architect/?join=ABCDE */
+/** Join links look like  .../spell-architect/?join=ABCDE */
 export function joinLink(code: string): string {
   const u = new URL(location.href);
   u.search = ''; u.hash = '';

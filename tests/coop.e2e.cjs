@@ -1,7 +1,7 @@
 // Co-op end-to-end test: two browsers host/join through the real UI and play a round (shared XP, rewards, result merge, game over).
 // Needs a built game being served and a signaling worker:
 //   npm run build && npx vite preview --port 4173 &
-//   (cd ../../sync-worker && npx wrangler dev --local --port 8799) &
+//   (cd <verdict-cat checkout>/sync-worker && npx wrangler dev --local --port 8799) &
 //   NODE_PATH=$(npm root -g) node tests/coop.e2e.cjs      (playwright must be installed)
 const { chromium } = require('playwright');
 const run = (P, fn, arg) => P.evaluate(fn, arg);
