@@ -15,7 +15,7 @@ import { applyTint, poseEnemy, poseWizard } from '../game/render';
 import type { Run } from '../game/run';
 import type { Img } from '../game/types';
 import { TEXTURE_KEYS } from '../gfx/textures';
-import { BOSS_BASE, E, ELEMENT_IDS, ETYPES, HDR, K, PHASES, POS, S, SFX_IDS, type MeMsg } from './proto';
+import { BOSS_BASE, E, ELEMENT_IDS, ETYPES, FLOOR_BYTES, HDR, K, PHASES, POS, S, SFX_IDS, type MeMsg } from './proto';
 import { ELEMENTS } from '../data/runes';
 import { Reader } from './wire';
 
@@ -215,10 +215,10 @@ export class Replica {
 
   private readFloor(r: Reader, seq: number) {
     const bytes: number[] = [];
-    for (let i = 0; i < 31; i++) bytes.push(r.u8());
-    const active = r.u8(), nt = r.u8();
+    for (let i = 0; i < FLOOR_BYTES; i++) bytes.push(r.u8());
+    const active = r.u8(), nt = r.u16();
     const timers: [number, number][] = [];
-    for (let i = 0; i < nt; i++) timers.push([r.u8(), r.u8() / 50]);
+    for (let i = 0; i < nt; i++) timers.push([r.u16(), r.u8() / 50]);
     if (this.floorSeq >= 0 && !newer(seq, this.floorSeq)) return;
     this.floorSeq = seq;
     const a = this.run.arena;
