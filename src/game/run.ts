@@ -16,7 +16,7 @@ import { saveRunRecord, installId, versionStamp, type RunRecord, type RoundRec }
 import { ruleMods } from '../core/spell';
 import { generateRewards } from './rewards';
 import { drawTelegraph } from './draw';
-import { freshBonus, ritualEvent, ritualRoundEnd, ritualRoundStart, type ActiveRitual, type RitualBonus } from './rituals';
+import { ritualEvent, ritualRoundEnd, ritualRoundStart, type ActiveRitual } from './rituals';
 import { updateCasting, updateEnts, processEvents } from './casting';
 
 import { Arena, ARENA, tileCx, tileCy } from './arena';
@@ -65,7 +65,7 @@ export interface CoopLink {
 }
 export interface RunOpts { quick: boolean; core: string; form: string; sandbox?: boolean; mp?: import('../net/coop').MpOpts } // core '' = no element (Arcane)
 export interface RunSummary {
-  won: boolean; time: number; level: number; kills: number; damage: number; shards: number;
+  won: boolean; time: number; level: number; kills: number; damage: number; unlocked: string[];
   spells: { name: string; damage: number; kills: number; elements: string[] }[];
   discoveries: string[]; quick: boolean; bosses: number; reactions: number; round: number; id: string;
 }
@@ -75,7 +75,7 @@ export interface Build {
   spells: { def: SpellDef; mutations: string[]; tiers: Record<string, number>; st: ActiveSpell['st']; damage: number; ultCd: number }[];
   player: Omit<Player, 'x' | 'y' | 'vx' | 'vy' | 'inv' | 'hurtFlash' | 'walkT' | 'pullX' | 'pullY' | 'pullT' | 'faceX'>;
   equipped: string[]; relicState: Record<string, Record<string, number>>;
-  rituals?: ActiveRitual[]; ritualBonus?: RitualBonus;
+  rituals?: ActiveRitual[];
 }
 
 export class Run {
@@ -117,11 +117,10 @@ export class Run {
   capBase = 12;
   coins = 9;
   buys: Record<string, number> = {};
-  shop: Shop = { stock: [], rerolls: 0, rituals: [] };
-  /** Rituals (see rituals.ts): the contracts you have accepted, their per-round tallies and the permanent bonuses they paid. */
+  shop: Shop = { stock: [], rerolls: 0 };
+  /** Rituals (see rituals.ts): the contracts you have accepted, and whether the floor has caught you this round. */
   rituals: ActiveRitual[] = [];
-  ritualRound: { hurt: number; react: Set<string> } = { hurt: 0, react: new Set() };
-  ritualBonus: RitualBonus = freshBonus();
+  ritualRound: { fell: boolean } = { fell: false };
   shopOpened = true;
   seed = (Math.random() * 2147483647) | 0;
   startedAt = Date.now();
@@ -266,7 +265,7 @@ export class Run {
       pid, pname: name, remote: true, down: false,
       player: p, spells: [] as ActiveSpell[], slots: 0, inv: {}, coins: 0, buys: {}, equipped: [] as string[],
       relicState: {}, inRelic: false, critKill: false, kills: 0, totalDamage: 0, reactionCount: 0, hurtBy: {}, lastHurt: '', pending: [] as Pending[],
-      boosts: [] as string[], input: { x: 0, y: 0 }, ultTrack: null, capExtra: 0, rituals: [] as ActiveRitual[], ritualRound: { hurt: 0, react: new Set<string>() }, ritualBonus: freshBonus(), cmdQ: [] as Cmd[], cmdCredit: 0.25, cmdSeq: 0, cmdAck: 0,
+      boosts: [] as string[], input: { x: 0, y: 0 }, ultTrack: null, capExtra: 0, rituals: [] as ActiveRitual[], ritualRound: { fell: false }, cmdQ: [] as Cmd[], cmdCredit: 0.25, cmdSeq: 0, cmdAck: 0,
       mods: { elements: 0, poisonCap: 0, coinMul: 1, priceMul: 1, rerollMul: 1, rerollMinus: 0, forgeMinus: 0 },
     });
     w.players.push(s);
@@ -296,7 +295,7 @@ export class Run {
     return {
       spells: this.spells.map((sp) => ({ def: JSON.parse(JSON.stringify(sp.def)), mutations: [...sp.mutations], tiers: { ...sp.tiers }, st: { ...sp.st }, damage: sp.damage, ultCd: sp.ultCd })),
       player: { ...stats }, equipped: [...this.equipped], relicState: JSON.parse(JSON.stringify(this.relicState)),
-      rituals: JSON.parse(JSON.stringify(this.rituals)), ritualBonus: { ...this.ritualBonus },
+      rituals: JSON.parse(JSON.stringify(this.rituals)),
     };
   }
 
@@ -307,7 +306,6 @@ export class Run {
     this.equipped = [...b.equipped];
     this.relicState = JSON.parse(JSON.stringify(b.relicState));
     this.rituals = JSON.parse(JSON.stringify(b.rituals ?? []));
-    this.ritualBonus = { ...freshBonus(), ...(b.ritualBonus ?? {}) };
     recomputeMods(this); // sets this.mods and the global trigger rules for this player's relics
     this.spells = b.spells.map((bs) => {
       const def: SpellDef = JSON.parse(JSON.stringify(bs.def));
@@ -546,7 +544,7 @@ export class Run {
 
   /** Coins drop as pickups (walk over them); everything is swept up at round end. */
   dropCoin(x: number, y: number, v: number) {
-    if (this.pickups.length > 150) { this.coins += v * this.mods.coinMul; ritualEvent(this, { t: 'coin', v }); return; }
+    if (this.pickups.length > 150) { this.coins += v * this.mods.coinMul; return; }
     const pk: Pickup = { id: nextOid(), x: x + (Math.random() - 0.5) * 14, y: y + (Math.random() - 0.5) * 14, type: 'coin', v, spr: this.img('coin', 3).setScale(1.7 + 0.3 * Math.min(2, v)), fly: false, t: Math.random() * 6, dead: false };
     this.pickups.push(pk);
   }
@@ -613,7 +611,6 @@ export class Run {
     if (this.over || this.down || p.inv > 0 || this.god || this.phase === 'clearing') return;
     const d = Math.max(1, Math.round(dmg * (this.quick ? 0.6 : 1)));
     p.hp -= d;
-    ritualEvent(this, { t: 'hurt', d });
     this.hurtBy[cause] = (this.hurtBy[cause] ?? 0) + d;
     this.lastHurt = cause;
     p.inv = 0.55;
@@ -684,12 +681,13 @@ export class Run {
     });
   }
 
-  private buildRecord(result: RunRecord['result'], shards: number): RunRecord {
+  private buildRecord(result: RunRecord['result']): RunRecord {
     const taken = Object.values(this.hurtBy).reduce((a, b) => a + b, 0);
     return {
       id: `${this.startedAt}-${this.seed}-${installId().slice(0, 6)}`, v: 2, ...versionStamp(), players: this.coopSize(), role: this.world.coop?.role ?? 'solo', startedAt: this.startedAt, endedAt: Date.now(), result, quick: this.quick, sandbox: this.sandbox,
       seed: this.seed, startForm: this.opts.form, reachedRound: this.round, time: Math.round(this.time), level: this.player.level, kills: this.kills,
-      damage: Math.round(this.totalDamage), taken, hurtBy: { ...this.hurtBy }, deathCause: result === 'lost' ? this.lastHurt : '', shards,
+      damage: Math.round(this.totalDamage), taken, hurtBy: { ...this.hurtBy }, deathCause: result === 'lost' ? this.lastHurt : '', shards: 0, // the shard currency is gone; the field stays so older stats servers still accept records
+
       bosses: this.bossesKilled, reactions: this.reactionCount, spells: this.snapshotSpells(), relics: [...this.equipped], roundLog: this.roundLog, discoveries: [...this.discoveries],
     };
   }
@@ -698,7 +696,7 @@ export class Run {
   abandon() {
     if (this.over || this.saved || this.sandbox || this.roundLog.length === 0) return;
     this.saved = true;
-    saveRunRecord(this.buildRecord('abandoned', 0));
+    saveRunRecord(this.buildRecord('abandoned'));
   }
 
   finish(won: boolean) {
@@ -708,19 +706,17 @@ export class Run {
     this.won = won;
     this.frozen = true;
     audio.play(won ? 'win' : 'lose');
-    const base = (this.round - 1) * 6 + Math.floor(this.kills / 25) + this.bossesKilled * 25 + (won ? 150 : 0);
-    const shards = Math.max(5, Math.round(base * (this.quick ? 0.4 : 1)));
-    store.addShards(shards);
+    const unlocked = store.unlockNext(this.quick ? 1 : 2);
     const s = store.d.stats;
     s.runs++; if (won) s.wins++;
     s.bestTime = Math.max(s.bestTime, Math.floor(this.time));
     s.kills += this.kills;
     store.d.stats = s;
-    const rec = this.buildRecord(won ? 'won' : 'lost', shards);
+    const rec = this.buildRecord(won ? 'won' : 'lost');
     this.saved = true;
     saveRunRecord(rec);
     this.onEnd({
-      id: rec.id, won, time: this.time, level: this.player.level, kills: this.kills, damage: this.totalDamage, shards,
+      id: rec.id, won, time: this.time, level: this.player.level, kills: this.kills, damage: this.totalDamage, unlocked,
       spells: this.spells.filter((sp) => sp.c.valid).map((sp) => ({ name: sp.c.name, damage: sp.damage, kills: sp.st.kills, elements: sp.c.elements })),
       discoveries: this.discoveries, quick: this.quick, bosses: this.bossesKilled, reactions: this.reactionCount, round: this.round,
     });
@@ -988,7 +984,6 @@ export class Run {
       if (took) { need -= took; this.recompile(sp); }
     }
     this.addRune(EVOLVED_OF[el], 1);
-    ritualEvent(this, { t: 'forge' });
     return true;
   }
 
@@ -1101,7 +1096,7 @@ export class Run {
       k.spr.setPosition(k.x, k.y + Math.sin(k.t * 4 + k.x) * 1.5);
       if (can && d2 < 30 * 30) { // pick-ups are collected by touch; there is no pickup range
         k.dead = true;
-        if (k.type === 'coin') { const v = k.v * pr.mods.coinMul; pr.coins += v; ritualEvent(pr, { t: 'coin', v }); this.fx.text(p.x, p.y - 26, `+${Math.round(v * 10) / 10}`, '#ffd25a', 11, 0.5); if (!pr.remote) audio.play('gem'); }
+        if (k.type === 'coin') { const v = k.v * pr.mods.coinMul; pr.coins += v; this.fx.text(p.x, p.y - 26, `+${Math.round(v * 10) / 10}`, '#ffd25a', 11, 0.5); if (!pr.remote) audio.play('gem'); }
         else if (k.type === 'heal') { pr.heal(k.v); if (!pr.remote) audio.play('pick'); }
         else if (k.type === 'cache') {
           pr.pushPending({ type: 'cache', chest: k.v === 1 });

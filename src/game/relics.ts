@@ -5,7 +5,6 @@ import { ruleMods } from '../core/spell';
 import { dealDamage, arc } from './combat';
 import { castForm } from './casting';
 import type { Run } from './run';
-import { ritualEvent } from './rituals';
 import type { Enemy, Src, ActiveSpell } from './types';
 
 export const RELIC_SLOTS = 6;
@@ -80,11 +79,11 @@ export function recomputeMods(run: Run) {
   ruleMods.triggerChanceMul = has(run, 'dice') ? 1.5 : 1;
   ruleMods.triggerCost = has(run, 'dice') ? 1 : 0;
   m.poisonCap = has(run, 'resin') ? 2 : 0;
-  m.coinMul = (has(run, 'purse') ? 1.5 : 1) * (has(run, 'lodestone') ? 1.2 : 1) * run.ritualBonus.coinMul;
-  m.priceMul = (has(run, 'bell') ? 0.9 : 1) * run.ritualBonus.priceMul;
+  m.coinMul = (has(run, 'purse') ? 1.5 : 1) * (has(run, 'lodestone') ? 1.2 : 1);
+  m.priceMul = (has(run, 'bell') ? 0.9 : 1);
   m.rerollMul = has(run, 'purse') ? 2 : 1;
   m.rerollMinus = has(run, 'bell') ? 1 : 0;
-  m.forgeMinus = (has(run, 'hammer') ? 2 : 0) + run.ritualBonus.forgeMinus;
+  m.forgeMinus = (has(run, 'hammer') ? 2 : 0);
 }
 
 /** Conditional damage multiplier from relics, applied to every damage instance. */
@@ -113,7 +112,6 @@ export function onReaction(run: Run, id: string) {
 }
 
 export function onCrit(run: Run, e: Enemy, src: Src, dmg: number) {
-  ritualEvent(run, { t: 'crit' });
   if (has(run, 'glove')) { const g = st(run, 'glove'); if (run.time >= (g[src.sp.uid] ?? 0)) { g[src.sp.uid] = run.time + 1; src.sp.cd = Math.max(0, src.sp.cd - 0.4); } }
   if (has(run, 'compass') && !run.inRelic) { run.inRelic = true; arc(run, e, dmg * 0.5, 'lightning', src, 2, 170, [e]); run.inRelic = false; }
 }

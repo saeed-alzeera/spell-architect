@@ -128,7 +128,7 @@ The **Sandbox** (main menu) unlocks every rune and evolved core, gives 5 slots a
 
 ### Persistence
 
-Stored in `localStorage` (key `spell-architect-save-v1`): settings, **Arcane Shards**, unlocked runes, starting-spell choice, run stats and the **Discovery Journal** (reactions + spell combinations + runes seen). A new save starts with only six runes (Fire, Projectile, Nova, Pierce, On Hit, Grow); spend shards in the **Grimoire** to unlock the rest — progression adds variety, not raw power.
+Stored in `localStorage` (key `spell-architect-save-v1`): settings, unlocked runes, starting-spell choice, run stats and the **Discovery Journal** (reactions + spell combinations + runes seen). A new save starts with only six runes (Fire, Projectile, Nova, Pierce, On Hit, Grow); every finished run unlocks the next two (one in accelerated mode), and the **Grimoire** lists what is unlocked — progression adds variety, not raw power.
 
 ## Project layout
 
