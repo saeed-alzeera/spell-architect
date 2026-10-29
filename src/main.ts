@@ -6,6 +6,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import { initUI } from './ui/ui';
 import './debug';
+import { flushOutbox } from './core/analytics';
 
 function start() {
   const game = new Phaser.Game({
@@ -19,6 +20,7 @@ function start() {
     input: { keyboard: { capture: [Phaser.Input.Keyboard.KeyCodes.TAB, Phaser.Input.Keyboard.KeyCodes.SPACE] } },
   });
   initUI(game);
+  void flushOutbox(); // upload runs that could not be sent last time
   (window as unknown as { __SA_GAME: Phaser.Game }).__SA_GAME = game;
 }
 

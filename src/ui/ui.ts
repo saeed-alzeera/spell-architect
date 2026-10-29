@@ -12,7 +12,7 @@ import { REACTIONS, REACTION_BY_ID } from '../data/reactions';
 import { reactionCardHtml } from './reactions';
 import { buildSandboxPanel } from './sandbox';
 import { showShop } from './shop';
-import { loadRuns, type RunRecord } from '../core/analytics';
+import { loadRuns, exportRuns, type RunRecord } from '../core/analytics';
 import { showRelicPick } from './relics';
 import { RELIC_BY_ID, relicColor } from '../game/relics';
 import { EVOLVE_COST } from '../data/runes';
@@ -28,6 +28,7 @@ import { objectiveMet, objectiveProgress, objectiveText } from '../game/rituals'
 import { generateRewards, type Reward } from '../game/rewards';
 import { openEditor } from './editor';
 import { ritualSection } from './rituals';
+import { versionLabel } from '../core/version';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, el: ParentNode = document) => el.querySelector(sel) as T;
 export function el(html: string): HTMLElement {
@@ -619,7 +620,7 @@ class UI {
           <button class="big" data-a="help">? How to Play</button>
         </div>
       </div>
-      <footer>Runs ${st.stats.runs} · Victories ${st.stats.wins} · Best ${fmtTime(st.stats.bestTime)} · ${st.stats.kills.toLocaleString()} enemies slain</footer>
+      <footer>${versionLabel()} · Runs ${st.stats.runs} · Victories ${st.stats.wins} · Best ${fmtTime(st.stats.bestTime)} · ${st.stats.kills.toLocaleString()} enemies slain</footer>
     </div>`);
     n.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
@@ -784,17 +785,17 @@ class UI {
     const fmtD = (t: number) => new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const draw = (runs: RunRecord[], note: string) => {
       const rows = runs.filter((r) => !r.sandbox).map((r) => `<div class="hrow ${r.result}">
-        <div class="hh"><b>${r.result === 'won' ? 'VICTORY' : r.result === 'lost' ? 'DEFEATED' : 'ABANDONED'}</b><span>R${r.reachedRound} · ${fmtTime(r.time)} · LV ${r.level}</span><span>${r.kills} kills · ${r.damage.toLocaleString()} dmg</span><em>${fmtD(r.endedAt)}</em></div>
+        <div class="hh"><b>${r.result === 'won' ? 'VICTORY' : r.result === 'lost' ? 'DEFEATED' : 'ABANDONED'}</b><span>R${r.reachedRound} · ${fmtTime(r.time)} · LV ${r.level}${r.gameVersion ? ` · v${r.gameVersion}` : ''}${(r.players ?? 1) > 1 ? ` · ${r.players}P` : ''}</span><span>${r.kills} kills · ${r.damage.toLocaleString()} dmg</span><em>${fmtD(r.endedAt)}</em></div>
         <div class="hd hidden">
           <p>${r.deathCause ? `Killed by <b>${r.deathCause}</b>. ` : ''}Damage taken ${r.taken}. Bosses ${r.bosses}. Reactions ${r.reactions}. Seed ${r.seed}.</p>
           <p><b>Relics:</b> ${r.relics.map((id) => RELIC_BY_ID[id]?.name ?? id).join(', ') || 'none'}</p>
           <p><b>Spells:</b></p>${r.spells.map((sp) => `<div class="hs">${sp.name} <small>${sp.damage.toLocaleString()} dmg · ${sp.cost}/${sp.cap} cap${sp.evolved ? ' · evolved' : ''}</small><small>${sp.forms.join(' → ')}</small></div>`).join('') || '<small>none</small>'}
           <p><b>Rounds:</b></p><div class="rl">${r.roundLog.map((x) => `<span title="${x.secs}s · ${x.kills} kills · ${x.damage} dmg · took ${x.taken}">R${x.round}${x.boss ? '★' : ''} ${x.hpEnd}/${x.maxHp}hp</span>`).join('')}</div>
         </div></div>`).join('');
-      body.innerHTML = `<p class="muted">${note}</p>${rows || '<p class="muted">No finished runs yet. Play one!</p>'}`;
+      body.innerHTML = `<p class="muted">${note} <button class="big" data-a="export">Export JSON</button></p>${rows || '<p class="muted">No finished runs yet. Play one!</p>'}`;
     };
-    draw(loadRuns(), 'Saved on this device.');
-    body.addEventListener('click', (e) => { const h = (e.target as HTMLElement).closest('.hrow'); h?.querySelector('.hd')?.classList.toggle('hidden'); });
+    draw(loadRuns(), `${loadRuns().filter((r) => !r.sandbox).length} runs saved on this device and sent for analytics.`);
+    body.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-a=export]')) { exportRuns(); return; } const h = (e.target as HTMLElement).closest('.hrow'); h?.querySelector('.hd')?.classList.toggle('hidden'); });
     const m = this.modal('Run History', body, 'wide');
     this.openModal(m, 'history');
   }

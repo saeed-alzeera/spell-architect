@@ -12,7 +12,7 @@ import { planFor, roundLen, isBossRound, FINAL_ROUND, ROUND_DIFF, type Plan } fr
 import { castUltimate, ULT_COOLDOWN } from './ultimates';
 import { newShop, refreshPrices, type Shop } from './shop';
 import { RELIC_BY_ID, RELIC_SLOTS, recomputeMods, onRoundStart, onLethal, onKill, rollRelics } from './relics';
-import { saveRunRecord, type RunRecord, type RoundRec } from '../core/analytics';
+import { saveRunRecord, installId, versionStamp, type RunRecord, type RoundRec } from '../core/analytics';
 import { ruleMods } from '../core/spell';
 import { generateRewards } from './rewards';
 import { drawTelegraph } from './draw';
@@ -695,7 +695,7 @@ export class Run {
   private buildRecord(result: RunRecord['result'], shards: number): RunRecord {
     const taken = Object.values(this.hurtBy).reduce((a, b) => a + b, 0);
     return {
-      id: `${this.startedAt}-${this.seed}`, v: 1, startedAt: this.startedAt, endedAt: Date.now(), result, quick: this.quick, sandbox: this.sandbox,
+      id: `${this.startedAt}-${this.seed}-${installId().slice(0, 6)}`, v: 2, ...versionStamp(), players: this.coopSize(), role: this.world.coop?.role ?? 'solo', startedAt: this.startedAt, endedAt: Date.now(), result, quick: this.quick, sandbox: this.sandbox,
       seed: this.seed, startForm: this.opts.form, reachedRound: this.round, time: Math.round(this.time), level: this.player.level, kills: this.kills,
       damage: Math.round(this.totalDamage), taken, hurtBy: { ...this.hurtBy }, deathCause: result === 'lost' ? this.lastHurt : '', shards,
       bosses: this.bossesKilled, reactions: this.reactionCount, spells: this.snapshotSpells(), relics: [...this.equipped], roundLog: this.roundLog, discoveries: [...this.discoveries],
