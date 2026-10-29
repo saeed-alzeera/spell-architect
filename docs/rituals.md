@@ -21,8 +21,8 @@ The saved runs (see `analytics-2026-10-29.md`) show two things Rituals can addre
 
 1. **Offer.** On the between-round prep screen (and in the shop) a **Rituals** row shows 2 offered rituals (rerolled with the shop reroll). Each card shows: name, tier (I-III), objectives (with numbers), duration in rounds, the reward, and the coin cost.
 2. **Accept.** Pay the cost; the ritual starts at the next round. You begin with 1 ritual slot; a second slot unlocks at round 8 (or as a ritual reward). Only one ritual per tier may be active.
-3. **Track.** A compact HUD tracker (under the party panel position) shows each active objective as `label  progress / target` with a bar, and rounds left. Objectives turn green when met; a toast fires on each.
-4. **Resolve.** At the end of the final round of the ritual: all objectives met → **fulfilled**, reward applied immediately with a banner; otherwise → **lapsed** ("the ritual fades"), no further penalty. Objectives that are per-round (e.g. "take 15 or less damage") are checked each round and fail the ritual the first time they are missed, which lets a lapsed ritual end early and frees the slot.
+3. **Track.** A compact HUD tracker (under the party panel position) shows each active objective as `label  progress / target` with a bar, and rounds left. Objectives turn green when met; there are no pop-ups: the tracker is the feedback.
+4. **Resolve.** At the end of the final round of the ritual: all objectives met → **fulfilled**, reward applied immediately; otherwise → **lapsed** ("the ritual fades"), no further penalty. Objectives that are per-round (e.g. "take 15 or less damage") are checked each round and fail the ritual the first time they are missed, which lets a lapsed ritual end early and frees the slot.
 5. **Repeat.** A fulfilled/lapsed ritual's slot is free next prep. The same ritual does not reappear in the same run.
 
 ### Tiers

@@ -116,7 +116,6 @@ function spawnElite(run: Run) {
   const [x, y] = spawnPoint(run);
   const e = spawnEnemy(run, type, x, y, true);
   const tag = e.aff === 'neutral' ? 'Neutral' : `${ELEMENTS[e.aff].name}-attuned`;
-  run.announce('ELITE APPROACHES', '#ffd25a', `${tag} ${type}. Slay it for coins and rich experience.`);
   audio.play('warn');
 }
 
@@ -159,14 +158,12 @@ export function updateDirector(run: Run, dt: number) {
       const x = Math.max(40, Math.min(ARENA - 40, p.x + Math.cos(a) * R)), y = Math.max(40, Math.min(ARENA - 40, p.y + Math.sin(a) * R));
       spawnEnemy(run, 'swarmer', x, y);
     }
-    run.announce('SWARM', '#c26bff', 'A ring of fast enemies closes in!');
     audio.play('warn');
   });
   if (r % 3 === 0 && r >= 6) once('stampede', 0.35, () => {
     const [x, y] = spawnPoint(run);
     const n = Math.round((3 + Math.floor(r / 3)) * (1 + 0.3 * ramp(run.dtime)) * ps);
     for (let i = 0; i < n; i++) spawnEnemy(run, 'charger', x + (Math.random() - 0.5) * 120, y + (Math.random() - 0.5) * 120);
-    run.announce('STAMPEDE', '#ff8a4a', 'Chargers incoming. Keep moving!');
     audio.play('warn');
   });
   if (r >= 4) once('elite', 0.55, () => { const n = Math.max(1, Math.round((1 + Math.floor(r / (run.dtime < 250 ? 8 : 6))) * ps)); for (let i = 0; i < n; i++) spawnElite(run); });

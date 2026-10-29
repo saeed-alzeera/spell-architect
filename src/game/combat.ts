@@ -47,13 +47,11 @@ export function reaction(run: Run, id: string, x: number, y: number, src: Src | 
   const last = run.reactTxt[id] ?? -9;
   if (first) {
     run.discoveries.push(`reaction:${id}`);
-    run.announce(`NEW REACTION: ${def.name}`, def.color, def.desc);
     run.fx.ring(x, y, 0xffffff, 10, 90, 0.5);
     run.fx.shake(4);
   }
   if (run.time - last > 0.9) {
     run.reactTxt[id] = run.time;
-    run.fx.text(x, y - 26, `${def.icon} ${def.name}`, def.color, 15, 0.9, -40);
     audio.play('reaction');
   }
 }
@@ -217,7 +215,7 @@ export function dealDamage(run: Run, e: Enemy, amount: number, el: Element, src:
   if (!o.dot) e.flash = 0.06;
   if (!o.dot) {
     run.fx.text(e.x + (Math.random() - 0.5) * 14, e.y - e.r - 6, String(Math.max(1, Math.round(a))), crit ? '#ffe14d' : o.react ? ELEMENTS[el].css : rm < 1 ? '#9aa0c0' : rm > 1 ? '#ffc070' : '#ffffff', crit ? 22 : 14, 0.6);
-    run.fx.burst(e.x, e.y, ELEMENTS[el].color, crit ? 5 : 2, 110, 0.3, 0.55);
+    if (crit) run.fx.burst(e.x, e.y, ELEMENTS[el].color, 4, 110, 0.3, 0.55);
     audio.play(crit ? 'boom' : 'hit');
   }
   if (o.kf && o.kf > 0 && e.type !== 'boss') {
@@ -449,7 +447,7 @@ export function killEnemy(run: Run, e: Enemy, src: Src | null, el: Element) {
     const chance: Record<string, number> = { grunt: 0.1, swarmer: 0.05, archer: 0.16, charger: 0.16, shaman: 0.2, armored: 0.3 };
     if (e.elite) run.dropCoin(e.x, e.y, 3);
     else if (Math.random() < (chance[e.type] ?? 0.1)) run.dropCoin(e.x, e.y, 1);
-    if (e.elite) { if (Math.random() < 0.2) run.dropPickup('heal', e.x + 10, e.y); if (run.round >= 2 && Math.random() < 0.3) run.dropPickup('cache', e.x - 10, e.y, true); if (run.round >= 4 && Math.random() < 0.12) { const rl = rollRelics(run, 1, 'shop')[0]; if (rl) { if (run.remote) run.pushPending({ type: 'relic', options: [rl.id] }); else run.addRelic(rl.id); } } }
+    if (e.elite) { if (Math.random() < 0.2) run.dropPickup('heal', e.x + 10, e.y); if (run.round >= 2 && Math.random() < 0.3) run.dropPickup('cache', e.x - 10, e.y, true); if (run.round >= 4 && Math.random() < 0.12) { const rl = rollRelics(run, 1, 'shop')[0]; if (rl) { if (run.remote || run.relicsFull) run.pushPending({ type: 'relic', options: [rl.id] }); else run.addRelic(rl.id); } } }
     else if (Math.random() < 0.0005) run.dropPickup('heal', e.x, e.y);
   }
   onKill(run, e, run.critKill);

@@ -1,6 +1,6 @@
 // Between-round shop overlay: one shelf of cards (runes, a relic, permanent upgrades), selling, and relic management.
 import { RUNE_BY_ID, RUNES, RARITY, KIND_LABEL, ELEMENTS, runeColor } from '../data/runes';
-import { RELIC_BY_ID, relicColor } from '../game/relics';
+import { RELIC_BY_ID, RELIC_SLOTS, relicColor } from '../game/relics';
 import { buyOffer, upgradeOf, reroll, rerollCost, sellRune, sellPrice, owned } from '../game/shop';
 import { audio } from '../core/audio';
 import type { Run } from '../game/run';
@@ -18,7 +18,6 @@ export function showShop(ui: UI, run: Run) {
   let bindRel: ((r: HTMLElement) => void) | null = null;
 
   const render = () => {
-    const forgeReady = run.forgeReady();
     const cards = run.shop.stock.map((o) => {
       const afford = run.coins >= o.price;
       if (o.upgrade) {
@@ -27,7 +26,7 @@ export function showShop(ui: UI, run: Run) {
         const ok = up.avail && afford;
         return `<div class="scard upoffer ${!up.avail ? 'sold' : ok ? 'aff' : 'poor'} ${picking === o.id ? 'pick' : ''}" data-offer="${o.id}" style="--rc:${RARITY[up.rarity].color};--c:${RARITY[up.rarity].color}">
           <div class="sci">${up.icon}</div><div class="scn">${up.title}</div><div class="scr">Upgrade</div>
-          <p>${up.desc}${(run.buys[o.upgrade] ?? 0) ? ` Bought ${run.buys[o.upgrade]} time${run.buys[o.upgrade] === 1 ? '' : 's'}; each costs more.` : ''}</p><div class="sprice">${!up.avail ? 'MAXED' : `◈ ${up.price}`}</div></div>`;
+          <p>${up.desc}${(run.buys[o.upgrade] ?? 0) ? `` : ''}</p><div class="sprice">${!up.avail ? 'MAXED' : `◈ ${up.price}`}</div></div>`;
       }
       if (o.relic) {
         const r = RELIC_BY_ID[o.rune];
@@ -49,14 +48,13 @@ export function showShop(ui: UI, run: Run) {
     bindRel = rm ? rm.bind : null;
     panel.innerHTML = `
       <div class="shh"><h2>SHOP</h2><div class="coins">◈ ${Math.floor(run.coins)}</div>
-        <div class="stabs2"><button data-tab="buy" class="${tab === 'buy' ? 'on' : ''}">BUY</button><button data-tab="sell" class="${tab === 'sell' ? 'on' : ''}">SELL RUNES</button><button data-tab="relics" class="${tab === 'relics' ? 'on' : ''}">RELICS ${run.equipped.length}/6</button></div></div>
-      ${forgeReady.length ? `<div class="forgebanner">FORGE READY: you have ${run.forgeCost()}+ ${forgeReady.map((e) => ELEMENTS[e].name).join(', ')} cores. Open the Spell Editor's Forge tab to evolve!</div>` : ''}
+        <div class="stabs2"><button data-tab="buy" class="${tab === 'buy' ? 'on' : ''}">BUY</button><button data-tab="sell" class="${tab === 'sell' ? 'on' : ''}">SELL RUNES</button><button data-tab="relics" class="${tab === 'relics' ? 'on' : ''}">RELICS ${run.equipped.length}/${RELIC_SLOTS}</button></div></div>
       ${tab === 'buy' ? `
-        <div class="shsec"><h4>FOR SALE <small class="buys">runes, relics and upgrades</small></h4><button class="big rr" data-reroll ${run.coins >= rerollCost(run) ? '' : 'disabled'}>REROLL ALL ◈ ${rerollCost(run)}</button></div>
+        <div class="shsec"><h4>FOR SALE</h4><button class="big rr" data-reroll ${run.coins >= rerollCost(run) ? '' : 'disabled'}>REROLL ALL ◈ ${rerollCost(run)}</button></div>
         <div class="scards">${cards}</div>${spells}`
-      : tab === 'sell' ? `<p class="muted">Sell runes you don't need. Click a rune to sell one.</p><div class="chips">${pool || '<p class="muted">Your rune pool is empty.</p>'}</div>`
+      : tab === 'sell' ? `<div class="chips">${pool || '<p class="muted">Your rune pool is empty.</p>'}</div>`
       : rm!.html}
-      <div class="shmsg ${bad ? 'bad' : ''}">${msg || 'One shelf for everything. Upgrades never sell out, but every copy costs more than the last. Rerolling replaces the whole shelf.'}</div>
+      ${msg ? `<div class="shmsg ${bad ? 'bad' : ''}">${msg}</div>` : ''}
       <div class="rbtns"><button class="big primary" data-done>Done</button></div>`;
     bindRel?.(panel);
   };

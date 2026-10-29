@@ -106,7 +106,7 @@ Everything except Cores has a rarity. **On Hit / On Kill / On Critical Hit** are
 
 ### Relics
 
-Passive items with conditions, found from bosses, elites and the shop. Wear up to **6**; extra relics wait in a **stash** and can be swapped in the editor/shop **Relics** tab between rounds. Common to Legendary, plus **cursed** relics with a real downside (Glass Cannon Idol, Gambler's Dice, Hungry Purse). Active relics show on the HUD with live counters.
+Passive items with conditions, found from bosses, elites and the shop. Wear up to **6**; there is no stash, so to take a new relic with full slots you **sell** one (Relics tab in the editor/shop, or right on the pick screen) for coins. Common to Legendary, plus **cursed** relics with a real downside (Glass Cannon Idol, Gambler's Dice, Hungry Purse). Active relics show on the HUD with live counters.
 
 ### Run history
 

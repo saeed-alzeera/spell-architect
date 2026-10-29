@@ -289,7 +289,7 @@ function syncEnt(run: Run, en: SEnt) {
 /** Element-flavoured ambient particles around an aura. */
 function auraFx(run: Run, en: SEnt, R: number) {
   if (run.time < en.fxT) return;
-  en.fxT = run.time + 0.07;
+  en.fxT = run.time + 0.2;
   const a = Math.random() * 6.283;
   const rr = R * (0.55 + Math.random() * 0.45);
   const px = en.x + Math.cos(a) * rr, py = en.y + Math.sin(a) * rr;
@@ -578,7 +578,7 @@ function updateProjectile(run: Run, en: SEnt, dt: number) {
   if (en.expand) en.r = en.baseR * (1 + 0.8 * (1 - en.life / en.maxLife));
   if (en.pull) pullEnemies(run, en.x, en.y, en.pullR, en.pullF, dt, en.src);
   passThrough(run, en, dt);
-  if (Math.random() < 0.6) {
+  if (Math.random() < 0.25) {
     run.fx.spark(en.x, en.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30 + (en.el === 'fire' ? -25 : 0), ELEMENTS[en.el].color, 0.3, 0.5 + en.r / 25);
   }
   // collision

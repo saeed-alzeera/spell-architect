@@ -48,7 +48,7 @@ interface Layer { kind: string; el: HTMLElement; onKey?: (e: KeyboardEvent) => b
 class Hud {
   root: HTMLElement;
   hp!: HTMLElement; hpTxt!: HTMLElement; xp!: HTMLElement; lvl!: HTMLElement; timer!: HTMLElement; kills!: HTMLElement;
-  bossBox!: HTMLElement; bossFill!: HTMLElement; bossName!: HTMLElement; slotsEl!: HTMLElement; ann!: HTMLElement; toasts!: HTMLElement; badge!: HTMLElement; coinEl!: HTMLElement; lastCoin = -1; ultsEl!: HTMLElement; ultKey = '';
+  bossBox!: HTMLElement; bossFill!: HTMLElement; bossName!: HTMLElement; slotsEl!: HTMLElement; ann!: HTMLElement; badge!: HTMLElement; coinEl!: HTMLElement; lastCoin = -1; ultsEl!: HTMLElement; ultKey = '';
   ultEls: HTMLElement[] = [];
   partyEl!: HTMLElement; partyKey = ''; ritEl!: HTMLElement; ritKey = '';
   slotKey = '';
@@ -76,7 +76,6 @@ class Hud {
       </div>
       <div class="hud-slots"></div>
       <div class="announce"></div>
-      <div class="toasts"></div>
     </div>`);
     uiRef.root.appendChild(this.root);
     this.partyEl = $('.hud-party', this.root);
@@ -86,7 +85,7 @@ class Hud {
     this.xp = $('.xp .fill', this.root); this.lvl = $('.lvl', this.root);
     this.timer = $('.timer', this.root); this.kills = $('.kills', this.root);
     this.bossBox = $('.bossbox', this.root); this.bossFill = $('.boss .fill', this.root); this.bossName = $('.bossname', this.root);
-    this.slotsEl = $('.hud-slots', this.root); this.ann = $('.announce', this.root); this.toasts = $('.toasts', this.root); this.badge = $('.rewardbadge', this.root); this.coinEl = $('.cn', this.root); this.ultsEl = $('.hud-ults', this.root);
+    this.slotsEl = $('.hud-slots', this.root); this.ann = $('.announce', this.root); this.badge = $('.rewardbadge', this.root); this.coinEl = $('.cn', this.root); this.ultsEl = $('.hud-ults', this.root);
     this.root.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('button');
       if (!b) return;
@@ -104,13 +103,13 @@ class Hud {
     this.slotKey = ''; this.relKey = '';
     this.last = { hp: -1, xp: -1, t: -1, k: -1, b: -1, k2: -1, kl: -1 };
     this.ultKey = '';
-    this.ann.innerHTML = ''; this.toasts.innerHTML = '';
+    this.ann.innerHTML = '';
     $('[data-a=mute]', this.root).textContent = store.settings.muted ? '🔇' : '🔊';
     this.update(run);
   }
   hide() { this.root.classList.add('hidden'); }
   flashUlt(run: Run) {
-    if (!run.ultimates().length) { run.announce('NO ULTIMATE', '#ff9a9a', 'Forge ${EVOLVE_COST} copies of a Core into an evolved Core in the editor, then equip it.'); return; }
+    if (!run.ultimates().length) { run.announce('NO ULTIMATE', '#ff9a9a'); return; }
     this.ultEls.forEach((e) => { e.classList.remove('nope'); void e.offsetWidth; e.classList.add('nope'); });
   }
   update(run: Run) {
@@ -147,7 +146,7 @@ class Hud {
     if (cn !== this.lastCoin) { this.lastCoin = cn; this.coinEl.textContent = String(cn); }
     const pend = run.pending.filter((q) => q.type !== 'mutation').length;
     this.badge.classList.toggle('hidden', pend === 0 || run.sandbox);
-    if (pend) this.badge.textContent = `★ ${pend} REWARD${pend > 1 ? 'S' : ''} WAITING FOR ROUND END`;
+    if (pend) this.badge.textContent = `★ ${pend}`;
     $('[data-a=editor]', this.root).classList.toggle('hidden', !run.sandbox);
     // ultimates
     const uls = run.ultimates();
@@ -213,18 +212,12 @@ class Hud {
     this.partyEl.innerHTML = list.length < 2 ? '' : list.filter((q) => !q.me).map((q) => `<div class="pm ${q.down ? 'down' : ''}"><span>${q.name}</span><i><b style="width:${Math.max(0, Math.min(100, (q.hp / q.mh) * 100))}%"></b></i></div>`).join('');
   }
 
+  /** Brief feedback for something the player just tried (never for game events: those just happen). */
   announce(text: string, color: string, sub?: string) {
-    if (text.startsWith('NEW ') || text.startsWith('MUTATED')) {
-      while (this.toasts.children.length > 3) this.toasts.firstElementChild!.remove();
-      const t = el(`<div class="toast" style="--c:${color}"><b>${text}</b>${sub ? `<span>${sub}</span>` : ''}</div>`);
-      this.toasts.appendChild(t);
-      setTimeout(() => t.remove(), 6000);
-      return;
-    }
-    while (this.ann.children.length > 2) this.ann.firstElementChild!.remove();
+    while (this.ann.children.length > 0) this.ann.firstElementChild!.remove();
     const n = el(`<div class="ann" style="--c:${color}"><b>${text}</b>${sub ? `<span>${sub}</span>` : ''}</div>`);
     this.ann.appendChild(n);
-    setTimeout(() => n.remove(), 4200);
+    setTimeout(() => n.remove(), 2200);
   }
 }
 
@@ -289,7 +282,7 @@ class UI {
     } else if ((k === 'e' || k === 'E' || k === 'Tab') && !top) {
       e.preventDefault();
       if (this.run.sandbox) this.openEditorFromPlay();
-      else if (this.run.phase === 'fight') this.run.announce('EDITOR LOCKED', '#ff9a9a', 'Spells can only be edited between rounds.');
+      else if (this.run.phase === 'fight') this.run.announce('EDITOR LOCKED', '#ff9a9a');
     } else if (k === 'Tab') e.preventDefault();
   }
 
@@ -307,7 +300,6 @@ class UI {
       const sb = buildSandboxPanel(this, run);
       this.sbox = sb;
       this.root.appendChild(sb);
-      run.announce('SANDBOX', '#9fd8ff', 'All runes unlocked. Press E to edit, spawn enemies on the right.');
     }
   }
   sbox: HTMLElement | null = null;
@@ -347,24 +339,21 @@ class UI {
       const names = ['Stone Warden', 'Plague Matron', 'Storm Colossus', 'The Void Architect'];
       bossHtml = `<div class="bossprev"><canvas width="96" height="96" data-boss="${boss}"></canvas><div>
         <h3>BOSS: ${names[boss].toUpperCase()}</h3>
-        ${d.immune.length ? `<p class="bi">IMMUNE: ${elChips(d.immune)} (elemental damage does nothing)</p>` : ''}
+        ${d.immune.length ? `<p class="bi">Immune: ${elChips(d.immune)}</p>` : ''}
         ${d.resist.length ? `<p>Resists: ${elChips(d.resist)}</p>` : ''}
-        ${d.weak.length ? `<p>Weak to: ${elChips(d.weak)}</p>` : ''}
-        <p class="muted">Arcane (no Core) is never resisted. Bring a mix.</p></div></div>`;
+        ${d.weak.length ? `<p>Weak to: ${elChips(d.weak)}</p>` : ''}</div></div>`;
     }
     const co = run.coop;
     const slots = run.spells.map((s, i) => `<div class="pslot"><b>${i + 1}</b>${s.c.valid && s.c.root ? `${ELEMENTS[s.c.root.element].icon} ${s.c.name}` : '<em>empty</em>'}${s.c.root?.evolved ? ' ★' : ''}</div>`).join('');
     const n = el(`<div class="overlay prepov"><div class="panel prepp">
       <div class="rtitle"><small>${r === 1 ? 'GET READY' : `ROUND ${r - 1} COMPLETE`}</small><h2>ROUND ${r}${boss !== null ? ' · BOSS' : ''} <span class="of">/ ${FINAL_ROUND}</span></h2>
-      <p class="sub">${boss !== null ? 'Defeat the boss to finish the round.' : `Survive ${roundLen(run.quick)} seconds.`} ${boss === null ? `Next boss: round ${Math.ceil(r / 5) * 5}.` : ''}</p></div>
+      <p class="sub">${boss !== null ? 'Defeat the boss.' : `Survive ${roundLen(run.quick)}s.`}</p></div>
       ${co ? '<div data-lobby></div>' : ''}
       ${bossHtml}
-      ${run.forgeReady().length ? `<div class="forgebanner">FORGE READY: you have ${EVOLVE_COST}+ ${run.forgeReady().map((e) => ELEMENTS[e].name).join(', ')} cores. Open the Spell Editor's Forge tab to evolve them into an Ultimate!</div>` : ''}
       <h4>ENEMY MIX THIS ROUND</h4><div class="shares">${shares}</div>
-      ${plan.tip ? `<p class="tip2">TIP: ${plan.tip}</p>` : ''}
       <h4>YOUR LOADOUT</h4><div class="pslots">${slots}</div>
       <div data-rituals></div>
-      <div class="rbtns"><button class="big" data-a="shop">Shop <small>◈ ${Math.floor(run.coins)}</small></button><button class="big ${run.forgeReady().length ? 'glow' : ''}" data-a="editor">Spell Editor${run.forgeReady().length ? ' (FORGE READY!)' : ''}</button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
+      <div class="rbtns"><button class="big" data-a="shop">Shop <small>◈ ${Math.floor(run.coins)}</small></button><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor</button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
     </div></div>`);
     if (co) n.querySelector('[data-lobby]')!.replaceWith(lobbyPanel(this, co as never));
     n.querySelector('[data-rituals]')!.replaceWith(ritualSection(run, () => { const sb = n.querySelector('[data-a=shop] small'); if (sb) sb.textContent = `◈ ${Math.floor(run.coins)}`; if (co?.role === 'guest') { const g = co as unknown as { ready?: boolean; setReady?(on: boolean): void }; if (g.ready) { g.setReady!(false); const rb = n.querySelector('[data-a=ready]'); if (rb) rb.textContent = 'Ready'; } } }));
@@ -408,7 +397,7 @@ class UI {
       <h2>Paused</h2>
       <div class="btns">
         <button class="big" data-a="resume">Resume</button>
-        ${run.sandbox ? '<button class="big" data-a="editor">Spell Editor</button>' : '<p class="muted">Spell editing opens between rounds.</p>'}
+        ${run.sandbox ? '<button class="big" data-a="editor">Spell Editor</button>' : ''}
         <button class="big" data-a="overview">🔮 Spell Overview</button>
         <button class="big" data-a="journal">📜 Journal</button>
         ${run.coop ? '' : '<button class="big" data-a="retry">Restart Run</button>'}
@@ -494,7 +483,6 @@ class UI {
       <div class="rbtns">
         ${mode === 'levelup' ? '<button class="big" data-a="reroll"></button>' : ''}
       </div>
-      <p class="tip">Press 1 / 2 / 3 to choose. ${mode !== 'levelup' ? 'Runes go into your pool: place them in the Spell Editor.' : 'Level-ups boost your stats. Runes and spell upgrades are in the shop.'}</p>
     </div></div>`);
     const cards = $('.cards', n);
     const rerollBtn = n.querySelector('[data-a=reroll]') as HTMLElement | null;
@@ -532,14 +520,12 @@ class UI {
   showMutation(run: Run, sp: Run['spells'][number], track: typeof MUT_TRACKS[number]) {
     const n = el(`<div class="overlay lv mut"><div class="panel rewardp">
       <div class="rtitle"><small>SPELL MUTATION · ${track.title.toUpperCase()}</small><h2>${sp.c.name}</h2>
-      <p class="sub">This spell has ${track.why}. It is evolving, choose how.</p></div>
+</div>
       <div class="cards two">${track.options.map((o, i) => `<div class="card r-epic mutcard" data-i="${i}" style="--rc:#c26bff;--c:#c26bff">
         <div class="ck">${i + 1}</div><div class="cicon">${o.icon}</div><div class="cname">${o.name}</div><div class="crar">Mutation · lasts this run</div><p>${o.desc}</p></div>`).join('')}</div>
-      <p class="tip">Press 1 / 2 to choose. Mutations reset when the run ends.</p>
     </div></div>`);
     const choose = (i: number) => {
       run.applyMutation(sp, track, track.options[i].id);
-      run.announce(`MUTATED: ${track.options[i].name}`, '#c26bff', sp.c.name);
       run.fx.ring(run.player.x, run.player.y, 0xc26bff, 10, 200, 0.6);
       audio.play('level');
       this.pop('mutation');
@@ -732,7 +718,7 @@ class UI {
       <p><b>Elements hit harder than Arcane</b> and add an effect (fire burns, ice slows, poison stacks...). But <b>attuned enemies resist their own element</b> and bosses can be fully <b>immune</b> to some. Arcane is never resisted, and the briefing before each round shows what is coming. Use different slots for different elements.</p>
       <p><b>Augments.</b> <span style="color:${KIND_COLOR.behavior}">Behaviors</span> change how a Form acts, <span style="color:${KIND_COLOR.modifier}">Modifiers</span> tune its numbers. A <span style="color:${KIND_COLOR.trigger}">Trigger</span> launches more Forms when it fires. The editor writes your whole chain as plain sentences.</p>
       <p><b>Reactions.</b> Elements from different slots interact with each other's puddles, clouds and statuses. Each reaction deals <b>both</b> damage types. The editor's Reactions tab shows which ones your loadout can trigger.</p>
-      <p><b>Evolution.</b> Collect ${EVOLVE_COST} copies of the same Core and forge an evolved Core in the editor's Forge tab: +40% damage, a new passive, and an <b>Ultimate</b> on Space. The editor and briefing flash when you can forge.</p>
+      <p><b>Evolution.</b> Collect ${EVOLVE_COST} copies of the same Core and forge an evolved Core in the editor's Forge tab: +40% damage, a new passive, and an <b>Ultimate</b> on Space. The Forge tab lights up when you can forge.</p>
       <p><b>Co-op.</b> Choose <b>Online Co-op</b> in the main menu to host a room or join a friend's with their 5-letter code. You share the arena and the horde; everyone keeps their own build, shop and rewards, and the round starts when the host presses Start after everyone is Ready.</p>
       <p><b>Shop.</b> Kills and cleared rounds earn coins. After every round, one shelf offers runes, a relic and permanent upgrades (capacity, spell slots, vitality, power...); upgrades never sell out but every copy costs more, and rerolling replaces the whole shelf. You can also sell runes you don't need, and The round-prep screen also offers <b>Rituals</b>: multi-round contracts that pay a permanent upgrade if you meet every objective (in co-op each player has their own, with higher targets). <b>Level-ups</b> instantly give a random stat boost, even mid-round; boss caches give a choice of strong runes.</p>
       <p><b>Capacity</b> limits runes per spell. <b>Mutations</b> evolve spells that perform well. Spend Arcane Shards in the Grimoire to unlock more runes (behaviors, triggers, modifiers). The <b>Sandbox</b> lets you test any build against any enemy.</p>

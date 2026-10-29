@@ -37,7 +37,6 @@ export function spawnBoss(run: Run, kind: number) {
   };
   e.spr.setScale(d.sc);
   run.boss = e;
-  run.announce(`${d.name.toUpperCase()}`, '#ff6b6b', kind === 3 ? 'The final guardian awakens. Survive and destroy it!' : 'Defeat it to claim a Rune Cache.');
   audio.play('boss');
   run.fx.shake(8);
   run.fx.ring(x, y, d.color, 20, 300, 0.7);
@@ -52,7 +51,6 @@ export function updateBoss(run: Run, e: Enemy, dt: number, mul: number, dist: nu
   const phase = b.kind === 3 ? (frac > 0.66 ? 0 : frac > 0.33 ? 1 : 2) : frac > 0.5 ? 0 : 1;
   if (phase !== b.phase) {
     b.phase = phase;
-    run.announce(b.kind === 3 ? `PHASE ${phase + 1}` : 'ENRAGED', '#ff6b6b');
     run.fx.shake(7); run.fx.ring(e.x, e.y, d.color, 20, 280, 0.6); audio.play('boss');
   }
   e.face = nx > 0 ? 1 : -1;

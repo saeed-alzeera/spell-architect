@@ -37,8 +37,8 @@ export interface LobbyPlayer { pid: number; name: string; ready: boolean; host: 
 /** A guest's build comes from another machine: check it is well formed and sane before the host compiles it. */
 export function validateBuild(b: unknown): string | null {
   const x = b as Build | null;
-  if (!x || typeof x !== 'object' || !Array.isArray(x.spells) || !x.player || !Array.isArray(x.owned) || !Array.isArray(x.equipped)) return 'malformed build';
-  if (x.spells.length > 5 || x.owned.length > 40 || x.equipped.length > 6) return 'build too large';
+  if (!x || typeof x !== 'object' || !Array.isArray(x.spells) || !x.player || !Array.isArray(x.equipped)) return 'malformed build';
+  if (x.spells.length > 5 || x.equipped.length > 6) return 'build too large';
   const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
   const p = x.player as unknown as Record<string, unknown>;
   if (!num(p.maxHp, 1, 3000) || !num(p.hp, 0, 3000) || !num(p.dmgMul, 0.1, 30) || !num(p.cdMul, 0.05, 5) || !num(p.crit, 0, 1) || !num(p.critMul, 1, 20)
@@ -89,7 +89,6 @@ export class HostSession implements CoopLink {
     run.pname = name;
     run.coop = this;
     run.onRemotePending = (pr, item) => this.sendPending(pr, item);
-    run.onRemoteNotice = (pr, t, c, s) => { const g = [...this.guests.values()].find((x) => x.shell === pr); if (g) this.net.sendCtl(g.id, { t: 'announce', text: t, color: c, sub: s }); };
     const orig = run.onAnnounce;
     run.onAnnounce = (t, c, s) => { orig(t, c, s); if (!t.startsWith('NEW ')) this.net.broadcastCtl({ t: 'announce', text: t, color: c, sub: s }); };
     this.rep = new Replicator(run, {
@@ -127,7 +126,6 @@ export class HostSession implements CoopLink {
     this.guests.set(id, { id, pid, name, shell, ready: false, build: null, echo: 0, echoAt: 0, offline: false, offAt: 0, wasDown: false });
     this.net.sendCtl(id, { t: 'welcome', pid, seed: this.run.seed, round: this.run.round, host: this.name, rejoin });
     this.net.broadcastCtl(this.lobbyMsg());
-    this.run.announce('PLAYER JOINED', '#9fd8ff', `${name} joined the game.`);
     this.onChange?.();
   }
 
@@ -141,7 +139,6 @@ export class HostSession implements CoopLink {
     this.net.sendCtl(g.id, { t: 'welcome', pid: g.pid, seed: this.run.seed, round: this.run.round, host: this.name, rejoin: true });
     if (this.run.phase === 'fight' || this.run.phase === 'clearing') this.net.sendCtl(g.id, { t: 'start', round: this.run.round, rejoin: true });
     this.net.broadcastCtl(this.lobbyMsg());
-    this.run.announce('PLAYER RECONNECTED', '#9fd8ff', `${g.name} is back.`);
     this.onChange?.();
   }
 
@@ -152,7 +149,6 @@ export class HostSession implements CoopLink {
     // the connection dropped mid-game: keep their wizard (standing down) for a while so they can reconnect
     g.offline = true; g.offAt = performance.now(); g.wasDown = g.shell.down; g.shell.down = true; g.ready = true;
     g.shell.dropCmds();
-    this.run.announce('CONNECTION LOST', '#ffb27a', `${g.name} dropped. Waiting up to ${GRACE_MS / 1000} s for them to reconnect.`);
     this.net.broadcastCtl(this.lobbyMsg());
     this.onChange?.();
   }
@@ -163,7 +159,6 @@ export class HostSession implements CoopLink {
     if (sp) { this.run.freeImg(sp.spr); this.run.freeImg(sp.shadow); sp.label.destroy(); this.sprites.delete(g.shell); }
     this.run.removePlayer(g.shell);
     this.net.forget(g.id);
-    this.run.announce('PLAYER LEFT', '#ff9a9a', `${g.name} ${why}`);
     this.net.broadcastCtl(this.lobbyMsg());
     this.onChange?.();
   }
@@ -479,7 +474,6 @@ export class GuestSession implements CoopLink {
     this.inFight = true;
     this.replica.clear(); this.pred.reset();
     ui.closePrep();
-    if (!rejoin) run.announce(isBoss(round) ? `ROUND ${round}: BOSS` : `ROUND ${round}`, isBoss(round) ? '#ff6b6b' : '#9fd8ff');
   }
 
   private mergeResult(m: { round: number; res: RoundRes }) {

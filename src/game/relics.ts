@@ -1,5 +1,5 @@
-// Relics: passive items with conditional effects. Up to 6 are equipped; the rest sit in a stash and can be swapped
-// between rounds. Effects are applied through a few hook points (damage, kill, crit, cast, reaction, round start/end).
+// Relics: passive items with conditional effects. You can wear up to 6 and there is no stash: to take a new relic
+// when full you sell one. Effects are applied through a few hook points (damage, kill, crit, cast, reaction, round start/end).
 import { RARITY, ELEMENTS, type Rarity } from '../data/runes';
 import { ruleMods } from '../core/spell';
 import { dealDamage, arc } from './combat';
@@ -154,7 +154,6 @@ export function onLethal(run: Run): boolean {
   run.fx.ring(p.x, p.y, 0xffa030, 10, 420, 0.7);
   run.fx.burst(p.x, p.y, 0xffd25a, 40, 400, 0.9, 2);
   run.fx.shake(10);
-  run.announce('PHOENIX FEATHER', '#ffb347', 'You rise again. The feather is spent.');
   for (const e of run.query(p.x, p.y, 380)) {
     const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1;
     dealDamage(run, e, 40 + run.round * 12, 'fire', null, { react: true, noTrig: true });
@@ -170,6 +169,8 @@ export function relicPrice(r: RelicDef): number {
   return Math.round(base[r.rarity] * (r.cursed ? 0.75 : 1));
 }
 
+export const relicSellPrice = (r: RelicDef) => Math.max(2, Math.floor(relicPrice(r) / 2));
+
 const BOSS_W: Record<number, Record<Rarity, number>> = {
   5: { common: 30, uncommon: 45, rare: 22, epic: 3, legendary: 0 },
   10: { common: 5, uncommon: 35, rare: 40, epic: 20, legendary: 0 },
@@ -182,7 +183,7 @@ export function rollRelics(run: Run, n: number, mode: 'boss' | 'shop'): RelicDef
   const w = mode === 'boss' ? BOSS_W[Math.min(20, Math.max(5, Math.round(run.round / 5) * 5))] ?? BOSS_W[5] : SHOP_W;
   const out: RelicDef[] = [];
   for (let g = 0; g < 60 && out.length < n; g++) {
-    const pool = RELICS.filter((r) => !run.owned.includes(r.id) && !out.includes(r) && (w[r.rarity] ?? 0) > 0);
+    const pool = RELICS.filter((r) => !run.equipped.includes(r.id) && !out.includes(r) && (w[r.rarity] ?? 0) > 0);
     if (!pool.length) break;
     const wantCursed = Math.random() < 0.18;
     const cands = pool.filter((r) => !!r.cursed === wantCursed);

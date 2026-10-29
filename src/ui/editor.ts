@@ -16,6 +16,7 @@ import { earlyPower, type Run } from '../game/run';
 import type { ActiveSpell } from '../game/types';
 import { el, type UI } from './ui';
 import { relicManager } from './relics';
+import { RELIC_SLOTS } from '../game/relics';
 import { showSpellOverview } from './overview';
 
 export function openEditor(ui: UI, run: Run) { new Editor(ui, run).open(); }
@@ -413,7 +414,6 @@ class Editor {
       <button class="addchip" data-tierup="1" ${tres && typeof tres !== 'string' ? '' : 'disabled'}>FORGE UP A LEVEL</button> <button class="addchip" data-merge="1" ${mres && typeof mres !== 'string' ? '' : 'disabled'}>MERGE INTO ONE (add chances)</button>` : '<p class="muted">You have no On Hit / On Kill / On Critical Hit triggers in your pool. Triggers placed on a spell must be removed first.</p>'}`;
     const forgeInfo = `
       <div class="spname">FORGE</div>
-      ${run.forgeReady().length ? `<div class="forgebanner">You can forge: ${run.forgeReady().map((e3) => ELEMENTS[e3].name).join(', ')}!</div>` : ''}
       <p class="muted">Combine <b>${EVOLVE_COST} copies</b> of the same Core (from your pool or equipped) into an <b>evolved Core</b>: +40% damage, a new passive, and an <b>Ultimate</b> on Space while it is equipped.</p>
       ${(Object.keys(BASE_CORE_OF) as Element[]).map((e2) => {
         const n = run.coreCopies(e2), have = owned(EVOLVED_OF[e2]);
@@ -426,7 +426,7 @@ class Editor {
           <button class="addchip" data-forge="${e2}" ${n >= EVOLVE_COST ? '' : 'disabled'}>FORGE ${evo.name.toUpperCase()}</button></div>`;
       }).join('')}
       ${mergeHtml}`;
-    const tabsHtml = `<div class="itabs">${(['spell', 'react', 'forge', 'relics', 'stats'] as const).map((t) => `<button data-tab="${t}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'glow' : ''}">${t === 'spell' ? 'SPELL' : t === 'react' ? 'REACTIONS' : t === 'relics' ? `RELICS ${run.equipped.length}/6` : t === 'stats' ? 'STATS' : run.forgeReady().length ? 'FORGE !' : 'FORGE / MERGE'}</button>`).join('')}</div>`;
+    const tabsHtml = `<div class="itabs">${(['spell', 'react', 'forge', 'relics', 'stats'] as const).map((t) => `<button data-tab="${t}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'ready' : ''}">${t === 'spell' ? 'SPELL' : t === 'react' ? 'REACTIONS' : t === 'relics' ? `RELICS ${run.equipped.length}/${RELIC_SLOTS}` : t === 'stats' ? 'STATS' : 'FORGE'}</button>`).join('')}</div>`;
     const rm = this.tab === 'relics' ? relicManager(run, () => this.render()) : null;
     const pl = run.player;
     const statsInfo = `<div class="spname">STATS</div><div class="statgrid">
