@@ -6,7 +6,7 @@ import Phaser from 'phaser';
 import { audio } from '../core/audio';
 import { store } from '../core/save';
 import { MUT_TRACKS } from '../data/mutations';
-import { RUNE_BY_ID } from '../data/runes';
+import { RUNE_BY_ID, ensureMergedRune } from '../data/runes';
 import { planFor } from '../game/rounds';
 import { newShop } from '../game/shop';
 import type { Build, Cmd, CoopLink, Pending, Run, RunSummary } from '../game/run';
@@ -47,7 +47,7 @@ export function validateBuild(b: unknown): string | null {
     if (!sp || !sp.def || typeof sp.def.capacity !== 'number' || sp.def.capacity < 1 || sp.def.capacity > 200) return 'bad spell';
     let n = 0;
     const walk = (nd: { rune?: unknown; children?: unknown }, depth: number): string | null => {
-      if (!nd || typeof nd.rune !== 'string' || !RUNE_BY_ID[nd.rune] || !Array.isArray(nd.children)) return 'unknown rune';
+      if (!nd || typeof nd.rune !== 'string' || !ensureMergedRune(nd.rune) || !Array.isArray(nd.children)) return 'unknown rune';
       if (++n > 80 || depth > 14) return 'spell too large';
       for (const c of nd.children as { rune?: unknown; children?: unknown }[]) { const e = walk(c, depth + 1); if (e) return e; }
       return null;
