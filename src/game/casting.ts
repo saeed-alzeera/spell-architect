@@ -235,14 +235,16 @@ function syncEnt(run: Run, en: SEnt) {
       en.spr.setPosition(en.x, en.y).setScale((R / base) * pulse);
       const zs = zoneStyle(en.el);
       const baseA = en.env === 'puddle' && en.ice ? 0.7 : zs.alpha;
-      en.spr.setAlpha(baseA * a * (en.electric > 0 ? 0.7 + 0.3 * Math.sin(T * 40) : 1) * (en.kind === 'aura' ? auraFill : buried.has(en.id) ? 0 : 1));
+      en.spr.setAlpha(baseA * a * (en.electric > 0 ? 0.7 + 0.3 * Math.sin(T * 40) : 1) * (en.kind === 'aura' ? auraFill * (lead.has(en.id) ? 1 : AURA_SIDE_FILL) : decalVis.get(en.id) ?? 1));
       if (en.electric > 0) en.spr.setTint(0xfff35e);
       else if (en.ice) en.spr.setTint(0xb8f0ff);
       if (en.kind === 'aura') {
         const rs = R / 64;
-        en.spr2?.setPosition(en.x, en.y).setScale(rs).setRotation(T * (en.el === 'gravity' ? 1.6 : 0.5)).setAlpha(0.8 * a);
-        if (d[0]) d[0].setPosition(en.x, en.y).setScale(rs * 0.78).setRotation(-T * 0.9).setAlpha(0.4 * a);
-        if (d[1]) d[1].setPosition(en.x, en.y).setScale(rs * 1.05).setRotation(-T * 3).setAlpha(0.7 * a);
+        const k = lead.has(en.id) ? 1 : AURA_SIDE_RING; // only the oldest aura keeps its full set of rings
+        const inner = k === 1 ? 1 : 0;
+        en.spr2?.setPosition(en.x, en.y).setScale(rs).setRotation(T * (en.el === 'gravity' ? 1.6 : 0.5)).setAlpha(0.8 * a * k);
+        if (d[0]) d[0].setPosition(en.x, en.y).setScale(rs * 0.78).setRotation(-T * 0.9).setAlpha(0.4 * a * inner);
+        if (d[1]) d[1].setPosition(en.x, en.y).setScale(rs * 1.05).setRotation(-T * 3).setAlpha(0.7 * a * inner);
         auraFx(run, en, R);
       }
       break;
@@ -455,29 +457,36 @@ export function processEvents(run: Run) {
 
 /* ----------------------------- Entity simulation ----------------------------- */
 
-/** Fill opacity of every aura this frame. Auras all draw around the player, so with several out their fills stack (and the additive ones blow out to white): each gets fainter the more there are, while the rings stay crisp. Drawing only; damage is untouched. */
+/** Overlap presentation, worked out once per frame. Drawing only: nothing here touches damage, ticks or lifetimes.
+ *  - Auras all draw around the player, so their fills stack and their additive rings add up to a white disc. Only the oldest
+ *    aura keeps its full rings; every other one is a thin faint outline in its own colour, and all fills fade with the count.
+ *  - A puddle or cloud is drawn lighter the more older ones of its element it overlaps (so overlaps never get darker), and not
+ *    at all when it sits almost exactly on one. */
 let auraFill = 1;
-/** Puddles and clouds whose picture is hidden because an older one of the same element already covers that spot. They still exist and tick as before; only the stacked sprite is skipped. */
-const buried = new Set<number>();
+const AURA_SIDE_RING = 0.3, AURA_SIDE_FILL = 0.45;
+const lead = new Set<number>();
+const decalVis = new Map<number, number>();
 
 function sortOutOverlapVisuals(ents: SEnt[]) {
-  buried.clear();
+  lead.clear(); decalVis.clear();
   let auras = 0;
-  const shown: SEnt[] = [];
+  const seen: SEnt[] = [];
   for (let i = 0; i < ents.length; i++) {
     const en = ents[i];
     if (en.dead) continue;
-    if (en.kind === 'aura') auras++;
+    if (en.kind === 'aura') { if (auras++ === 0) lead.add(en.id); }
     else if (en.kind === 'decal') {
       const R = currentR(en);
-      let covered = false;
-      for (let j = 0; j < shown.length; j++) {
-        const o = shown[j];
+      let k = 0, buried = false;
+      for (let j = 0; j < seen.length; j++) {
+        const o = seen[j];
         if (o.el !== en.el) continue;
-        const dx = o.x - en.x, dy = o.y - en.y, near = currentR(o) * 0.5;
-        if (dx * dx + dy * dy < near * near && R <= currentR(o) * 1.15) { covered = true; break; }
+        const Ro = currentR(o), dx = o.x - en.x, dy = o.y - en.y, d2 = dx * dx + dy * dy;
+        if (d2 < (Ro * 0.5) ** 2 && R <= Ro * 1.15) { buried = true; break; }
+        if (d2 < ((R + Ro) * 0.7) ** 2) k++;
       }
-      if (covered) buried.add(en.id); else shown.push(en);
+      decalVis.set(en.id, buried ? 0 : 1 / (1 + 0.6 * k));
+      if (!buried) seen.push(en);
     }
   }
   auraFill = 1 / (0.6 + 0.4 * Math.max(1, auras));
