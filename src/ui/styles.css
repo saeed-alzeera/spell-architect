@@ -503,6 +503,7 @@ button.ready, .itabs button.ready { border-color: var(--gold) !important; color:
 .shophd { display: flex; align-items: center; gap: 8px; }
 .shophd .itabs { flex: 1; margin: 0; }
 .shophd .coins { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-size: 11px; white-space: nowrap; }
+.shophd .hpnum { font-size: 11px; color: #ff8a9a; text-shadow: 2px 2px 0 #000; white-space: nowrap; }
 .shophd .rr { display: inline-flex; align-items: center; gap: 4px; background: #3a2d98; border: 3px solid var(--ink); outline: 2px solid var(--edge); }
 .shophd .rr:disabled { opacity: 0.4; }
 .pr { display: inline-flex; align-items: center; gap: 2px; }
