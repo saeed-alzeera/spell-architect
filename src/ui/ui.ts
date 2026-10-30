@@ -11,7 +11,6 @@ import {
 import { REACTIONS, REACTION_BY_ID } from '../data/reactions';
 import { reactionCardHtml } from './reactions';
 import { buildSandboxPanel } from './sandbox';
-import { showShop } from './shop';
 import { loadRuns, exportRuns, type RunRecord } from '../core/analytics';
 import { showRelicPick, relicBar } from './relics';
 import { RELIC_BY_ID, relicColor } from '../game/relics';
@@ -315,7 +314,7 @@ class UI {
       else if (next.type === 'cache') this.showReward(run, next.chest ? 'chest' : 'cache');
       else if (next.type === 'relic') showRelicPick(this, run, next.options);
       else this.showMutation(run, next.sp, next.track);
-    } else if (!run.shopOpened) { run.shopOpened = true; showShop(this, run); }
+    } else if (!run.shopOpened) { run.shopOpened = true; openEditor(this, run); }
     else this.showPrep(run);
   }
 
@@ -354,10 +353,10 @@ class UI {
       <h4>YOUR LOADOUT</h4><div class="pslots">${slots}</div>
       ${relicBar(run, () => {}, false).html}
       <div data-rituals></div>
-      <div class="rbtns"><button class="big" data-a="shop">Shop <small>◈ ${Math.floor(run.coins)}</small></button><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor</button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
+      <div class="rbtns"><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor &amp; Shop <small>◈ ${Math.floor(run.coins)}</small></button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
     </div></div>`);
     if (co) n.querySelector('[data-lobby]')!.replaceWith(lobbyPanel(this, co as never));
-    n.querySelector('[data-rituals]')!.replaceWith(ritualSection(run, () => { const sb = n.querySelector('[data-a=shop] small'); if (sb) sb.textContent = `◈ ${Math.floor(run.coins)}`; if (co?.role === 'guest') { const g = co as unknown as { ready?: boolean; setReady?(on: boolean): void }; if (g.ready) { g.setReady!(false); const rb = n.querySelector('[data-a=ready]'); if (rb) rb.textContent = 'Ready'; } } }));
+    n.querySelector('[data-rituals]')!.replaceWith(ritualSection(run, () => { const sb = n.querySelector('[data-a=editor] small'); if (sb) sb.textContent = `◈ ${Math.floor(run.coins)}`; if (co?.role === 'guest') { const g = co as unknown as { ready?: boolean; setReady?(on: boolean): void }; if (g.ready) { g.setReady!(false); const rb = n.querySelector('[data-a=ready]'); if (rb) rb.textContent = 'Ready'; } } }));
     const startRound = () => {
       const err = run.coop?.beforeStart?.();
       if (err) { this.announce('NOT READY', '#ff9a9a', err); audio.play('warn'); return; }
@@ -375,7 +374,6 @@ class UI {
       if (!b) return;
       audio.play('ui');
       if (b.dataset.a === 'editor') { unready(); openEditor(this, run); }
-      else if (b.dataset.a === 'shop') { unready(); showShop(this, run); }
       else if (b.dataset.a === 'go') startRound();
       else if (b.dataset.a === 'ready') {
         const g = run.coop as unknown as { ready: boolean; setReady(on: boolean): void };
