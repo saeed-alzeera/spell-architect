@@ -440,7 +440,7 @@ export function killEnemy(run: Run, e: Enemy, src: Src | null, el: Element) {
 
   run.addXp(e.xp);
   if (e.type !== 'boss') {
-    // coins drop as pickups (new scale: roughly 1 coin per ten kills); elites always pay
+    // coins go straight to the purse (roughly 1 coin per ten kills); elites always pay
     const chance: Record<string, number> = { grunt: 0.1, swarmer: 0.05, archer: 0.16, charger: 0.16, shaman: 0.2, armored: 0.3 };
     if (e.elite) run.dropCoin(e.x, e.y, 3);
     else if (Math.random() < (chance[e.type] ?? 0.1)) run.dropCoin(e.x, e.y, 1);
