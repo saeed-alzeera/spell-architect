@@ -542,11 +542,10 @@ export class Run {
   /** XP is awarded directly on kill (no gems). */
   dropGem(_x: number, _y: number, v: number) { this.addXp(v); }
 
-  /** Coins drop as pickups (walk over them); everything is swept up at round end. */
+  /** Coins go straight into the nearest player's purse; no pickup sprite, to keep the arena uncluttered. */
   dropCoin(x: number, y: number, v: number) {
-    if (this.pickups.length > 150) { this.coins += v * this.mods.coinMul; return; }
-    const pk: Pickup = { id: nextOid(), x: x + (Math.random() - 0.5) * 14, y: y + (Math.random() - 0.5) * 14, type: 'coin', v, spr: this.img('coin', 3).setScale(1.7 + 0.3 * Math.min(2, v)), fly: false, t: Math.random() * 6, dead: false };
-    this.pickups.push(pk);
+    const pr = this.nearestPlayer(x, y) ?? this.world;
+    pr.coins += v * pr.mods.coinMul;
   }
   /** `small`: an elite's chest (a choice of three runes) rather than the boss's big cache. */
   dropPickup(type: 'heal' | 'cache', x: number, y: number, small = false) {
@@ -1096,8 +1095,7 @@ export class Run {
       k.spr.setPosition(k.x, k.y + Math.sin(k.t * 4 + k.x) * 1.5);
       if (can && d2 < 30 * 30) { // pick-ups are collected by touch; there is no pickup range
         k.dead = true;
-        if (k.type === 'coin') { const v = k.v * pr.mods.coinMul; pr.coins += v; this.fx.text(p.x, p.y - 26, `+${Math.round(v * 10) / 10}`, '#ffd25a', 11, 0.5); if (!pr.remote) audio.play('gem'); }
-        else if (k.type === 'heal') { pr.heal(k.v); if (!pr.remote) audio.play('pick'); }
+        if (k.type === 'heal') { pr.heal(k.v); if (!pr.remote) audio.play('pick'); }
         else if (k.type === 'cache') {
           pr.pushPending({ type: 'cache', chest: k.v === 1 });
           audio.play('pick');
