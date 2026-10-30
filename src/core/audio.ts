@@ -1,5 +1,6 @@
-// Procedural WebAudio: all sound effects and a generative music loop. No asset files.
+// Procedural WebAudio: all sound effects and a synthesized-piano score (src/core/music.ts). No asset files.
 import { store } from './save';
+import { PIECES, type Mood, type Note, type Piece } from './music';
 
 type Sfx =
   | 'arcane' | 'fire' | 'ice' | 'lightning' | 'poison' | 'water' | 'gravity'
@@ -15,31 +16,28 @@ interface VoiceOpts {
   jitter?: number;
 }
 
-// Music: A minor, 8-bar form (Am F C G | Am F G Am), 16th-note grid.
-const BPM = 100;
-const STEP = 60 / BPM / 4;
-const ROOTS = [0, -4, 3, -2, 0, -4, -2, 0];
-const MINOR = [0, 3, 7];
-const MAJOR = [0, 4, 7];
-const QUAL = [MINOR, MAJOR, MAJOR, MAJOR, MINOR, MAJOR, MAJOR, MINOR];
-const PENTA = [0, 3, 5, 7, 10, 12, 15, 17];
-const ROOT_HZ = 110;
-const hz = (semi: number, base = ROOT_HZ) => base * Math.pow(2, semi / 12);
-
 class AudioSys {
   ctx: AudioContext | null = null;
   master!: GainNode;
   sfxG!: GainNode;
   musG!: GainNode;
-  arpBus!: GainNode;
   reverbIn!: GainNode;
   noiseBuf: AudioBuffer | null = null;
   last: Record<string, number> = {};
   musicTimer: number | undefined;
-  step = 0;
   nextTime = 0;
-  melodyIdx = 3;
   intensity = 0;
+  /** The mood the game wants; the music follows it at the next beat of the current piece. */
+  private want: Mood = 'main';
+  private mood: Mood | null = null;
+  private piece: Piece | null = null;
+  /** Steps played of the current piece, and the notes of the bar being played. */
+  private n = 0;
+  private cur: Note[] = [];
+  /** Each piece plays through its own bus so the old one can fade out while the new one starts. */
+  private bus: GainNode | null = null;
+  private waveLow!: PeriodicWave;
+  private waveHigh!: PeriodicWave;
   /** Smoothed intensity so the drums fade in and out instead of snapping. */
   private feel = 0;
 
@@ -71,17 +69,14 @@ class AudioSys {
     this.sfxG.connect(sfxSend); sfxSend.connect(this.reverbIn);
     this.musG.connect(musSend); musSend.connect(this.reverbIn);
 
-    // Dotted-eighth echo for the arpeggio.
-    this.arpBus = c.createGain();
-    const delay = c.createDelay(1);
-    delay.delayTime.value = STEP * 3;
-    const fb = c.createGain(); fb.gain.value = 0.38;
-    const echoTone = c.createBiquadFilter(); echoTone.type = 'lowpass'; echoTone.frequency.value = 2400;
-    const echoSend = c.createGain(); echoSend.gain.value = 0.45;
-    this.arpBus.connect(this.musG);
-    this.arpBus.connect(echoSend); echoSend.connect(delay);
-    delay.connect(echoTone); echoTone.connect(fb); fb.connect(delay);
-    echoTone.connect(this.musG);
+    // Piano timbre: a harmonic series that is rich in the low register and thin up high.
+    const wave = (amps: number[]) => {
+      const im = new Float32Array(amps.length + 1);
+      amps.forEach((a, i) => { im[i + 1] = a; });
+      return c.createPeriodicWave(new Float32Array(im.length), im);
+    };
+    this.waveLow = wave([1, 0.6, 0.4, 0.28, 0.18, 0.12, 0.08, 0.05, 0.03]);
+    this.waveHigh = wave([1, 0.35, 0.15, 0.07, 0.03]);
 
     const len = c.sampleRate;
     this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
@@ -276,10 +271,10 @@ class AudioSys {
     }
   }
 
-  /**
-   * Generative A-minor loop, scheduled ahead on the audio clock (no setInterval jitter).
-   * Layers: pad chords, bass, echoing arpeggio, sparse melody; drums fade in with intensity (0..1).
-   */
+  /** Ask for a mood's music. It takes over at the next beat of whatever is playing, with a short crossfade. */
+  setMood(m: Mood) { this.want = m; }
+
+  /** Pieces are scheduled step by step, ahead on the audio clock (no setInterval jitter). */
   private startMusic() {
     this.nextTime = this.ctx!.currentTime + 0.1;
     this.musicTimer = window.setInterval(() => this.schedule(), 60);
@@ -294,55 +289,75 @@ class AudioSys {
     }
     if (this.nextTime < c.currentTime) this.nextTime = c.currentTime + 0.05;
     while (this.nextTime < c.currentTime + 0.25) {
+      if (!this.piece || (this.want !== this.mood && this.n % this.piece.beat === 0)) this.enter(this.want, this.nextTime);
+      const P = this.piece!;
       this.feel += (this.intensity - this.feel) * 0.02;
-      this.scheduleStep(this.step++, this.nextTime);
-      this.nextTime += STEP;
+      const bar = Math.floor(this.n / P.steps);
+      this.scheduleStep(P, bar, this.n % P.steps, this.nextTime);
+      this.n++;
+      this.nextTime += P.step(bar);
     }
   }
 
-  private scheduleStep(n: number, t: number) {
+  private enter(mood: Mood, t: number) {
+    const c = this.ctx!;
+    const old = this.bus;
+    if (old) {
+      old.gain.setValueAtTime(1, t);
+      old.gain.linearRampToValueAtTime(0, t + 0.9);
+      window.setTimeout(() => old.disconnect(), (t - c.currentTime + 6) * 1000);
+    }
+    this.bus = c.createGain();
+    this.bus.connect(this.musG);
+    this.mood = mood;
+    this.piece = PIECES[mood];
+    this.n = 0;
+  }
+
+  private scheduleStep(P: Piece, bar: number, s: number, t: number) {
+    if (s === 0) this.cur = P.bar(bar);
+    const dt = P.step(bar);
+    for (const o of this.cur) {
+      if (o.s !== s) continue;
+      const at = t + (P.human ? (Math.random() - 0.3) * P.human : 0);
+      const v = o.v * (1 + (Math.random() - 0.5) * P.human * 8);
+      if (o.k === 'pad') this.voice(440 * Math.pow(2, (o.n - 69) / 12), o.d * dt, 'sine', v, { at, dest: this.bus!, attack: 0.9, jitter: 0 });
+      else this.piano(o.n, at, o.d * dt * P.pedal, v);
+    }
+    if (P.drums !== undefined) this.drums(s, t, Math.max(this.feel, P.drums));
+  }
+
+  /** One piano key: a periodic-wave oscillator with a brightness that dies away and a hammer-then-ring envelope. */
+  private piano(midi: number, t: number, hold: number, vel: number) {
+    const c = this.ctx!;
+    const f = 440 * Math.pow(2, (midi - 69) / 12);
+    const len = Math.max(0.35, Math.min(hold + 0.3, 6.5 - midi * 0.05));
+    const osc = c.createOscillator();
+    osc.setPeriodicWave(midi < 60 ? this.waveLow : this.waveHigh);
+    osc.frequency.value = f;
+    osc.detune.value = (Math.random() - 0.5) * 6;
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(Math.min(9000, f * (3 + vel * 12)), t);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(400, f * 1.5), t + Math.min(0.8, len));
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vel, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(vel * 0.4, t + Math.min(0.5, len * 0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    osc.connect(lp); lp.connect(g); g.connect(this.bus!);
+    osc.start(t); osc.stop(t + len + 0.05);
+  }
+
+  /** Drums fade in with the heat of the fight (`f`, 0..1) on the 16th-note grid. */
+  private drums(s: number, t: number, f: number) {
     const m = this.musG;
-    const s = n % 16;
-    const barIdx = Math.floor(n / 16) % ROOTS.length;
-    const root = ROOTS[barIdx];
-    const chord = QUAL[barIdx];
-    const f = this.feel;
-
-    if (s === 0) {
-      // Pad: two detuned saws per chord tone through a soft lowpass.
-      for (const iv of chord) {
-        const fq = hz(root + iv, ROOT_HZ * 2);
-        for (const det of [-8, 8]) this.voice(fq, STEP * 16, 'sawtooth', 0.028, { at: t, dest: m, detune: det, lp: 700 + f * 600, attack: 0.9, jitter: 0 });
-      }
-      this.voice(hz(root), STEP * 15, 'sine', 0.3, { at: t, dest: m, attack: 0.05, jitter: 0 });
-    }
-
-    // Bass pulses grow busier with intensity.
-    const bassHits = f > 0.25 ? [0, 6, 8, 14] : [0, 8];
-    if (bassHits.includes(s) && s !== 0) this.voice(hz(root), STEP * 3, 'triangle', 0.16, { at: t, dest: m, lp: 500, jitter: 0 });
-
-    // Arpeggio on 8th notes, with occasional rests.
-    if (s % 2 === 0 && Math.random() < 0.82) {
-      const pattern = [0, 1, 2, 1, 2, 1, 0, 2];
-      const idx = pattern[(s / 2) % pattern.length];
-      const octave = (s % 8 === 6 && Math.random() < 0.4) ? 24 : 12;
-      this.voice(hz(root + chord[idx] + octave, ROOT_HZ * 2), 0.28, 'triangle', 0.075, { at: t, dest: this.arpBus, lp: 3000, jitter: 0 });
-    }
-
-    // Sparse melody: a random walk on the pentatonic scale, mostly on the strong beats of odd bars.
-    if (s % 4 === 0 && (barIdx % 2 === 1 || s === 8) && Math.random() < 0.5) {
-      this.melodyIdx = Math.max(0, Math.min(PENTA.length - 1, this.melodyIdx + Math.floor(Math.random() * 5) - 2));
-      this.voice(hz(PENTA[this.melodyIdx] + root, ROOT_HZ * 4), 1.1, 'sine', 0.09, { at: t, dest: this.arpBus, attack: 0.03, jitter: 0 });
-    }
-
-    // Drums fade in as the fight heats up.
-    if (f > 0.2) {
-      const v = Math.min(1, (f - 0.2) * 2.5);
-      if (s === 0 || s === 8 || (f > 0.6 && s === 10)) this.kick(t, 0.32 * v);
-      if (f > 0.45 && (s === 4 || s === 12)) this.snare(t, 0.14 * v);
-      if (s % 2 === 0 && f > 0.3) this.noise(0.04, 0.03 * v, 7500, 1, 'highpass', 0, t, m);
-      if (s % 2 === 1 && f > 0.65) this.noise(0.03, 0.02 * v, 8500, 1, 'highpass', 0, t, m);
-    }
+    if (f <= 0.2) return;
+    const v = Math.min(1, (f - 0.2) * 2.5);
+    if (s === 0 || s === 8 || (f > 0.6 && s === 10) || (f > 0.8 && (s === 6 || s === 14))) this.kick(t, 0.32 * v);
+    if (f > 0.45 && (s === 4 || s === 12)) this.snare(t, 0.14 * v);
+    if (s % 2 === 0 && f > 0.3) this.noise(0.04, 0.03 * v, 7500, 1, 'highpass', 0, t, m);
+    if (s % 2 === 1 && f > 0.65) this.noise(0.03, 0.02 * v, 8500, 1, 'highpass', 0, t, m);
   }
 
   private kick(t: number, vol: number) {

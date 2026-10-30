@@ -254,9 +254,23 @@ class UI {
     const unlock = () => { audio.init(); };
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
+    window.setInterval(() => this.syncMusic(), 250);
     this.showMenu();
     const j = new URLSearchParams(location.search).get('join');
     if (j) showMultiplayer(this, normCode(j));
+  }
+
+  /** Pick the music for what is on screen: menus and the prep room get the main theme, the editor its own slow piece,
+   *  and fights escalate from combat to elite to boss. Pause and pick-a-reward layers leave the music as it is. */
+  private syncMusic() {
+    const run = this.run;
+    if (!run || run.over) { audio.setMood('main'); return; }
+    if (this.stack.some((l) => l.kind === 'editor')) { audio.setMood('editor'); return; }
+    if (run.phase === 'fight' || run.phase === 'sandbox') {
+      if (this.stack.length) return;
+      const live = run.enemies.filter((e) => !e.dead);
+      audio.setMood(run.boss || live.some((e) => e.type === 'boss') ? 'boss' : live.some((e) => e.elite) ? 'elite' : 'combat');
+    } else if (!this.stack.some((l) => l.kind === 'pause')) audio.setMood('main');
   }
 
   /* ------------------------------ layers ------------------------------ */
