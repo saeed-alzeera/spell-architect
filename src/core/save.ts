@@ -102,7 +102,8 @@ export function saveNow() {
 export const store = {
   get d() { return data; },
   get settings() { return data.settings; },
-  isUnlocked(id: string): boolean { const t = RUNE_BY_ID[id]?.tierOf; return t ? data.unlocked.includes(t) : data.unlocked.includes(id); },
+  // TEMP (testing): every rune counts as unlocked; merged triggers stay out as they are never sold or rewarded
+  isUnlocked(id: string): boolean { return !RUNE_BY_ID[id]?.merged; },
   /** Unlock the next `n` runes in order (a finished run earns them); returns the ids unlocked. */
   unlockNext(n: number): string[] {
     const out: string[] = [];
