@@ -95,7 +95,7 @@ export class Fx {
   ring(x: number, y: number, color: number, r0: number, r1: number, life = 0.35, alpha = 1) {
     this.rec?.([FxKind.Ring, x, y, color, r0, r1, life, alpha]);
     if (Math.max(r0, r1) < 50 || this.activeRings > 8) return; // tiny hit rings are pure noise; cap the rest
-    alpha *= 0.7;
+    alpha *= 0.7 / (1 + 0.25 * Math.max(0, this.activeRings - 2)); // rings are additive: each one added to a pile is fainter than the last
     const g = this.rings[this.rc]; this.rc = (this.rc + 1) % NR;
     g.on = true; g.life = g.max = life; g.s0 = r0 / 60; g.s1 = r1 / 60;
     g.img.setPosition(x, y).setTint(color).setVisible(true).setAlpha(alpha).setScale(g.s0);
