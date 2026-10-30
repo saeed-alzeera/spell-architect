@@ -115,7 +115,7 @@ export class Run {
   slots = 3;
   inv: Record<string, number> = {};
   capBase = 12;
-  coins = 9;
+  coins = 16;
   buys: Record<string, number> = {};
   shop: Shop = { stock: [], rerolls: 0 };
   /** Rituals (see rituals.ts): the contracts you have accepted, and whether the floor has caught you this round. */

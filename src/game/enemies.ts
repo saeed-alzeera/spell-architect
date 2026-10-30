@@ -199,16 +199,10 @@ export function updateEnemies(world: Run, dt: number) {
     const ox = e.x, oy = e.y;
     if (run.dummy) { e.x += e.vx * dt; e.y += e.vy * dt; e.vx *= Math.pow(0.003, dt); e.vy *= Math.pow(0.003, dt); continue; }
     if (e.freeze <= 0) {
-      if (run.arena.active && run.arena.doomed(e.x, e.y)) {
-        // adapt: the tile under us is cracking, so run for solid ground instead of chasing
-        const [sx, sy] = run.arena.nearestSolid(e.x, e.y);
-        step(e, sx, sy, e.speed * mul * 1.35, dt);
-        if (e.type === 'boss') updateBoss(run, e, dt, mul, dist, nx, ny);
-      } else {
-        const [gx, gy] = run.arena.goal(e.x, e.y, p.x, p.y);
-        if (e.type === 'boss') updateBoss(run, e, dt, mul, dist, nx, ny);
-        else aiFor(run, e, dt, mul, dist, nx, ny, gx, gy);
-      }
+      // enemies are unaware of cracking tiles: they only route around tiles that have already fallen
+      const [gx, gy] = run.arena.goal(e.x, e.y, p.x, p.y);
+      if (e.type === 'boss') updateBoss(run, e, dt, mul, dist, nx, ny);
+      else aiFor(run, e, dt, mul, dist, nx, ny, gx, gy);
     }
     // knockback & integration
     e.x += e.vx * dt; e.y += e.vy * dt;
