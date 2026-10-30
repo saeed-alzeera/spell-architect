@@ -96,7 +96,7 @@ Healing is scarce but not absent: **0.15 HP/s** baseline regeneration (about 7 H
 
 ### Shop and economy
 
-Enemies drop **coins** as pickups (roughly 1 per ten kills; elites pay 3; clearing a round and bosses pay a bonus) and XP is awarded directly on kill. A **Magnet** drop vacuums every pickup. After each round the **shop** is deliberately small: **4 offers** (3 runes plus a relic, Cores roll like any other common rune) and **3 random permanent upgrades** picked from Capacity +2, Spell Slot, Spell Power, Haste, Vitality, Keen Edge crit and Healing Draught. A reroll refreshes both. There is no limit on purchases per visit, but upgrades are capped per run, prices climb for every copy of a rune you already own, there are per-rune ownership caps and the reroll cost rises each time. Runes sell for half. Level-ups give stat boosts only.
+Enemies drop **coins** as pickups (roughly 1 per ten kills; elites pay 3; clearing a round and bosses pay a bonus) and XP is awarded directly on kill. A **Magnet** drop vacuums every pickup. After each round the **shop** is small: eight cards in all, **5 offers** (4 runes plus a relic, Cores roll like any other common rune) and **3 random permanent upgrades** picked from Capacity +2, Spell Slot, Spell Power, Haste, Vitality, Keen Edge crit and Healing Draught. A reroll refreshes both. There is no limit on purchases per visit, but upgrades are capped per run, prices climb for every copy of a rune you already own, there are per-rune ownership caps and the reroll cost rises each time. Runes sell for half. Level-ups give stat boosts only.
 
 ### Rarity and Triggers
 
