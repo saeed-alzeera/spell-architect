@@ -14,9 +14,11 @@ export const relicCard = (id: string, run: Run | null, extra = '') => {
 
 /** Always-visible strip of the worn relics (empty slots included). With `sell`, each relic gets a Sell button; relics
  *  are never stored, so selling is how you make room for a new one. */
-export function relicBar(run: Run, rerender: () => void, sell = true): { html: string; bind: (root: HTMLElement) => void } {
+export function relicBar(run: Run, rerender: () => void, sell = true, compact = false): { html: string; bind: (root: HTMLElement) => void } {
   const slots = Array.from({ length: RELIC_SLOTS }, (_, i) => run.equipped[i]);
-  const html = `<div class="relbar"><div class="relbh">RELICS <small>${run.equipped.length}/${RELIC_SLOTS}</small></div><div class="relslots">${slots.map((id) => id
+  // compact: one icon tile per relic (details and sell price in the tooltip), for space-tight screens
+  const tiles = `<div class="relbar compact"><span class="relbh" title="Relics">💎 <small>${run.equipped.length}/${RELIC_SLOTS}</small></span><div class="relslots">${slots.map((id) => { if (!id) return '<div class="rslot"><span>·</span></div>'; const r = RELIC_BY_ID[id], price = relicSellPrice(r); return `<div class="rslot full" style="--rc:${relicColor(r)}" title="${r.name}: ${r.desc}"><span class="rlic">${r.icon}</span>${sell ? `<button class="mini" data-sell="${id}" title="Sell ${r.name}">◈${price}</button>` : ''}</div>`; }).join('')}</div></div>`;
+  const html = compact ? tiles : `<div class="relbar"><div class="relbh">RELICS <small>${run.equipped.length}/${RELIC_SLOTS}</small></div><div class="relslots">${slots.map((id) => id
     ? `<div class="rslot full">${relicCard(id, run)}<p>${RELIC_BY_ID[id].desc}</p>${sell ? `<button class="mini" data-sell="${id}">Sell ◈ ${relicSellPrice(RELIC_BY_ID[id])}</button>` : ''}</div>`
     : '<div class="rslot"><span>empty</span></div>').join('')}</div></div>`;
   const bind = (root: HTMLElement) => {

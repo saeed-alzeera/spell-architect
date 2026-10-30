@@ -21,6 +21,8 @@ import { showSpellOverview } from './overview';
 export function openEditor(ui: UI, run: Run) { new Editor(ui, run).open(); }
 
 const TRIG_ICON: Record<string, string> = { hit: '💥', kill: '💀', expiry: '⏳', crit: '✴️' };
+/** One glyph per rune kind, used wherever a text label would cost space (tooltips carry the words). */
+const KIND_GLYPH: Record<RuneKind | 'all', string> = { all: '▦', form: '☄️', core: '💠', behavior: '🌀', trigger: '⚡', modifier: '🔧' };
 
 class Editor {
   root!: HTMLElement;
@@ -58,7 +60,7 @@ class Editor {
   say(msg: string, bad = false) {
     this.hint = msg; this.hintBad = bad;
     const h = this.root.querySelector('.hintbar');
-    if (h) { h.textContent = msg; h.classList.toggle('bad', bad); }
+    if (h) { const t = h.querySelector('.ht'); if (t) t.textContent = msg; h.classList.toggle('bad', bad); }
   }
 
   recompile() { this.run.recompile(this.sp); }
@@ -373,25 +375,24 @@ class Editor {
     const augs = node.children.filter((c) => ['behavior', 'modifier'].includes(RUNE_BY_ID[c.rune].kind));
     const trigs = node.children.filter((c) => RUNE_BY_ID[c.rune].kind === 'trigger');
     const core = coreNode
-      ? `<div class="sock core filled" data-node="${coreNode.id}" draggable="true" style="--c:${runeColor(RUNE_BY_ID[coreNode.rune])}"><span>${RUNE_BY_ID[coreNode.rune].icon}</span><b>${RUNE_BY_ID[coreNode.rune].name}</b><button class="nrm" data-rm="${coreNode.id}" title="Remove Core">X</button></div>`
-      : `<button class="sock core empty" data-add="${node.id}" data-kinds="core" title="Socket a Core rune to give this Form an element"><span>+</span><b>Core</b><small>${isRoot ? 'none = Arcane' : 'none = Arcane (not inherited)'}</small></button>`;
+      ? `<div class="sock core filled" data-node="${coreNode.id}" draggable="true" style="--c:${runeColor(RUNE_BY_ID[coreNode.rune])}" title="${RUNE_BY_ID[coreNode.rune].name} (Core)"><span>${RUNE_BY_ID[coreNode.rune].icon}</span><b>${RUNE_BY_ID[coreNode.rune].name}</b><button class="nrm" data-rm="${coreNode.id}" title="Remove Core">✕</button></div>`
+      : `<button class="sock core empty" data-add="${node.id}" data-kinds="core" title="Socket a Core rune to give this Form an element (none = Arcane${isRoot ? '' : ', not inherited'})"><span>＋</span><b>${KIND_GLYPH.core}</b></button>`;
     const chips = augs.map((c) => {
       const r = RUNE_BY_ID[c.rune];
-      return `<span class="chip k-${r.kind}" data-node="${c.id}" draggable="true" style="--c:${runeColor(r)}" title="${r.name}">${r.icon} ${r.name}<button class="nrm" data-rm="${c.id}">X</button></span>`;
+      return `<span class="chip k-${r.kind}" data-node="${c.id}" draggable="true" style="--c:${runeColor(r)}" title="${r.name}">${r.icon} ${r.name}<button class="nrm" data-rm="${c.id}" title="Remove">✕</button></span>`;
     }).join('');
     const trigHtml = trigs.map((t) => {
       const tr = RUNE_BY_ID[t.rune];
       const kids = t.children.map((k) => this.formCard(sp, k, 'arcane', false)).join('');
       const selOk = sel && checkAttach(sp.def, t, sel.id).ok ? 'ok' : '';
       return `<div class="trig ${selOk}" data-node="${t.id}" data-target="${t.id}" draggable="true">
-        <div class="thead"><span class="ti">${TRIG_ICON[tr.trigger!]}</span><b>${tr.name.toUpperCase()}</b><em>${tr.chance !== undefined && tr.chance < 1 ? `${Math.round(tr.chance * 100)}% · ` : ''}launches ></em><button class="nrm" data-rm="${t.id}" title="Remove trigger and its effects">X</button></div>
-        <div class="tkids">${kids || '<div class="hole">Nothing launches yet.</div>'}</div>
-        <button class="addchip" data-add="${t.id}" data-kinds="form">+ Launch a Form</button></div>`;
+        <div class="thead"><span class="ti">${TRIG_ICON[tr.trigger!]}</span><b>${tr.name.toUpperCase()}</b><em title="Launches the Forms below when it fires">${tr.chance !== undefined && tr.chance < 1 ? `${Math.round(tr.chance * 100)}% ` : ''}➜</em><button class="nrm" data-rm="${t.id}" title="Remove trigger and its effects">✕</button></div>
+        <div class="tkids">${kids}<button class="addchip" data-add="${t.id}" data-kinds="form" title="Launch a Form">＋${KIND_GLYPH.form}</button></div></div>`;
     }).join('');
     return `<div class="fcard ${cls} ${isRoot ? 'root' : ''}" data-target="${node.id}" ${isRoot ? '' : `data-node="${node.id}" draggable="true"`} style="--c:${E.css}">
-      <div class="fhead"><span class="fi">${rd.icon}</span><div class="ft"><b>${E.name.toUpperCase()} ${rd.name.toUpperCase()}</b><small>${isRoot ? 'MAIN FORM' : 'EFFECT FORM'} · cost ${rd.cost}</small></div>
-        <button class="nrm" data-rm="${node.id}" title="${isRoot ? 'Unequip this whole spell' : 'Remove'}">X</button></div>
-      <div class="frow">${core}<div class="augs">${chips}<button class="addchip" data-add="${node.id}" data-kinds="behavior,modifier,trigger">+ Augment / Trigger</button></div></div>
+      <div class="fhead" title="${isRoot ? 'Main Form' : 'Effect Form'}"><span class="fi">${rd.icon}</span><div class="ft"><b>${E.name.toUpperCase()} ${rd.name.toUpperCase()}</b></div><span class="fcost" title="Capacity cost">◆${rd.cost}</span>
+        <button class="nrm" data-rm="${node.id}" title="${isRoot ? 'Unequip this whole spell' : 'Remove'}">✕</button></div>
+      <div class="frow">${core}<div class="augs">${chips}<button class="addchip" data-add="${node.id}" data-kinds="behavior,modifier,trigger" title="Add an augment or trigger">＋${KIND_GLYPH.behavior}${KIND_GLYPH.trigger}</button></div></div>
       ${trigHtml ? `<div class="trigs">${trigHtml}</div>` : ''}
     </div>`;
   }
@@ -410,17 +411,19 @@ class Editor {
     const tabs = run.spells.map((s, i) => {
       const cost = spellCost(s.def);
       const { ico, css } = meta(s);
-      return `<button class="stab ${i === this.slot ? 'on' : ''}" data-slot="${i}" style="--c:${css}">
-        <span class="sti">${ico}</span><span class="stn"><b>${i + 1}. ${s.def.root ? s.c.name : 'Empty'}</b><small>${cost}/${s.def.capacity} cap</small></span></button>`;
-    }).join('') + (run.slots < 5 ? `<button class="stab locked" disabled title="Buy another slot in the shop"><span class="sti">🔒</span><span class="stn"><b>Slot ${run.slots + 1}</b><small>buy in shop</small></span></button>` : '');
+      return `<button class="stab ${i === this.slot ? 'on' : ''}" data-slot="${i}" style="--c:${css}" title="${i + 1}. ${s.def.root ? s.c.name : 'Empty'} (${cost}/${s.def.capacity})">
+        <span class="sti">${ico}</span><b>${i + 1}</b><i class="mcap ${cost >= s.def.capacity ? 'full' : ''}"><u style="width:${Math.min(100, s.def.capacity ? cost / s.def.capacity * 100 : 0)}%"></u></i></button>`;
+    }).join('') + (run.slots < 5 ? `<button class="stab locked" disabled title="Buy slot ${run.slots + 1} in the shop"><span class="sti">🔒</span></button>` : '');
 
     const lane = (s: ActiveSpell, i: number) => {
       const { ico, css } = meta(s);
-      const body = !s.def.root
-        ? `<div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}"><div class="eri">✦</div><b>EMPTY SLOT</b><p>Pick a <span style="color:${KIND_COLOR.form}">Form</span> and click here.</p></div>`
-        : this.formCard(s, s.def.root, 'arcane', true);
+      if (!s.def.root) {
+        // an empty slot is a small drop tile, not a full-size panel
+        return `<div class="lane empty ${i === this.slot ? 'on' : ''}" data-lane="${i}" style="--c:${css}"><div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}" title="Empty slot ${i + 1}: pick a Form, then click here"><span class="eri">✦</span><b>${i + 1}</b><span class="ep">＋${KIND_GLYPH.form}</span></div></div>`;
+      }
+      const cost = spellCost(s.def);
       return `<div class="lane ${i === this.slot ? 'on' : ''}" data-lane="${i}" style="--c:${css}">
-        <div class="lanehd"><span>${ico}</span><b>${i + 1}. ${s.def.root ? s.c.name : 'Empty'}</b><small>${spellCost(s.def)}/${s.def.capacity} cap</small></div>${body}</div>`;
+        <div class="lanehd"><span>${ico}</span><b>${i + 1}. ${s.c.name}</b><i class="mcap ${cost >= s.def.capacity ? 'full' : ''}"><u style="width:${Math.min(100, s.def.capacity ? cost / s.def.capacity * 100 : 0)}%"></u></i><small>${cost}/${s.def.capacity}</small></div>${this.formCard(s, s.def.root, 'arcane', true)}</div>`;
     };
     const graph = `<div class="lanes ${this.view}">${run.spells.map((s, i) => [s, i] as const).filter(([, i]) => this.view === 'all' || i === this.slot).map(([s, i]) => lane(s, i)).join('')}</div>`;
 
@@ -438,27 +441,27 @@ class Editor {
     for (const s2 of run.spells) if (s2.c.valid) for (const e of s2.c.elements) if (e !== 'arcane') loadEls.add(e);
     const inSpell = new Set<Element>(c.valid ? c.elements.filter((e) => e !== 'arcane') : []);
     const pots = REACTIONS.filter((r) => r.needs.every((e) => loadEls.has(e)) && r.needs.some((e) => inSpell.has(e)));
-    const potHtml = pots.length ? `<h4>Reaction potential</h4>${pots.map((r) => {
+    const potHtml = pots.length ? `<div class="elrow" title="Reaction potential">⚗️ ${pots.map((r) => {
       const self = r.needs.every((e) => inSpell.has(e));
-      return `<div class="pot" style="--c:${r.color}"><b>${r.icon} ${r.name}</b> ${self ? '<em>(this spell alone)</em>' : '<em>(with another slot)</em>'}<br>${r.recipe}. ${r.how}</div>`;
-    }).join('')}` : (inSpell.size ? '<h4>Reaction potential</h4><p class="muted">No reactions yet. Pair this element with another one (in this spell or another slot) to unlock some. See the Reactions tab.</p>' : '');
+      return `<span class="elchip" style="--c:${r.color}" title="${r.name} (${self ? 'this spell alone' : 'needs another slot'}): ${r.recipe}. ${r.how}">${r.icon} ${r.name} ${self ? '✓' : '⛓'}</span>`;
+    }).join('')}</div>` : (inSpell.size ? '<div class="elrow muted" title="No reactions yet. Pair this element with another one (in this spell or another slot) to unlock some.">⚗️ ∅</div>' : '');
     const ult = rootC?.evolved ? ULTIMATES[rootC.element] : null;
     const spellInfo = `
       <div class="spname">${sp.def.root ? c.name : 'Empty slot'}</div>
       <div class="elrow">${elems}${rootC?.evolved ? '<span class="elchip" style="--c:#ffd25a">EVOLVED</span>' : ''}</div>
-      ${c.valid ? `<h4>What it does</h4><p class="story">${c.story}</p>` : '<p class="muted">Equip a Form to begin.</p>'}
+      ${c.valid ? `<p class="story">${c.story}</p>` : `<p class="muted">＋${KIND_GLYPH.form}</p>`}
       ${ult ? `<div class="ultbox"><b>${ult.icon} ULTIMATE (SPACE): ${ult.name}</b><p>${ult.desc}</p></div>` : ''}
-      <div class="capbar ${pct >= 100 ? 'full' : ''}"><div style="width:${pct}%"></div><span>CAPACITY ${cost}/${sp.def.capacity}</span></div>
+      <div class="capbar ${pct >= 100 ? 'full' : ''}" title="Capacity"><div style="width:${pct}%"></div><span>◆ ${cost}/${sp.def.capacity}</span></div>
       ${est ? `<div class="tiles">
-        <div><b>${dmg.toFixed(0)}</b><span>Damage / cast</span></div>
-        <div><b>${cd.toFixed(2)}s</b><span>Cooldown</span></div>
-        <div><b>${(est.dps * pm.dmgMul / pm.cdMul).toFixed(0)}</b><span>Est. DPS</span></div>
-        <div><b>${c.runeCount}</b><span>Runes</span></div></div>` : ''}
+        <div title="Damage per cast"><b>${dmg.toFixed(0)}</b><span>💥</span></div>
+        <div title="Cooldown"><b>${cd.toFixed(2)}s</b><span>⏱</span></div>
+        <div title="Estimated DPS"><b>${(est.dps * pm.dmgMul / pm.cdMul).toFixed(0)}</b><span>⚔️</span></div>
+        <div title="Runes in this spell"><b>${c.runeCount}</b><span>🧩</span></div></div>` : ''}
       ${potHtml}
       ${c.warnings.length ? `<div class="warns">${c.warnings.map((w) => `<div>⚠ ${w}</div>`).join('')}</div>` : ''}
-      ${muts ? `<h4>Mutations</h4><div>${muts}</div>` : ''}
-      ${prog ? `<h4>Mutation progress</h4>${prog}` : ''}
-      <h4>Rune details</h4><div class="rdetail"><p class="muted">Hover any rune.</p></div>`;
+      ${muts ? `<div class="elrow" title="Mutations">🧬 ${muts}</div>` : ''}
+      ${prog ? `<div title="Mutation progress">${prog}</div>` : ''}
+      <div class="rdetail"><p class="muted">🔍</p></div>`;
 
     // loadout-wide elements for the Reactions tab
     const present = new Set<Element>();
@@ -497,8 +500,8 @@ class Editor {
           <button class="addchip" data-forge="${e2}" ${n >= EVOLVE_COST ? '' : 'disabled'}>FORGE ${evo.name.toUpperCase()}</button></div>`;
       }).join('')}
       ${mergeHtml}`;
-    const tabsHtml = `<div class="itabs">${(['spell', 'react', 'forge', 'stats'] as const).map((t) => `<button data-tab="${t}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'ready' : ''}">${t === 'spell' ? 'SPELL' : t === 'react' ? 'REACTIONS' : t === 'stats' ? 'STATS' : 'FORGE'}</button>`).join('')}</div>`;
-    const rm = relicBar(run, () => this.render());
+    const tabsHtml = `<div class="itabs">${(['spell', 'react', 'forge', 'stats'] as const).map((t) => `<button data-tab="${t}" title="${t === 'spell' ? 'Spell' : t === 'react' ? 'Reactions' : t === 'stats' ? 'Stats' : 'Forge'}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'ready' : ''}">${t === 'spell' ? '🔮' : t === 'react' ? '⚗️' : t === 'stats' ? '📊' : '🔨'}</button>`).join('')}</div>`;
+    const rm = relicBar(run, () => this.render(), true, true);
     const pl = run.player;
     const statsInfo = `<div class="spname">STATS</div><div class="statgrid">
       <span>Spell power</span><b>x${pl.dmgMul.toFixed(2)}${earlyPower(run.round) > 1.001 ? ` (+${Math.round((earlyPower(run.round) - 1) * 100)}% early)` : ''}</b><span>Cooldown</span><b>x${pl.cdMul.toFixed(2)}</b>
@@ -515,19 +518,19 @@ class Editor {
       <span class="ri">${r.icon}</span><span class="rn">${r.name}</span><span class="rc">${r.cost}</span><span class="rx">×${run.inv[r.id]}</span></div>`).join('');
 
     ed.innerHTML = `
-      <header><h2>SPELL EDITOR</h2><div class="stabs">${tabs}</div><button class="mini ovbtn" data-view="1" title="Edit every slot side by side, or focus on one">${this.view === 'all' ? '▣ ALL SLOTS' : '▢ ONE SLOT'}</button><button class="mini ovbtn" data-overview="1" title="See every spell at a glance">🔮 OVERVIEW</button><button class="x" data-a="close" title="Close (Esc / E)">X</button></header>
+      <header><h2 title="Spell Editor">📖</h2><div class="stabs">${tabs}</div><button class="mini ovbtn" data-view="1" title="${this.view === 'all' ? 'Showing every slot. Click to focus one.' : 'Showing one slot. Click to show all.'}">${this.view === 'all' ? '▣' : '▢'}</button><button class="mini ovbtn" data-overview="1" title="Spell overview: every spell at a glance">🗂</button><button class="x" data-a="close" title="Close (Esc / E)">✕</button></header>
       ${rm.html}
       <main>
         <section class="graphwrap">
-          <div class="legend"><span style="--c:${KIND_COLOR.form}">FORM = the spell</span><span style="--c:${KIND_COLOR.core}">CORE = its element</span><span style="--c:${KIND_COLOR.behavior}">AUGMENTS = tweaks</span><span style="--c:${KIND_COLOR.trigger}">TRIGGER = launches more Forms</span></div>
           <div class="graph">${graph}</div>
-          <div class="hintbar ${this.hintBad ? 'bad' : ''}">${this.hint || (this.sel ? `Selected ${RUNE_BY_ID[this.sel].name}. Click a glowing card to place it.` : 'Pick a rune, then click a glowing card. Right-click removes.')}</div></section>
+          <div class="hintbar ${this.hintBad ? 'bad' : ''}"><span class="ht">${this.hint || (this.sel ? `${RUNE_BY_ID[this.sel].icon} ${RUNE_BY_ID[this.sel].name}: click a glowing card.` : 'Pick a rune, click a glowing card. Right-click removes.')}</span>
+            <span class="legend">${(['form', 'core', 'behavior', 'trigger'] as const).map((k) => `<span style="--c:${KIND_COLOR[k]}" title="${KIND_LABEL[k]}${k === 'form' ? ': the spell itself' : k === 'core' ? ': sets its element' : k === 'behavior' ? ': tweaks how it flies (and modifiers)' : ': launches more Forms'}">${KIND_GLYPH[k]}</span>`).join('')}</span></div></section>
         <aside class="info">${info}</aside>
       </main>
       <footer class="inventory">
-        <div class="invh"><b>RUNE POOL</b> <small>${total} rune${total === 1 ? '' : 's'}</small>
-          <div class="filters">${kinds.map((k) => `<button data-filter="${k}" class="${this.filter === k ? 'on' : ''}" style="${k !== 'all' ? `--c:${KIND_COLOR[k]}` : ''}">${k === 'all' ? 'ALL' : KIND_LABEL[k].toUpperCase()}</button>`).join('')}
-          ${this.sel ? '<button data-clear class="clr">DESELECT</button>' : ''}</div></div>
+        <div class="invh"><b title="Rune pool">🎒</b> <small>${total}</small>
+          <div class="filters">${kinds.map((k) => `<button data-filter="${k}" class="${this.filter === k ? 'on' : ''}" title="${k === 'all' ? 'All runes' : KIND_LABEL[k]}" style="${k !== 'all' ? `--c:${KIND_COLOR[k]}` : ''}">${KIND_GLYPH[k]}</button>`).join('')}
+          ${this.sel ? '<button data-clear class="clr" title="Deselect">✕</button>' : ''}</div></div>
         <div class="chips">${chips || '<p class="muted">No runes.</p>'}</div>
       </footer>`;
     const g2 = ed.querySelector('.graph') as HTMLElement;
