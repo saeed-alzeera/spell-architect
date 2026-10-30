@@ -214,7 +214,9 @@ export function mergeResult(a: string, b: string): RuneDef | string {
   if (!MERGEABLE.includes(ra.trigger!)) return 'On Expiry always fires, so there is nothing to merge.';
   const pct = Math.round(((ra.chance ?? 1) + (rb.chance ?? 1)) * 100);
   if (pct > MAX_MERGE_CHANCE * 100) return `The merged chance would be ${pct}%. A single trigger can't pass ${Math.round(MAX_MERGE_CHANCE * 100)}%.`;
-  const base = RUNE_BY_ID[MERGE_BASE[ra.trigger!]];
+  return makeMerged(RUNE_BY_ID[MERGE_BASE[ra.trigger!]], pct);
+}
+function makeMerged(base: RuneDef, pct: number): RuneDef {
   const id = `${base.id}@${pct}`;
   if (!RUNE_BY_ID[id]) {
     const d: RuneDef = { ...base, id, name: `${base.name} ${pct}%`, rarity: rarityForChance(pct / 100), chance: pct / 100, cost: pct >= 75 ? 2 : 1, unlock: 99999, merged: true,
@@ -222,6 +224,14 @@ export function mergeResult(a: string, b: string): RuneDef | string {
     RUNES.push(d); RUNE_BY_ID[id] = d;
   }
   return RUNE_BY_ID[id];
+}
+/** Merged triggers are created on the machine that merges them, so a build from another machine can name one this machine has not seen yet: rebuild it from its id (e.g. `t_kill@40`). */
+export function ensureMergedRune(id: string): RuneDef | undefined {
+  if (RUNE_BY_ID[id]) return RUNE_BY_ID[id];
+  const m = /^(t_hit|t_kill|t_crit)@(\d{1,3})$/.exec(id);
+  const pct = m ? Number(m[2]) : 0;
+  if (!m || !RUNE_BY_ID[m[1]] || pct < 1 || pct > MAX_MERGE_CHANCE * 100) return undefined;
+  return makeMerged(RUNE_BY_ID[m[1]], pct);
 }
 /** Level of a trigger rune (1-4) within its family, or 0 when it is not a levelled trigger. */
 export function triggerLevel(id: string): number {
