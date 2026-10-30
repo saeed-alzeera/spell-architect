@@ -477,3 +477,15 @@ button.ready, .itabs button.ready { border-color: var(--gold) !important; color:
 .relbar.compact .rlic { font-size: 15px; }
 .relbar.compact .rslot .mini { position: absolute; right: -2px; bottom: -6px; padding: 1px 3px; font-size: 6px; line-height: 1.2; opacity: 0; }
 .relbar.compact .rslot:hover .mini { opacity: 1; }
+
+/* Lucide / Tabler inline icons (src/ui/icons.ts) */
+.ico { display: inline-block; flex: none; vertical-align: -0.2em; }
+.nrm, .itabs button, .filters button, .editor header .mini, .editor header .x, .lane .emptyroot .eri, .tiles span { display: inline-flex; align-items: center; justify-content: center; }
+.addchip { display: inline-flex; align-items: center; gap: 4px; }
+.sock.empty { gap: 4px; }
+.lane .emptyroot .ep { display: inline-flex; align-items: center; }
+.tiles span { width: 100%; }
+.relbar.compact .rslot .mini { display: flex; align-items: center; gap: 1px; }
+.fcost, .capbar span, .lanehd small, .thead em, .relbh { display: inline-flex; align-items: center; gap: 3px; }
+.capbar span { display: flex; justify-content: center; }
+.tkids .addchip { align-self: flex-start; }
