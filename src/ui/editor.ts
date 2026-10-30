@@ -9,7 +9,7 @@ import { store } from '../core/save';
 import { reactionCardHtml } from './reactions';
 import { MUT_TRACKS, MUT_OPTION_BY_ID } from '../data/mutations';
 import {
-  checkAttach, findNode, newNode, spellCost, subtreeRunes, estimate, walk, type SpellNode,
+  checkAttach, checkTransfer, findNode, newNode, spellCost, subtreeRunes, estimate, walk, type SpellNode,
 } from '../core/spell';
 import { audio } from '../core/audio';
 import { earlyPower, type Run } from '../game/run';
@@ -112,6 +112,23 @@ class Editor {
     this.recompile();
     audio.play('ui');
     this.say('Removed. The runes went back to your pool.');
+  }
+
+  /** Move a placed branch from one spell to another (`parentId` null = the empty main slot). */
+  transfer(nodeId: number, from: number, to: number, parentId: number | null): boolean {
+    const A = this.run.spells[from], B = this.run.spells[to];
+    const f = findNode(A.def, nodeId);
+    const t = parentId === null ? null : findNode(B.def, parentId);
+    if (!f || !f.parent || (parentId !== null && !t)) return false;
+    const c = checkTransfer(B.def, t?.node ?? null, f.node);
+    if (!c.ok) { this.say(c.reason, true); audio.play('warn'); return false; }
+    f.parent.children = f.parent.children.filter((x) => x !== f.node);
+    if (t) t.node.children.push(f.node); else B.def.root = f.node;
+    this.run.recompile(A); this.run.recompile(B);
+    this.slot = to;
+    audio.play('pick');
+    this.say(`Moved ${RUNE_BY_ID[f.node.rune].name} to spell ${to + 1}.`);
+    return true;
   }
 
   /** Toggle a trigger in the merge selection (max two, same type). */
@@ -240,17 +257,15 @@ class Editor {
       const inv = t.closest('.inventory');
       const emp = t.closest('.emptyroot');
       const ls = this.laneOf(t);
-      if (ls !== null && this.drag.node !== undefined && ls !== this.drag.slot) {
-        this.say('Runes can\'t move between spells directly. Drop it in the rune pool, then place it.', true);
-        return;
-      }
       if (ls !== null) this.slot = ls;
       if (tg) {
         const c = this.checkDrop(+tg.dataset.target!);
         this.say(c.reason, !c.ok);
         if (c.ok) e.preventDefault();
-      } else if (emp && this.drag.rune) {
-        const c = checkAttach(this.sp.def, null, this.drag.rune);
+      } else if (emp && (this.drag.rune || this.drag.node !== undefined)) {
+        const src = this.drag.node !== undefined ? findNode(this.run.spells[this.drag.slot ?? this.slot].def, this.drag.node) : null;
+        const c = this.drag.rune ? checkAttach(this.sp.def, null, this.drag.rune)
+          : src && src.parent && this.drag.slot !== this.slot ? checkTransfer(this.sp.def, null, src.node) : { ok: false, reason: '' };
         this.say(c.ok ? 'Drop to equip this Form in the slot.' : c.reason, !c.ok);
         if (c.ok) e.preventDefault();
       } else if (inv && this.drag.node !== undefined) { e.preventDefault(); this.say('Drop to return this rune to your pool.'); }
@@ -268,9 +283,11 @@ class Editor {
       this.drag = null;
       if (tg) {
         const id = +tg.dataset.target!;
-        if (d.rune) this.attach(id, d.rune); else if (d.node !== undefined) this.move(d.node, id);
+        if (d.rune) this.attach(id, d.rune);
+        else if (d.node !== undefined) { if (d.slot === this.slot) this.move(d.node, id); else this.transfer(d.node, d.slot!, this.slot, id); }
       } else if (emp && d.rune) this.attach(null, d.rune);
-      else if (inv && d.node !== undefined) this.remove(d.node);
+      else if (emp && d.node !== undefined && d.slot !== this.slot) this.transfer(d.node, d.slot!, this.slot, null);
+      else if (inv && d.node !== undefined) { this.slot = d.slot ?? this.slot; this.remove(d.node); }
       this.render();
     });
   }
@@ -280,9 +297,11 @@ class Editor {
     const t = findNode(sp.def, targetId);
     if (!t || !this.drag) return { ok: false, reason: '' };
     if (this.drag.rune) return checkAttach(sp.def, t.node, this.drag.rune);
-    const f = findNode(sp.def, this.drag.node!);
+    const src = this.run.spells[this.drag.slot ?? this.slot];
+    const f = findNode(src.def, this.drag.node!);
     if (!f) return { ok: false, reason: '' };
     if (!f.parent) return { ok: false, reason: 'The slot\'s main Form can\'t be moved. Drag it to the rune pool to unequip the whole spell.' };
+    if (src !== sp) return checkTransfer(sp.def, t.node, f.node);
     return checkAttach(sp.def, t.node, f.node.rune, f.node);
   }
 
@@ -290,15 +309,18 @@ class Editor {
     const keep = this.slot;
     this.root.querySelectorAll<HTMLElement>('[data-lane]').forEach((ln) => {
       const s = +ln.dataset.lane!;
-      // A placed rune can only move within its own spell; pool runes can go to any lane.
-      const foreign = this.drag?.node !== undefined && s !== this.drag.slot;
       this.slot = s;
       ln.querySelectorAll<HTMLElement>('[data-target]').forEach((n) => {
-        const ok = !foreign && this.checkDrop(+n.dataset.target!).ok;
+        const ok = this.checkDrop(+n.dataset.target!).ok;
         n.classList.toggle('ok', ok); n.classList.toggle('bad', !ok);
       });
       const em = ln.querySelector('.emptyroot');
-      if (em && this.drag?.rune) { const c = checkAttach(this.sp.def, null, this.drag.rune); em.classList.toggle('ok', c.ok); em.classList.toggle('bad', !c.ok); }
+      if (em && this.drag) {
+        const src = this.drag.node !== undefined ? findNode(this.run.spells[this.drag.slot ?? keep].def, this.drag.node) : null;
+        const c = this.drag.rune ? checkAttach(this.sp.def, null, this.drag.rune)
+          : src && src.parent && this.drag.slot !== s ? checkTransfer(this.sp.def, null, src.node) : { ok: false };
+        em.classList.toggle('ok', c.ok); em.classList.toggle('bad', !c.ok);
+      }
     });
     this.slot = keep;
   }

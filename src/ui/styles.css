@@ -202,7 +202,8 @@ button.x:hover { background: #a02040; }
 .lane { --c: #6a5ab0; padding: 10px; background: rgba(10, 7, 32, 0.45); border: 3px solid color-mix(in srgb, var(--c) 25%, #2c2262); }
 .lane.on { border-color: var(--c); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 45%, transparent); }
 .lanehd { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 8px; color: var(--c); } .lanehd small { margin-left: auto; font-size: 6px; color: var(--mut); }
-.lane .emptyroot { margin: 6px 0; padding: 18px 12px; max-width: none; }
+.lane .emptyroot { margin: 0; padding: 10px 12px; max-width: none; line-height: 1.6; }
+.lane .emptyroot .eri { font-size: 18px; } .lane .emptyroot b { margin: 4px 0; font-size: 9px; }
 .fcard { --c: #c9a6ff; position: relative; max-width: 760px; background: #1a1342; border: 4px solid var(--c); box-shadow: 0 0 0 3px var(--ink), 5px 5px 0 3px rgba(0, 0, 0, 0.5), inset 0 0 30px color-mix(in srgb, var(--c) 14%, transparent); padding: 10px; }
 .fcard .fcard { margin-top: 8px; box-shadow: 0 0 0 3px var(--ink), 3px 3px 0 3px rgba(0, 0, 0, 0.5), inset 0 0 30px color-mix(in srgb, var(--c) 14%, transparent); }
 .fcard.ok, .trig.ok { outline: 4px dashed #3aff7a; outline-offset: 3px; animation: okp 0.7s steps(2) infinite; cursor: pointer; }
