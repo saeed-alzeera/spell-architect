@@ -16,7 +16,7 @@ import { saveRunRecord, installId, versionStamp, type RunRecord, type RoundRec }
 import { ruleMods } from '../core/spell';
 import { generateRewards } from './rewards';
 import { drawTelegraph } from './draw';
-import { ritualEvent, ritualRoundEnd, ritualRoundStart, type ActiveRitual } from './rituals';
+import { drawGoldZone, ritualEvent, ritualRoundEnd, ritualRoundStart, ritualTick, type ActiveRitual } from './rituals';
 import { updateCasting, updateEnts, processEvents } from './casting';
 
 import { Arena, ARENA, tileCx, tileCy } from './arena';
@@ -120,7 +120,7 @@ export class Run {
   shop: Shop = { stock: [], rerolls: 0 };
   /** Rituals (see rituals.ts): the contracts you have accepted, and whether the floor has caught you this round. */
   rituals: ActiveRitual[] = [];
-  ritualRound: { fell: boolean } = { fell: false };
+  ritualRound: { fell: boolean; zoneT: number } = { fell: false, zoneT: 0 };
   shopOpened = true;
   seed = (Math.random() * 2147483647) | 0;
   startedAt = Date.now();
@@ -265,7 +265,7 @@ export class Run {
       pid, pname: name, remote: true, down: false,
       player: p, spells: [] as ActiveSpell[], slots: 0, inv: {}, coins: 0, buys: {}, equipped: [] as string[],
       relicState: {}, inRelic: false, critKill: false, kills: 0, totalDamage: 0, reactionCount: 0, hurtBy: {}, lastHurt: '', pending: [] as Pending[],
-      boosts: [] as string[], input: { x: 0, y: 0 }, ultTrack: null, capExtra: 0, rituals: [] as ActiveRitual[], ritualRound: { fell: false }, cmdQ: [] as Cmd[], cmdCredit: 0.25, cmdSeq: 0, cmdAck: 0,
+      boosts: [] as string[], input: { x: 0, y: 0 }, ultTrack: null, capExtra: 0, rituals: [] as ActiveRitual[], ritualRound: { fell: false, zoneT: 0 }, cmdQ: [] as Cmd[], cmdCredit: 0.25, cmdSeq: 0, cmdAck: 0,
       mods: { elements: 0, poisonCap: 0, coinMul: 1, priceMul: 1, rerollMul: 1, rerollMinus: 0, forgeMinus: 0 },
     });
     w.players.push(s);
@@ -745,6 +745,7 @@ export class Run {
     this.updateArena(dt);
 
     for (const pr of this.players) { if (!pr.down) pr.movePlayer(dt); else if (pr.remote) pr.dropCmds(); }
+    if (this.phase === 'fight') for (const pr of this.players) if (!pr.down) ritualTick(pr, dt);
 
     this.recalcEnemyIndex();
     if (!this.over && this.phase === 'fight') updateDirector(this, dt);
@@ -1129,6 +1130,7 @@ export class Run {
   syncSprites(playerSpr: Img, playerShadow: Img) {
     const p = this.player;
     this.arena.draw(this.floorGfx, this.time);
+    drawGoldZone(this.floorGfx, this, this.time);
     for (const e of this.enemies) {
       if (e.dead) continue;
       poseEnemy(e, e.spr, e.shadow, e.badge, this.time);

@@ -11,11 +11,19 @@
 - Miss the challenge in any round and the ritual **lapses** at the end of that round (the health is already spent). Meet it in all three and the reward is applied at the end of the third round.
 - The reward lasts for the rest of the run and is never meta progression.
 
-## The one ritual: Rite of the Fall
+## Rite of the Fall
 
 Each round part of the arena floor crumbles away (`arena.ts`; warned tiles flash and crack first). The ritual asks you to be caught by it **at least once in each of the 3 rounds**, which means taking the fall damage (12% of max health, minimum 6) on purpose by standing on a warned tile or stepping over the edge once it has gone. Reward: **+20% damage** for the rest of the run.
 
 It trades a lot of health for damage, so it suits a build that can afford the risk and ends with the player in control: stand still on a warned tile and you will fall, dodge and you will not.
+
+## Golden Idol
+
+A golden zone covers half of the arena (the left, right, top or bottom half; `goldZone` in `rituals.ts`). It moves to a different half every 10 seconds, in an order seeded by round and run seed, and the next half is outlined for the last 2 seconds. The ritual asks you to spend **at least 50% of each of the 3 rounds** inside it, measured against the time the round actually lasted (so boss rounds work too). Reward: **each coin an enemy drops has a 50% chance to be doubled** (`goldMul`, rolled per drop in `killEnemy`) for the rest of the run.
+
+Co-op: the zone is a pure function of round, seed and `roundElapsed`, so joiners draw it themselves. The host counts each player's time in the zone (`ritualTick`) and sends it in the `rit` message (`zt`) for the HUD. The wire change bumped `PROTO` to 7.
+
+Why it moves: a fixed half would be free (just stand there). Moving it makes you cross the arena every so often while enemies chase you.
 
 ## UI
 

@@ -11,7 +11,7 @@ import { planFor } from '../game/rounds';
 import { newShop } from '../game/shop';
 import type { Build, Cmd, CoopLink, Pending, Run, RunSummary } from '../game/run';
 import { poseWizard } from '../game/render';
-import { validateRituals } from '../game/rituals';
+import { drawGoldZone, validateRituals } from '../game/rituals';
 import { ui } from '../ui/ui';
 import { showNotice } from '../ui/lobby';
 import type { GuestNet, HostNet } from './rtc';
@@ -273,7 +273,7 @@ export class HostSession implements CoopLink {
     // each joiner's ritual progress, about once a second, for their HUD
     if (this.run.phase === 'fight' && (this.ritT -= dt) <= 0) {
       this.ritT = 1;
-      for (const g of this.guests.values()) if (!g.offline && g.shell.rituals.length) this.net.sendCtl(g.id, { t: 'rit', p: g.shell.rituals.map((r) => [r.state, r.roundsDone, ...r.prog]), fell: g.shell.ritualRound.fell });
+      for (const g of this.guests.values()) if (!g.offline && g.shell.rituals.length) this.net.sendCtl(g.id, { t: 'rit', p: g.shell.rituals.map((r) => [r.state, r.roundsDone, ...r.prog]), fell: g.shell.ritualRound.fell, zt: Math.round(g.shell.ritualRound.zoneT * 10) / 10 });
     }
   }
 
@@ -434,6 +434,7 @@ export class GuestSession implements CoopLink {
         const run = this.run;
         (m.p as [string, number, ...number[]][]).forEach((q, i) => { const r = run.rituals[i]; if (r) { r.state = q[0] as never; r.roundsDone = q[1]; r.prog = q.slice(2) as number[]; } });
         run.ritualRound.fell = !!m.fell;
+        run.ritualRound.zoneT = Number(m.zt) || 0;
         break;
       }
       case 'lobby': {
@@ -578,6 +579,7 @@ export class GuestSession implements CoopLink {
     this.replica.render(dt, now, this.pid, run.telGfx);
     run.fx.update(dt);
     run.arena.draw(run.floorGfx, this.replica.time / 1000);
+    drawGoldZone(run.floorGfx, run, this.replica.time / 1000);
     this.syncPause();
     // no news from the host for a while: say so instead of silently freezing
     if (!this.reconnecting) this.setBanner(this.lastMeAt && now - this.lastMeAt > 1500 && this.net.connected ? 'Waiting for the host...' : null);

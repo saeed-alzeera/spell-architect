@@ -24,7 +24,7 @@ import { store, save, saveNow } from '../core/save';
 import { audio } from '../core/audio';
 import { spellCooldown } from '../core/spell';
 import type { Run, RunOpts, RunSummary } from '../game/run';
-import { RITUALS, ritualProgress } from '../game/rituals';
+import { RITUALS, ritualHint, ritualMet, ritualProgress } from '../game/rituals';
 import { generateRewards, type Reward } from '../game/rewards';
 import { openEditor } from './editor';
 import { ritualSection } from './rituals';
@@ -196,15 +196,15 @@ class Hud {
   /** The running rituals' objectives under the health bars. */
   updateRituals(run: Run) {
     const act = run.rituals.filter((r) => r.state === 'active');
-    const key = act.map((r) => `${r.def.id}${r.roundsDone}${r.prog.join(',')}${run.ritualRound.fell}`).join('|');
+    const key = act.map((r) => `${r.def.id}${r.roundsDone}${r.prog.join(',')}${run.ritualRound.fell}${Math.floor(run.ritualRound.zoneT)}${Math.floor(run.roundElapsed)}`).join('|');
     if (key === this.ritKey) return;
     this.ritKey = key;
-    const met = run.ritualRound.fell;
     this.ritEl.innerHTML = act.map((r) => {
+      const met = ritualMet(r, run);
       const pips = Array.from({ length: r.def.rounds }, (_, i) => `<i class="${i < r.roundsDone ? 'done' : i === r.roundsDone ? (met ? 'done' : 'now') : ''}"></i>`).join('');
       return `<div class="rit ${met ? 'met' : 'pending'}"><div class="rh"><b>${r.def.icon} RITUAL: ${r.def.name}</b><span class="pips">${pips}</span></div>
         <div class="rc">Round ${r.roundsDone + 1} of ${r.def.rounds}: ${r.def.challenge}</div>
-        <div class="rs">${met ? '✔ Done this round. You are safe.' : '▸ Not done yet! Stand on a cracked tile.'} <em>${ritualProgress(r, run)}</em></div></div>`;
+        <div class="rs">${ritualHint(r, run)} <em>${ritualProgress(r, run)}</em></div></div>`;
     }).join('');
   }
   /** Teammates' health (co-op). */
