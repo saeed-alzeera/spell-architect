@@ -27,11 +27,13 @@ class Editor {
   slot = 0;
   sel: string | null = null;
   filter: RuneKind | 'all' = 'all';
-  drag: { rune?: string; node?: number } | null = null;
+  drag: { rune?: string; node?: number; slot?: number } | null = null;
   menu: HTMLElement | null = null;
   hint = '';
   hintBad = false;
   tab: 'spell' | 'react' | 'forge' | 'stats' = 'spell';
+  /** 'all' lays every slot out side by side; 'one' shows only the active slot. */
+  view: 'all' | 'one' = 'all';
   mergeSel: string[] = [];
 
   constructor(private ui: UI, private run: Run) {
@@ -60,6 +62,12 @@ class Editor {
   }
 
   recompile() { this.run.recompile(this.sp); }
+
+  /** Slot index of the lane containing `t`, or null when `t` is outside every lane. */
+  laneOf(t: HTMLElement): number | null {
+    const ln = t.closest('[data-lane]') as HTMLElement | null;
+    return ln ? +ln.dataset.lane! : null;
+  }
 
   /* ------------------------------ operations ------------------------------ */
 
@@ -125,7 +133,11 @@ class Editor {
     r.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
       if (this.menu && !t.closest('.addmenu')) this.closeMenu();
-      const mi = t.closest('[data-pick]') as HTMLElement | null;
+      // Clicking inside a lane makes it the active slot; every branch below then edits that spell.
+      const ls = this.laneOf(t);
+      const refocus = ls !== null && ls !== this.slot;
+      if (refocus) this.slot = ls!;
+      const mi =t.closest('[data-pick]') as HTMLElement | null;
       if (mi) {
         if (!mi.classList.contains('dis')) { const pid = +mi.dataset.parent!; const rid = mi.dataset.pick!; this.closeMenu(); this.attach(pid < 0 ? null : pid, rid); this.render(); }
         return;
@@ -141,6 +153,7 @@ class Editor {
       }
       const tb = t.closest('[data-tab]') as HTMLElement | null;
       if (tb) { this.tab = tb.dataset.tab as typeof this.tab; audio.play('ui'); this.render(); return; }
+      if (t.closest('[data-view]')) { this.view = this.view === 'all' ? 'one' : 'all'; audio.play('ui'); this.render(); this.scrollToLane(); return; }
       if (t.closest('[data-overview]')) { showSpellOverview(this.ui, this.run); return; }
       const mp = t.closest('[data-mpick]') as HTMLElement | null;
       if (mp) { this.pickMerge(mp.dataset.mpick!); this.render(); return; }
@@ -166,7 +179,7 @@ class Editor {
         this.render(); return;
       }
       const slot = t.closest('[data-slot]') as HTMLElement | null;
-      if (slot) { this.slot = +slot.dataset.slot!; this.sel = null; this.hint = ''; this.render(); return; }
+      if (slot) { this.slot = +slot.dataset.slot!; this.sel = null; this.hint = ''; this.render(); this.scrollToLane(); return; }
       const f = t.closest('[data-filter]') as HTMLElement | null;
       if (f) { this.filter = f.dataset.filter as RuneKind | 'all'; this.render(); return; }
       const chip = t.closest('.rchip[data-rune]') as HTMLElement | null;
@@ -176,14 +189,24 @@ class Editor {
       const empty = t.closest('.emptyroot');
       if (empty) { if (this.sel) { this.attach(null, this.sel); this.render(); } else this.openMenu(-1, empty as HTMLElement, ['form']); return; }
       const tg = t.closest('[data-target]') as HTMLElement | null;
-      if (tg && this.sel) { this.attach(+tg.dataset.target!, this.sel); this.render(); }
+      if (tg && this.sel) { this.attach(+tg.dataset.target!, this.sel); this.render(); return; }
+      if (refocus) this.render();
     });
     r.addEventListener('contextmenu', (e) => {
-      const nd = (e.target as HTMLElement).closest('[data-node]') as HTMLElement | null;
-      if (nd) { e.preventDefault(); this.remove(+nd.dataset.node!); this.render(); }
+      const t = e.target as HTMLElement;
+      const nd = t.closest('[data-node]') as HTMLElement | null;
+      if (nd) {
+        e.preventDefault();
+        const ls = this.laneOf(t);
+        if (ls !== null) this.slot = ls;
+        this.remove(+nd.dataset.node!); this.render();
+      }
     });
     r.addEventListener('mouseover', (e) => {
       const t = e.target as HTMLElement;
+      // Hover feedback is about the lane under the cursor, without changing the active slot.
+      const keep = this.slot, ls = this.laneOf(t);
+      if (ls !== null) this.slot = ls;
       const rd = t.closest('[data-rune],[data-node]') as HTMLElement | null;
       if (rd) {
         let id = rd.dataset.rune;
@@ -195,12 +218,15 @@ class Editor {
         const n = findNode(this.sp.def, +tg.dataset.target!);
         if (n) { const c = checkAttach(this.sp.def, n.node, this.sel); this.say(c.ok ? `Click to place ${RUNE_BY_ID[this.sel].name} on ${RUNE_BY_ID[n.node.rune].name}.` : c.reason, !c.ok); }
       }
+      this.slot = keep;
     });
     // drag & drop
     r.addEventListener('dragstart', (e) => {
       const t = (e.target as HTMLElement).closest('[data-rune],[data-node]') as HTMLElement | null;
       if (!t) return;
-      this.drag = t.dataset.rune ? { rune: t.dataset.rune } : { node: +t.dataset.node! };
+      const ls = this.laneOf(t);
+      if (ls !== null) this.slot = ls;
+      this.drag = t.dataset.rune ? { rune: t.dataset.rune } : { node: +t.dataset.node!, slot: this.slot };
       e.dataTransfer?.setData('text/plain', 'sa');
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
       this.closeMenu();
@@ -213,6 +239,12 @@ class Editor {
       const tg = t.closest('[data-target]') as HTMLElement | null;
       const inv = t.closest('.inventory');
       const emp = t.closest('.emptyroot');
+      const ls = this.laneOf(t);
+      if (ls !== null && this.drag.node !== undefined && ls !== this.drag.slot) {
+        this.say('Runes can\'t move between spells directly. Drop it in the rune pool, then place it.', true);
+        return;
+      }
+      if (ls !== null) this.slot = ls;
       if (tg) {
         const c = this.checkDrop(+tg.dataset.target!);
         this.say(c.reason, !c.ok);
@@ -231,6 +263,8 @@ class Editor {
       const tg = t.closest('[data-target]') as HTMLElement | null;
       const inv = t.closest('.inventory');
       const emp = t.closest('.emptyroot');
+      const ls = this.laneOf(t);
+      if (ls !== null) this.slot = ls;
       this.drag = null;
       if (tg) {
         const id = +tg.dataset.target!;
@@ -253,12 +287,23 @@ class Editor {
   }
 
   markTargets() {
-    this.root.querySelectorAll<HTMLElement>('[data-target]').forEach((n) => {
-      const c = this.checkDrop(+n.dataset.target!);
-      n.classList.toggle('ok', c.ok); n.classList.toggle('bad', !c.ok);
+    const keep = this.slot;
+    this.root.querySelectorAll<HTMLElement>('[data-lane]').forEach((ln) => {
+      const s = +ln.dataset.lane!;
+      // A placed rune can only move within its own spell; pool runes can go to any lane.
+      const foreign = this.drag?.node !== undefined && s !== this.drag.slot;
+      this.slot = s;
+      ln.querySelectorAll<HTMLElement>('[data-target]').forEach((n) => {
+        const ok = !foreign && this.checkDrop(+n.dataset.target!).ok;
+        n.classList.toggle('ok', ok); n.classList.toggle('bad', !ok);
+      });
+      const em = ln.querySelector('.emptyroot');
+      if (em && this.drag?.rune) { const c = checkAttach(this.sp.def, null, this.drag.rune); em.classList.toggle('ok', c.ok); em.classList.toggle('bad', !c.ok); }
     });
-    const em = this.root.querySelector('.emptyroot');
-    if (em && this.drag?.rune) { const c = checkAttach(this.sp.def, null, this.drag.rune); em.classList.toggle('ok', c.ok); em.classList.toggle('bad', !c.ok); }
+    this.slot = keep;
+  }
+  scrollToLane() {
+    this.root.querySelector(`[data-lane="${this.slot}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }
   clearMarks() { this.root.querySelectorAll('.ok,.bad').forEach((n) => { n.classList.remove('ok'); n.classList.remove('bad'); }); }
 
@@ -295,14 +340,14 @@ class Editor {
   /* ------------------------------ rendering ------------------------------ */
 
   /** Render one form card and, recursively, the forms launched by its triggers. */
-  formCard(node: SpellNode, inherit: Element, isRoot: boolean): string {
+  formCard(sp: ActiveSpell, node: SpellNode, inherit: Element, isRoot: boolean): string {
     const rd = RUNE_BY_ID[node.rune];
     const coreNode = node.children.find((c) => RUNE_BY_ID[c.rune].kind === 'core');
     void inherit;
     const element: Element = coreNode ? RUNE_BY_ID[coreNode.rune].element! : 'arcane';
     const E = ELEMENTS[element];
     const sel = this.sel ? RUNE_BY_ID[this.sel] : null;
-    const cls = sel ? (checkAttach(this.sp.def, node, sel.id).ok ? 'ok' : '') : '';
+    const cls = sel ? (checkAttach(sp.def, node, sel.id).ok ? 'ok' : '') : '';
     const augs = node.children.filter((c) => ['behavior', 'modifier'].includes(RUNE_BY_ID[c.rune].kind));
     const trigs = node.children.filter((c) => RUNE_BY_ID[c.rune].kind === 'trigger');
     const core = coreNode
@@ -314,8 +359,8 @@ class Editor {
     }).join('');
     const trigHtml = trigs.map((t) => {
       const tr = RUNE_BY_ID[t.rune];
-      const kids = t.children.map((k) => this.formCard(k, 'arcane', false)).join('');
-      const selOk = sel && checkAttach(this.sp.def, t, sel.id).ok ? 'ok' : '';
+      const kids = t.children.map((k) => this.formCard(sp, k, 'arcane', false)).join('');
+      const selOk = sel && checkAttach(sp.def, t, sel.id).ok ? 'ok' : '';
       return `<div class="trig ${selOk}" data-node="${t.id}" data-target="${t.id}" draggable="true">
         <div class="thead"><span class="ti">${TRIG_ICON[tr.trigger!]}</span><b>${tr.name.toUpperCase()}</b><em>${tr.chance !== undefined && tr.chance < 1 ? `${Math.round(tr.chance * 100)}% · ` : ''}launches ></em><button class="nrm" data-rm="${t.id}" title="Remove trigger and its effects">X</button></div>
         <div class="tkids">${kids || '<div class="hole">Nothing launches yet.</div>'}</div>
@@ -336,20 +381,26 @@ class Editor {
     const sl = gw ? gw.scrollLeft : 0, st = gw ? gw.scrollTop : 0;
     const c = sp.c;
 
+    const meta = (s: ActiveSpell) => {
+      const root = s.c.valid ? s.c.root : null;
+      return { ico: root ? `${ELEMENTS[root.element].icon}${FORMS[root.form].icon}` : '+', css: root ? ELEMENTS[root.element].css : '#6a5ab0' };
+    };
     const tabs = run.spells.map((s, i) => {
       const cost = spellCost(s.def);
-      const root = s.c.valid ? s.c.root : null;
-      const ico = root ? `${ELEMENTS[root.element].icon}${FORMS[root.form].icon}` : '+';
-      return `<button class="stab ${i === this.slot ? 'on' : ''}" data-slot="${i}" style="--c:${root ? ELEMENTS[root.element].css : '#6a5ab0'}">
+      const { ico, css } = meta(s);
+      return `<button class="stab ${i === this.slot ? 'on' : ''}" data-slot="${i}" style="--c:${css}">
         <span class="sti">${ico}</span><span class="stn"><b>${i + 1}. ${s.def.root ? s.c.name : 'Empty'}</b><small>${cost}/${s.def.capacity} cap</small></span></button>`;
     }).join('') + (run.slots < 5 ? `<button class="stab locked" disabled title="Buy another slot in the shop"><span class="sti">🔒</span><span class="stn"><b>Slot ${run.slots + 1}</b><small>buy in shop</small></span></button>` : '');
 
-    let graph: string;
-    if (!sp.def.root) {
-      graph = `<div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}"><div class="eri">✦</div><b>EMPTY SLOT</b><p>Pick a <span style="color:${KIND_COLOR.form}">Form</span> and click here.</p></div>`;
-    } else {
-      graph = this.formCard(sp.def.root, 'arcane', true);
-    }
+    const lane = (s: ActiveSpell, i: number) => {
+      const { ico, css } = meta(s);
+      const body = !s.def.root
+        ? `<div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}"><div class="eri">✦</div><b>EMPTY SLOT</b><p>Pick a <span style="color:${KIND_COLOR.form}">Form</span> and click here.</p></div>`
+        : this.formCard(s, s.def.root, 'arcane', true);
+      return `<div class="lane ${i === this.slot ? 'on' : ''}" data-lane="${i}" style="--c:${css}">
+        <div class="lanehd"><span>${ico}</span><b>${i + 1}. ${s.def.root ? s.c.name : 'Empty'}</b><small>${spellCost(s.def)}/${s.def.capacity} cap</small></div>${body}</div>`;
+    };
+    const graph = `<div class="lanes ${this.view}">${run.spells.map((s, i) => [s, i] as const).filter(([, i]) => this.view === 'all' || i === this.slot).map(([s, i]) => lane(s, i)).join('')}</div>`;
 
     const est = c.valid && c.root ? estimate(c.root, sp.mut) : null;
     const pm = run.player;
@@ -442,7 +493,7 @@ class Editor {
       <span class="ri">${r.icon}</span><span class="rn">${r.name}</span><span class="rc">${r.cost}</span><span class="rx">×${run.inv[r.id]}</span></div>`).join('');
 
     ed.innerHTML = `
-      <header><h2>SPELL EDITOR</h2><div class="stabs">${tabs}</div><button class="mini ovbtn" data-overview="1" title="See every spell at a glance">🔮 OVERVIEW</button><button class="x" data-a="close" title="Close (Esc / E)">X</button></header>
+      <header><h2>SPELL EDITOR</h2><div class="stabs">${tabs}</div><button class="mini ovbtn" data-view="1" title="Edit every slot side by side, or focus on one">${this.view === 'all' ? '▣ ALL SLOTS' : '▢ ONE SLOT'}</button><button class="mini ovbtn" data-overview="1" title="See every spell at a glance">🔮 OVERVIEW</button><button class="x" data-a="close" title="Close (Esc / E)">X</button></header>
       ${rm.html}
       <main>
         <section class="graphwrap">
