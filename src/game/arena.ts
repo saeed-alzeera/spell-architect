@@ -1,10 +1,10 @@
-// The arena floor: a 16x16 grid of small tiles. Each round a seeded share of the tiles crumbles away in a steady
+// The arena floor: a 22x22 grid of small tiles. Each round a seeded share of the tiles crumbles away in a steady
 // trickle, one tile every fraction of a second (10% in round 1, 20% from round 2 on; it resets every round, it is
 // not cumulative). Doomed tiles flash and crack for a few seconds first. The tiles that remain are always connected, so nobody is ever stranded.
 import type Phaser from 'phaser';
 
 export const TILE = 50;
-export const TN = 16;
+export const TN = 22;
 export const ARENA = TILE * TN;
 
 const SOLID = 0, WARN = 1, FALL = 2, VOID = 3;

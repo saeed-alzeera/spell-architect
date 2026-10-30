@@ -85,5 +85,5 @@ Each file's header says how to run it (a built game on :4173 and the worker on :
 * **No TURN relay.** Players behind symmetric NAT or strict firewalls cannot connect peer-to-peer and will see "Could not connect to the host". A TURN service (for example Cloudflare's) would be the next step; it needs credentials the project does not have.
 * Spells fire from the host's authoritative position of the joiner, which trails the joiner's predicted position by about half the RTT (about 11 px at 70 ms RTT); projectiles therefore appear to start slightly behind a moving joiner. Lag compensation for casting was not implemented.
 * Enemy bodies and other players are drawn in the past (about 70-100 ms); the host's player is too, as seen by joiners.
-* Each joiner is sent the whole arena (it is 800 px square, always on screen); there is no interest management.
+* Each joiner is sent the whole arena (it is 1100 px square, always on screen); there is no interest management.
 * No host migration; a joiner cannot join a run already in progress (a dropped player can come back).
