@@ -2,10 +2,10 @@
 // and you gain a permanent upgrade for the rest of the run, miss a round and it lapses (the health is already spent).
 // A ritual's challenge is always something the player can bring about. Today there are two: the Rite of the Fall asks you to be
 // caught by the crumbling floor (fall into the void) in each of its rounds, the Golden Idol asks you to spend half of each round
-// inside the golden zone (about half of the arena, a blob that keeps shifting).
+// inside the golden zone (about half of the arena, made of whole floor tiles that keep changing).
 // Co-op: every player has their own ritual (events reach the shell of the player they belong to) and the host evaluates it.
 import type Phaser from 'phaser';
-import { ARENA } from './arena';
+import { ARENA, TILE, TN, tileCx, tileCy, tileOf } from './arena';
 import type { Run } from './run';
 
 export const RITUAL_ROUNDS = 3;
@@ -20,7 +20,7 @@ export interface ActiveRitual { def: RitualDef; startRound: number; roundsDone: 
 
 export const RITUALS: RitualDef[] = [
   { id: 'fall', name: 'Rite of the Fall', icon: '🕳️', rounds: RITUAL_ROUNDS, challenge: 'Fall through the crumbling floor at least once in each round', reward: `+${Math.round(POWER_REWARD * 100)}% damage for the rest of the run` },
-  { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about half of the arena, it keeps growing on some sides and shrinking on others)`, reward: `each coin an enemy drops has a ${Math.round(GOLD_DOUBLE * 100)}% chance to be doubled, for the rest of the run` },
+  { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about half of the arena, whole floor tiles that light up and go dark as it drifts)`, reward: `each coin an enemy drops has a ${Math.round(GOLD_DOUBLE * 100)}% chance to be doubled, for the rest of the run` },
 ];
 
 /** Half of your current health: what a ritual costs. */
@@ -53,7 +53,7 @@ export function ritualRoundStart(run: Run) {
 
 /* ------------------------------------------------------------------ the golden zone */
 
-/** The golden zone is a blob around a drifting centre. Its radius wobbles with a few slow waves that turn at different speeds, so
+/** The golden zone is a blob around a drifting centre, snapped to the floor grid: a tile is gold when its centre is inside the blob. Its radius wobbles with a few slow waves that turn at different speeds, so
  *  it constantly grows on some sides and recedes on others. It is a pure function of (round, seed, t), so joiners draw the same one. */
 const ZONE_R = 315; // about half of the arena once the wobble is averaged in
 const WAVES: [number, number, number][] = [[1, 0.3, 0.55], [2, 0.22, -0.8], [3, 0.12, 1.1]]; // lobes, amplitude, turn speed (rad/s)
@@ -66,14 +66,18 @@ export function goldZone(round: number, seed: number, t: number) {
   return { cx, cy, radius };
 }
 
+/** Is the floor tile with this index part of the zone? */
+const tileInZone = (z: ReturnType<typeof goldZone>, i: number) => {
+  const dx = tileCx(i) - z.cx, dy = tileCy(i) - z.cy;
+  return Math.hypot(dx, dy) <= z.radius(Math.atan2(dy, dx));
+};
+
 const isGold = (r: ActiveRitual) => r.state === 'active' && r.def.id === 'gold';
 
 /** Host: counts the time this player spends in the golden zone. */
 export function ritualTick(run: Run, dt: number) {
   if (!run.rituals.some(isGold)) return;
-  const { cx, cy, radius } = goldZone(run.round, run.seed, run.roundElapsed);
-  const p = run.player, dx = p.x - cx, dy = p.y - cy;
-  if (Math.hypot(dx, dy) <= radius(Math.atan2(dy, dx))) run.ritualRound.zoneT += dt;
+  if (tileInZone(goldZone(run.round, run.seed, run.roundElapsed), tileOf(run.player.x, run.player.y))) run.ritualRound.zoneT += dt;
 }
 
 /** Share of the round spent in the zone so far. */
@@ -82,14 +86,20 @@ const zoneShare = (run: Run) => (run.roundElapsed > 0 ? Math.min(1, run.ritualRo
 /** Paint the golden zone for the local player's running Golden Idol. */
 export function drawGoldZone(g: Phaser.GameObjects.Graphics, run: Run, time: number) {
   if (run.phase !== 'fight' || !run.rituals.some(isGold)) return;
-  const { cx, cy, radius } = goldZone(run.round, run.seed, run.roundElapsed);
-  g.beginPath();
-  for (let i = 0; i <= 64; i++) { const a = (i / 64) * 6.2832, r = radius(a); if (i) g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); else g.moveTo(cx + r, cy); }
-  g.closePath();
-  g.fillStyle(0xffd25a, 0.12 + 0.05 * Math.sin(time * 3));
-  g.fillPath();
-  g.lineStyle(4, 0xffd25a, 0.85);
-  g.strokePath();
+  const z = goldZone(run.round, run.seed, run.roundElapsed);
+  const inZ = Array.from({ length: TN * TN }, (_, i) => tileInZone(z, i));
+  const at = (x: number, y: number) => x >= 0 && y >= 0 && x < TN && y < TN && inZ[y * TN + x];
+  g.fillStyle(0xffd25a, 0.2 + 0.06 * Math.sin(time * 3));
+  for (let i = 0; i < inZ.length; i++) if (inZ[i]) g.fillRect((i % TN) * TILE + 1, Math.floor(i / TN) * TILE + 1, TILE - 2, TILE - 2);
+  g.lineStyle(3, 0xffd25a, 0.9); // outline only where the zone meets a tile that is not in it
+  for (let y = 0; y < TN; y++) for (let x = 0; x < TN; x++) {
+    if (!at(x, y)) continue;
+    const X = x * TILE, Y = y * TILE;
+    if (!at(x - 1, y)) g.lineBetween(X, Y, X, Y + TILE);
+    if (!at(x + 1, y)) g.lineBetween(X + TILE, Y, X + TILE, Y + TILE);
+    if (!at(x, y - 1)) g.lineBetween(X, Y, X + TILE, Y);
+    if (!at(x, y + 1)) g.lineBetween(X, Y + TILE, X + TILE, Y + TILE);
+  }
 }
 
 /** The Golden Idol's reward: how many coins a drop is worth (rolled per drop). */

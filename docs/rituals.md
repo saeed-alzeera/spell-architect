@@ -19,7 +19,7 @@ It trades a lot of health for damage, so it suits a build that can afford the ri
 
 ## Golden Idol
 
-A golden zone covers about half of the arena. It is a blob around a slowly drifting centre whose radius wobbles with three waves turning at different speeds, so it is always growing on some sides and receding on others (`goldZone` in `rituals.ts`). The ritual asks you to spend **at least 50% of each of the 3 rounds** inside it, measured against the time the round actually lasted (so boss rounds work too). Reward: **each coin an enemy drops has a 50% chance to be doubled** (`goldMul`, rolled per drop in `killEnemy`) for the rest of the run.
+A golden zone covers about half of the arena. It is a blob around a slowly drifting centre whose radius wobbles with three waves turning at different speeds, so it is always growing on some sides and receding on others (`goldZone` in `rituals.ts`). The blob is snapped to the floor grid: a tile is gold when its centre is inside it, you count as in the zone when you stand on a gold tile, and it is drawn as whole tiles with an outline around the edge. The ritual asks you to spend **at least 50% of each of the 3 rounds** inside it, measured against the time the round actually lasted (so boss rounds work too). Reward: **each coin an enemy drops has a 50% chance to be doubled** (`goldMul`, rolled per drop in `killEnemy`) for the rest of the run.
 
 Per player: each player's Golden Idol has its own progress and the zone is drawn only for the player who accepted it. Known gap: coins are not owned, so a doubled coin goes to whoever picks it up.
 
