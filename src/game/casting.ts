@@ -235,7 +235,7 @@ function syncEnt(run: Run, en: SEnt) {
       en.spr.setPosition(en.x, en.y).setScale((R / base) * pulse);
       const zs = zoneStyle(en.el);
       const baseA = en.env === 'puddle' && en.ice ? 0.7 : zs.alpha;
-      en.spr.setAlpha(baseA * a * (en.electric > 0 ? 0.7 + 0.3 * Math.sin(T * 40) : 1));
+      en.spr.setAlpha(baseA * a * (en.electric > 0 ? 0.7 + 0.3 * Math.sin(T * 40) : 1) * (en.kind === 'aura' ? auraFill : buried.has(en.id) ? 0 : 1));
       if (en.electric > 0) en.spr.setTint(0xfff35e);
       else if (en.ice) en.spr.setTint(0xb8f0ff);
       if (en.kind === 'aura') {
@@ -455,8 +455,37 @@ export function processEvents(run: Run) {
 
 /* ----------------------------- Entity simulation ----------------------------- */
 
+/** Fill opacity of every aura this frame. Auras all draw around the player, so with several out their fills stack (and the additive ones blow out to white): each gets fainter the more there are, while the rings stay crisp. Drawing only; damage is untouched. */
+let auraFill = 1;
+/** Puddles and clouds whose picture is hidden because an older one of the same element already covers that spot. They still exist and tick as before; only the stacked sprite is skipped. */
+const buried = new Set<number>();
+
+function sortOutOverlapVisuals(ents: SEnt[]) {
+  buried.clear();
+  let auras = 0;
+  const shown: SEnt[] = [];
+  for (let i = 0; i < ents.length; i++) {
+    const en = ents[i];
+    if (en.dead) continue;
+    if (en.kind === 'aura') auras++;
+    else if (en.kind === 'decal') {
+      const R = currentR(en);
+      let covered = false;
+      for (let j = 0; j < shown.length; j++) {
+        const o = shown[j];
+        if (o.el !== en.el) continue;
+        const dx = o.x - en.x, dy = o.y - en.y, near = currentR(o) * 0.5;
+        if (dx * dx + dy * dy < near * near && R <= currentR(o) * 1.15) { covered = true; break; }
+      }
+      if (covered) buried.add(en.id); else shown.push(en);
+    }
+  }
+  auraFill = 1 / (0.6 + 0.4 * Math.max(1, auras));
+}
+
 export function updateEnts(world: Run, dt: number) {
   const ents = world.ents;
+  sortOutOverlapVisuals(ents);
   for (let i = 0; i < ents.length; i++) {
     const en = ents[i];
     if (en.dead) continue;

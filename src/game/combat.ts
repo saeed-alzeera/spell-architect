@@ -396,6 +396,7 @@ function evaporate(run: Run, p: SEnt, src: Src) {
   for (const n of run.query(p.x, p.y, p.r)) reactDamage(run, n, 8 * src.sp.mut.react * run.player.dmgMul, ['fire', 'water'], src);
 }
 
+let lastBlastFx = -9;
 export function igniteCloud(run: Run, c: SEnt, src: Src | null, depth: number) {
   if (c.dead) return;
   if (src) run = run.owner(src.sp); // the caster's stats, relics and rewards apply
@@ -406,10 +407,14 @@ export function igniteCloud(run: Run, c: SEnt, src: Src | null, depth: number) {
   const dmg = (26 + c.dmg * 5) * rm * run.player.dmgMul;
   reaction(run, 'gasblast', c.x, c.y, src);
   run.fx.ring(c.x, c.y, 0xff7a1a, R * 0.3, R, 0.4);
-  run.fx.ring(c.x, c.y, 0xffe08a, R * 0.1, R * 0.7, 0.3);
   run.fx.burst(c.x, c.y, 0xff9a2a, 14, R * 3, 0.55, 1.6);
-  run.fx.shake(6);
-  audio.play('boom');
+  // a chain of clouds goes off in one frame: one bang, one shake and one inner ring for the lot (presentation only, every cloud still deals its damage)
+  if (run.world.time - lastBlastFx > 0.2) {
+    lastBlastFx = run.world.time;
+    run.fx.ring(c.x, c.y, 0xffe08a, R * 0.1, R * 0.7, 0.3);
+    run.fx.shake(6);
+    audio.play('boom');
+  }
   for (const n of run.query(c.x, c.y, R)) {
     reactDamage(run, n, dmg, ['fire', 'poison'], src);
     if (!n.dead) applyBurn(run, n, dmg * 0.25, src);
