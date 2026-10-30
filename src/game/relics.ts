@@ -28,7 +28,7 @@ export const RELICS: RelicDef[] = [
   { id: 'prism', name: 'Cracked Prism', icon: '🔶', rarity: 'common', desc: '+4% damage for each different element equipped across your spells (max +24%).', badge: (r) => `+${Math.min(6, r.mods.elements) * 4}%` },
   { id: 'whetstone', name: 'Whetstone', icon: '🪨', rarity: 'common', desc: 'The first hit on every enemy deals +30% damage.' },
   { id: 'penny', name: 'Lucky Penny', icon: '🪙', rarity: 'common', desc: 'Enemies that die while Wet, Burning, Poisoned or Frozen drop +1 coin.' },
-  { id: 'thimble', name: "Healer's Thimble", icon: '🧵', rarity: 'common', desc: 'Heal 1 HP every 25 kills.', badge: (r) => `${st(r, 'thimble').n ?? 0}/25` },
+  { id: 'thimble', name: "Healer's Thimble", icon: '🧵', rarity: 'common', desc: 'Heal 1 HP every 25 kills (all players\' kills count).', badge: (r) => `${st(r, 'thimble').n ?? 0}/25` },
   { id: 'ember', name: 'Ember Heart', icon: '❤️‍🔥', rarity: 'common', desc: 'Burning enemies take +15% damage from every source.' },
   // ---- uncommon
   { id: 'purist', name: 'Arcane Purist', icon: '✦', rarity: 'uncommon', desc: 'Spells whose main Form has no Core deal +50% damage and recharge 25% faster.' },
@@ -117,8 +117,13 @@ export function onCrit(run: Run, e: Enemy, src: Src, dmg: number) {
 }
 
 export function onKill(run: Run, e: Enemy, crit: boolean) {
+  // Thimble: every kill in the room counts, whoever lands it; each wearer keeps their own counter and heals themself.
+  for (const pr of run.world.players) {
+    if (!has(pr, 'thimble')) continue;
+    const s = st(pr, 'thimble'); s.n = (s.n ?? 0) + 1;
+    if (s.n >= 25) { s.n = 0; pr.heal(1); }
+  }
   if (!run.equipped.length) return;
-  if (has(run, 'thimble')) { const s = st(run, 'thimble'); s.n = (s.n ?? 0) + 1; if (s.n >= 25) { s.n = 0; run.heal(1); } }
   if (has(run, 'penny') && (e.wet > 0 || e.burn > 0 || e.poison > 0 || e.freeze > 0)) run.dropCoin(e.x, e.y, 1);
   if (has(run, 'resin') && e.poison > 0) run.dropCoin(e.x, e.y, 1);
   if (has(run, 'fang') && crit) { const s = st(run, 'fang'); if ((s.n ?? 0) < 3) { s.n = (s.n ?? 0) + 1; run.heal(1); } }
