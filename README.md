@@ -88,7 +88,7 @@ Reactions come from simple systemic rules, not scripted upgrades. Each reaction 
 
 ### Crumbling floor
 
-The arena is a 22x22 map of small tiles. Every round a seeded share of the tiles falls away in a near-constant trickle (one tile every second or so, evenly spaced through the round) rather than in waves: 10% in round 1, 20% from round 2 on. It resets every round (not cumulative). Doomed tiles crack and pulse red for a few seconds first, and the collapse favours the corners and edges (about half of the fallen tiles come from the outer ring) without being exclusive. The remaining floor always stays connected. Enemies on a cracking tile run for solid ground, path around holes, and die if they are still there when it drops; you take 12% max HP and are put back on solid floor. Implemented in `src/game/arena.ts`.
+The arena is a 16x16 map (800 px square) of small tiles. Every round a seeded share of the tiles falls away in a near-constant trickle (one tile every second or so, evenly spaced through the round) rather than in waves: 10% in round 1, 20% from round 2 on. It resets every round (not cumulative). Doomed tiles crack and pulse red for a few seconds first, and the collapse favours the corners and edges (about half of the fallen tiles come from the outer ring) without being exclusive. The remaining floor always stays connected. Enemies on a cracking tile run for solid ground, path around holes, and die if they are still there when it drops; you take 12% max HP and are put back on solid floor. Implemented in `src/game/arena.ts`.
 
 ### Health and early game
 
