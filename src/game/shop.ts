@@ -1,4 +1,4 @@
-// Between-round shop: ONE shelf of cards mixing runes, a relic and permanent upgrades (capacity, spell slots, vitality, power...).
+// Between-round shop: ONE shelf (eight cards) of cards mixing runes, a relic and permanent upgrades (capacity, spell slots, vitality, power...).
 // Nothing has a purchase cap; instead every repeat costs much more than the last, so gold can't be turned into a maxed-out stat.
 // Rerolling replaces the whole shelf (bought cards included), so it never leaves you with fewer things to buy.
 import { RUNES, RUNE_BY_ID, RARITY, dropWeight, type Rarity, type RuneDef } from '../data/runes';
@@ -19,10 +19,10 @@ export interface Offer {
 }
 export interface Shop { stock: Offer[]; rerolls: number }
 
-export const RUNE_OFFERS = 3;
+export const RUNE_OFFERS = 4;
 export const RELIC_OFFERS = 1;
-export const UPGRADE_OFFERS = 2;
-export const SHOP_SIZE = RUNE_OFFERS + RELIC_OFFERS + UPGRADE_OFFERS; // one row of six cards
+export const UPGRADE_OFFERS = 3;
+export const SHOP_SIZE = RUNE_OFFERS + RELIC_OFFERS + UPGRADE_OFFERS; // eight cards
 
 const BASE: Record<string, number> = { core: 4, form: 5, behavior: 3, trigger: 3, modifier: 3 };
 const RMUL: Record<Rarity, number> = { common: 1, uncommon: 1.5, rare: 2.2, epic: 3.4, legendary: 5 };
