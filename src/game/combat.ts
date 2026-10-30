@@ -8,6 +8,7 @@ import type { Run } from './run';
 import { spawnEnv } from './casting';
 import { rollRelics } from './relics';
 import { relicDamageMul, reactionMul, onReaction, onCrit, onKill, has } from './relics';
+import { goldMul } from './rituals';
 
 export interface DmgOpts {
   dot?: boolean; noCrit?: boolean; noTrig?: boolean; react?: boolean;
@@ -442,8 +443,8 @@ export function killEnemy(run: Run, e: Enemy, src: Src | null, el: Element) {
   if (e.type !== 'boss') {
     // coins go straight to the purse (roughly 1 coin per ten kills); elites always pay
     const chance: Record<string, number> = { grunt: 0.1, swarmer: 0.05, archer: 0.16, charger: 0.16, shaman: 0.2, armored: 0.3 };
-    if (e.elite) run.dropCoin(e.x, e.y, 3);
-    else if (Math.random() < (chance[e.type] ?? 0.1)) run.dropCoin(e.x, e.y, 1);
+    if (e.elite) run.dropCoin(e.x, e.y, 3 * goldMul(run));
+    else if (Math.random() < (chance[e.type] ?? 0.1)) run.dropCoin(e.x, e.y, goldMul(run));
     if (e.elite) { if (Math.random() < 0.2) run.dropPickup('heal', e.x + 10, e.y); if (run.round >= 2 && Math.random() < 0.3) run.dropPickup('cache', e.x - 10, e.y, true); if (run.round >= 4 && Math.random() < 0.12) { const rl = rollRelics(run, 1, 'shop')[0]; if (rl) { if (run.remote || run.relicsFull) run.pushPending({ type: 'relic', options: [rl.id] }); else run.addRelic(rl.id); } } }
     else if (Math.random() < 0.0005) run.dropPickup('heal', e.x, e.y);
   }
