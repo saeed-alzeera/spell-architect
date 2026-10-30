@@ -101,8 +101,6 @@ export class Run {
   enemies: Enemy[] = [];
   ents: SEnt[] = [];
   hazards: SEnt[] = [];
-  /** Overlap gate (see `gate` in combat.ts): key -> time before which that effect may not be applied again. World only. */
-  gates = new Map<number, number>();
   bullets: EBullet[] = [];
   pickups: Pickup[] = [];
   tels: Telegraph[] = [];
@@ -872,7 +870,6 @@ export class Run {
     for (const b of this.bullets) b.dead = true;
     for (const t of this.tels) t.dead = true;
     for (const z of this.zones) z.dead = true;
-    this.gates.clear();
     this.events.length = 0; this.laters.length = 0;
     this.boss = null;
   }
@@ -1124,7 +1121,6 @@ export class Run {
     prune(this.pickups, (k) => k.dead, (k) => this.freeImg(k.spr));
     prune(this.tels, (t) => t.dead);
     prune(this.zones, (z) => z.dead, (z) => this.freeImg(z.spr));
-    if (this.gates.size > 400) for (const [k, t] of this.gates) if (t < this.time) this.gates.delete(k);
     if (this.boss && this.boss.dead) this.boss = null;
   }
 

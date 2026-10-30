@@ -18,26 +18,6 @@ export interface DmgOpts {
 const colorCss = (c: number) => '#' + c.toString(16).padStart(6, '0');
 void colorCss;
 
-/* ------------------------------ Overlap rule ------------------------------ */
-
-/** Ground effects of one kind do not stack. Ten overlapping poison clouds poison an enemy as hard as one cloud does, so
- *  where a puddle or cloud lands never multiplies damage. Auras from different spells are separate effects the player
- *  built on purpose and still add up. Each effect asks `gateEnemy` before it touches an enemy and is refused while another
- *  of the same kind has done so within `every` seconds. Pass a bit less than the effect's own tick so a lone one always passes. */
-export const enum Chan { Poison = 1, Wet = 2, Shock = 3, Blast = 4 }
-
-/** True (and starts the cooldown) when the effect behind `key` may fire now. */
-export function gate(run: Run, key: number, every: number): boolean {
-  const w = run.world;
-  if ((w.gates.get(key) ?? 0) > w.time) return false;
-  w.gates.set(key, w.time + every);
-  return true;
-}
-
-export const gateEnemy = (run: Run, e: Enemy, chan: Chan, every: number) => gate(run, e.id * 8 + chan, every);
-/** Same, for effects that are not about one enemy (a sound, a screen shake): one global slot per channel. */
-export const gateGlobal = (run: Run, chan: Chan, every: number) => gate(run, -chan, every);
-
 /** Damage multiplier an enemy applies to an element. Arcane is never resisted. */
 export function resMul(e: Enemy, el: Element): number {
   if (el === 'arcane') return 1;
@@ -426,11 +406,11 @@ export function igniteCloud(run: Run, c: SEnt, src: Src | null, depth: number) {
   const dmg = (26 + c.dmg * 5) * rm * run.player.dmgMul;
   reaction(run, 'gasblast', c.x, c.y, src);
   run.fx.ring(c.x, c.y, 0xff7a1a, R * 0.3, R, 0.4);
+  run.fx.ring(c.x, c.y, 0xffe08a, R * 0.1, R * 0.7, 0.3);
   run.fx.burst(c.x, c.y, 0xff9a2a, 14, R * 3, 0.55, 1.6);
-  // a chain of clouds goes off in one frame: one bang and one shake for the lot, and each enemy is only blasted once
-  if (gateGlobal(run, Chan.Blast, 0.2)) { run.fx.ring(c.x, c.y, 0xffe08a, R * 0.1, R * 0.7, 0.3); run.fx.shake(6); audio.play('boom'); }
+  run.fx.shake(6);
+  audio.play('boom');
   for (const n of run.query(c.x, c.y, R)) {
-    if (!gateEnemy(run, n, Chan.Blast, 0.35)) continue;
     reactDamage(run, n, dmg, ['fire', 'poison'], src);
     if (!n.dead) applyBurn(run, n, dmg * 0.25, src);
   }

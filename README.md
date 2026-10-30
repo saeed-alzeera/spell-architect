@@ -68,12 +68,6 @@ Defined in `src/game/combat.ts`, listed in the in-game **Journal**:
 * 🔥 **Burning enemies** spread fire to neighbours and burst when they die.
 * 🌀 **Gravity** pulls enemies into whatever is hazardous; wells collapse for bonus damage when they end.
 
-**Overlapping effects.** Where an effect lands never multiplies it:
-
-* A puddle or cloud that lands on one of the same kind **merges** into it (refreshed, a little wider, the stronger damage wins; max radius 130).
-* Ground effects that overlap without merging still act **once per enemy per tick** per kind (poison clouds, wet puddles, electrified puddles, gas explosions). The gate is `gate()` / `gateEnemy()` in `combat.ts`; give any new ground effect a `Chan` and ask the gate before it touches an enemy. A gas-explosion chain also makes one bang and one shake, not one per cloud.
-* **Auras from different spells do stack**; that is the build. Their fills fade as more are out so the screen stays readable, and orbiting spells circle on separate lanes (26 px apart) instead of sharing one radius.
-
 ### Spell mutations
 
 Each spell tracks its own performance (burning kills, chain jumps, enemies captured, freezes, infections spread, soaked enemies, reactions, kills). Reaching a milestone offers a choice of two mutations (e.g. *Inferno Blast* / *Pyre Heart*, *Forked Lightning* / *Overcharge*, *Event Horizon* / *Singularity*). Mutations last for the run only.

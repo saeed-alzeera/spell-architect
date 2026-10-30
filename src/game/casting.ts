@@ -10,14 +10,11 @@ import { onCast, cooldownMul } from './relics';
 import { triggersSilenced, triggerRolls } from './rituals';
 import {
   dealDamage, applyElement, applyWet, applyPoison, POISON_BASE_STACKS, arc, explode, envReact, gravityImpulse, pullResist, reaction, reactDamage,
-  Chan, gateEnemy,
 } from './combat';
 
 export const MAX_DEPTH = 4;
 export const MAX_ENTS = 480;
 export const SPAWN_BUDGET = 36;
-/** Largest radius a puddle or cloud can grow to by absorbing others that land on it. */
-const DECAL_MAX_R = 130;
 
 let entSeq = 1;
 const noSplitCache = new WeakMap<CForm, CForm>();
@@ -95,7 +92,7 @@ export function spawnEnt(run: Run, sp: ActiveSpell, f: CForm, x: number, y: numb
       en.blast = f.element === 'fire' ? 48 * rad * mut.splash : f.element === 'gravity' ? 56 * rad : 0;
       en.pullR = 95 * mut.pullR;
       if (f.b.orbit) {
-        en.orbR = 85 * rad + orbitLane(run, sp); en.orbSpd = 3.2 * spd; en.orbAng = ang + ((o.idx ?? 0) / (o.n ?? 1)) * Math.PI * 2;
+        en.orbR = 85 * rad; en.orbSpd = 3.2 * spd; en.orbAng = ang + ((o.idx ?? 0) / (o.n ?? 1)) * Math.PI * 2;
         en.life = en.maxLife = o.life ?? lifeOf(f);
       }
       en.spr = run.img(`proj_${f.element}`, 10).setScale(en.r / 6.5);
@@ -115,7 +112,7 @@ export function spawnEnt(run: Run, sp: ActiveSpell, f: CForm, x: number, y: numb
     }
     case 'orb': {
       en.r = en.baseR = 13 * size;
-      en.orbR = 95 * rad + orbitLane(run, sp); en.orbSpd = 2.6 * spd;
+      en.orbR = 95 * rad; en.orbSpd = 2.6 * spd;
       en.orbAng = ang + ((o.idx ?? 0) / (o.n ?? 1)) * Math.PI * 2;
       en.pullR = 120 * mut.pullR;
       en.spr = run.img('orb_core', 10).setTint(el.color).setScale(en.r / 8);
@@ -179,44 +176,18 @@ export function spawnEnt(run: Run, sp: ActiveSpell, f: CForm, x: number, y: numb
   return en;
 }
 
-/** Orbiting spells each get their own lane: a second orbiting spell circles further out, so two sets of orbs never sit on top of each other. */
-function orbitLane(run: Run, sp: ActiveSpell): number {
-  let lane = 0;
-  for (const s of run.spells) {
-    if (s === sp) break;
-    const f = s.c.valid ? s.c.root : null;
-    if (f && (f.form === 'orb' || (f.form === 'projectile' && f.b.orbit))) lane++;
-  }
-  return Math.min(lane, 3) * 26;
-}
-
 /** Non-triggering environment decals: puddles/clouds left behind by water and poison impacts. */
 export function spawnEnv(run: Run, src: Src, el: Element, x: number, y: number, r: number, life: number, dmg: number) {
   run = run.owner(src.sp);
   if (el !== 'water' && el !== 'poison') return;
   if (run.ents.length >= MAX_ENTS) return;
-  const tide = el === 'water' ? src.sp.mut.tide : 1;
-  const R = r * tide, L = life * (tide > 1 ? 2 : 1), D = dmg * run.player.dmgMul;
-  // A puddle or cloud that lands on one of the same kind joins it instead of piling up beneath it: the old one is
-  // refreshed, widened a little and keeps the stronger damage. This is what keeps a busy field from turning into a
-  // wall of stacked translucent blobs, and stops overlapping decals from each applying their own tick.
   let n = 0;
-  for (const h of run.hazards) {
-    if (!h.silent || h.dead) continue;
-    n++;
-    if (h.el !== el) continue;
-    const near = Math.max(h.r, R) * 0.7;
-    if ((h.x - x) ** 2 + (h.y - y) ** 2 > near * near) continue;
-    h.r = h.baseR = Math.min(DECAL_MAX_R, Math.max(h.r, R) + 0.2 * Math.min(h.r, R));
-    h.life = Math.max(h.life, L);
-    h.maxLife = Math.max(h.maxLife, h.life + 0.2); // keeps the fade-in from replaying
-    h.dmg = Math.max(h.dmg, D);
-    return;
-  }
+  for (const h of run.hazards) if (h.silent && !h.dead) n++;
   if (n > 40) { for (const h of run.hazards) if (h.silent && !h.dead) { h.life = Math.min(h.life, 0.2); break; } return; }
+  const tide = el === 'water' ? src.sp.mut.tide : 1;
   const en = blank(run, src.sp, src.f, src, 'decal', x, y, 0);
-  en.el = el; en.silent = true; en.r = en.baseR = R; en.life = en.maxLife = L;
-  en.dmg = D; en.tick = 0.5; en.tickT = 0.2; en.depth = src.depth;
+  en.el = el; en.silent = true; en.r = en.baseR = r * tide; en.life = en.maxLife = life * (tide > 1 ? 2 : 1);
+  en.dmg = dmg * run.player.dmgMul; en.tick = 0.5; en.tickT = 0.2; en.depth = src.depth;
   en.env = el === 'water' ? 'puddle' : 'cloud';
   en.spr = el === 'water' ? run.img('puddle', 1, false).setTint(0x3d8bff).setAlpha(0.75) : run.img('zone', 2, false).setTint(0x6fe03a).setAlpha(0.5);
   en.spr2 = null;
@@ -264,7 +235,7 @@ function syncEnt(run: Run, en: SEnt) {
       en.spr.setPosition(en.x, en.y).setScale((R / base) * pulse);
       const zs = zoneStyle(en.el);
       const baseA = en.env === 'puddle' && en.ice ? 0.7 : zs.alpha;
-      en.spr.setAlpha(baseA * a * (en.electric > 0 ? 0.7 + 0.3 * Math.sin(T * 40) : 1) * (en.kind === 'aura' ? auraFill : 1));
+      en.spr.setAlpha(baseA * a * (en.electric > 0 ? 0.7 + 0.3 * Math.sin(T * 40) : 1));
       if (en.electric > 0) en.spr.setTint(0xfff35e);
       else if (en.ice) en.spr.setTint(0xb8f0ff);
       if (en.kind === 'aura') {
@@ -484,14 +455,8 @@ export function processEvents(run: Run) {
 
 /* ----------------------------- Entity simulation ----------------------------- */
 
-/** Fill opacity of every aura this frame. Auras all draw around the player, so with several out their fills stack (and the additive ones blow out to white): each gets fainter the more there are, while the rings stay crisp. */
-let auraFill = 1;
-
 export function updateEnts(world: Run, dt: number) {
   const ents = world.ents;
-  let auras = 0;
-  for (let i = 0; i < ents.length; i++) if (ents[i].kind === 'aura' && !ents[i].dead) auras++;
-  auraFill = 1 / (0.6 + 0.4 * Math.max(1, auras));
   for (let i = 0; i < ents.length; i++) {
     const en = ents[i];
     if (en.dead) continue;
@@ -764,7 +729,6 @@ function updateZone(run: Run, en: SEnt, dt: number) {
   const list = run.query(en.x, en.y, R);
   if (en.silent) {
     for (const e of list) {
-      if (!gateEnemy(run, e, en.el === 'poison' ? Chan.Poison : Chan.Wet, en.tick * 0.9)) continue; // overlapping decals of a kind act once
       if (en.el === 'poison') { applyPoison(run, e, Math.max(1.2, en.dmg * 0.3), en.src, POISON_BASE_STACKS + en.sp.mut.polStacks); dealDamage(run, e, en.dmg * 0.7, 'poison', en.src, { dot: true, noTrig: true }); }
       else applyWet(run, e, en.src);
     }
@@ -904,7 +868,6 @@ function hazardTick(run: Run, en: SEnt, dt: number) {
         const src = en.eSrc ?? en.src;
         const base = (9 + run.player.level * 0.7) * run.player.dmgMul * src.sp.mut.conduct * src.sp.mut.react;
         for (const e of run.query(en.x, en.y, R)) {
-          if (!gateEnemy(run, e, Chan.Shock, 0.36)) continue; // standing in several electrified puddles is still one shock
           reactDamage(run, e, base, ['lightning', 'water'], src);
           if (!e.dead) { e.wet = Math.max(e.wet, 2); }
         }
