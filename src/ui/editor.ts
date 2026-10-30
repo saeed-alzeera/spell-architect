@@ -9,7 +9,7 @@ import { store } from '../core/save';
 import { reactionCardHtml } from './reactions';
 import { MUT_TRACKS, MUT_OPTION_BY_ID } from '../data/mutations';
 import {
-  checkAttach, findNode, newNode, spellCost, subtreeRunes, estimate, walk, type SpellNode,
+  checkAttach, checkTransfer, findNode, newNode, spellCost, subtreeRunes, estimate, walk, type SpellNode,
 } from '../core/spell';
 import { audio } from '../core/audio';
 import { earlyPower, type Run } from '../game/run';
@@ -21,17 +21,21 @@ import { showSpellOverview } from './overview';
 export function openEditor(ui: UI, run: Run) { new Editor(ui, run).open(); }
 
 const TRIG_ICON: Record<string, string> = { hit: '💥', kill: '💀', expiry: '⏳', crit: '✴️' };
+/** One glyph per rune kind, used wherever a text label would cost space (tooltips carry the words). */
+const KIND_GLYPH: Record<RuneKind | 'all', string> = { all: '▦', form: '☄️', core: '💠', behavior: '🌀', trigger: '⚡', modifier: '🔧' };
 
 class Editor {
   root!: HTMLElement;
   slot = 0;
   sel: string | null = null;
   filter: RuneKind | 'all' = 'all';
-  drag: { rune?: string; node?: number } | null = null;
+  drag: { rune?: string; node?: number; slot?: number } | null = null;
   menu: HTMLElement | null = null;
   hint = '';
   hintBad = false;
   tab: 'spell' | 'react' | 'forge' | 'stats' = 'spell';
+  /** 'all' lays every slot out side by side; 'one' shows only the active slot. */
+  view: 'all' | 'one' = 'all';
   mergeSel: string[] = [];
 
   constructor(private ui: UI, private run: Run) {
@@ -56,10 +60,16 @@ class Editor {
   say(msg: string, bad = false) {
     this.hint = msg; this.hintBad = bad;
     const h = this.root.querySelector('.hintbar');
-    if (h) { h.textContent = msg; h.classList.toggle('bad', bad); }
+    if (h) { const t = h.querySelector('.ht'); if (t) t.textContent = msg; h.classList.toggle('bad', bad); }
   }
 
   recompile() { this.run.recompile(this.sp); }
+
+  /** Slot index of the lane containing `t`, or null when `t` is outside every lane. */
+  laneOf(t: HTMLElement): number | null {
+    const ln = t.closest('[data-lane]') as HTMLElement | null;
+    return ln ? +ln.dataset.lane! : null;
+  }
 
   /* ------------------------------ operations ------------------------------ */
 
@@ -106,6 +116,23 @@ class Editor {
     this.say('Removed. The runes went back to your pool.');
   }
 
+  /** Move a placed branch from one spell to another (`parentId` null = the empty main slot). */
+  transfer(nodeId: number, from: number, to: number, parentId: number | null): boolean {
+    const A = this.run.spells[from], B = this.run.spells[to];
+    const f = findNode(A.def, nodeId);
+    const t = parentId === null ? null : findNode(B.def, parentId);
+    if (!f || !f.parent || (parentId !== null && !t)) return false;
+    const c = checkTransfer(B.def, t?.node ?? null, f.node);
+    if (!c.ok) { this.say(c.reason, true); audio.play('warn'); return false; }
+    f.parent.children = f.parent.children.filter((x) => x !== f.node);
+    if (t) t.node.children.push(f.node); else B.def.root = f.node;
+    this.run.recompile(A); this.run.recompile(B);
+    this.slot = to;
+    audio.play('pick');
+    this.say(`Moved ${RUNE_BY_ID[f.node.rune].name} to spell ${to + 1}.`);
+    return true;
+  }
+
   /** Toggle a trigger in the merge selection (max two, same type). */
   pickMerge(id: string) {
     const type = RUNE_BY_ID[id].trigger;
@@ -125,7 +152,11 @@ class Editor {
     r.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
       if (this.menu && !t.closest('.addmenu')) this.closeMenu();
-      const mi = t.closest('[data-pick]') as HTMLElement | null;
+      // Clicking inside a lane makes it the active slot; every branch below then edits that spell.
+      const ls = this.laneOf(t);
+      const refocus = ls !== null && ls !== this.slot;
+      if (refocus) this.slot = ls!;
+      const mi =t.closest('[data-pick]') as HTMLElement | null;
       if (mi) {
         if (!mi.classList.contains('dis')) { const pid = +mi.dataset.parent!; const rid = mi.dataset.pick!; this.closeMenu(); this.attach(pid < 0 ? null : pid, rid); this.render(); }
         return;
@@ -141,6 +172,7 @@ class Editor {
       }
       const tb = t.closest('[data-tab]') as HTMLElement | null;
       if (tb) { this.tab = tb.dataset.tab as typeof this.tab; audio.play('ui'); this.render(); return; }
+      if (t.closest('[data-view]')) { this.view = this.view === 'all' ? 'one' : 'all'; audio.play('ui'); this.render(); this.scrollToLane(); return; }
       if (t.closest('[data-overview]')) { showSpellOverview(this.ui, this.run); return; }
       const mp = t.closest('[data-mpick]') as HTMLElement | null;
       if (mp) { this.pickMerge(mp.dataset.mpick!); this.render(); return; }
@@ -166,7 +198,7 @@ class Editor {
         this.render(); return;
       }
       const slot = t.closest('[data-slot]') as HTMLElement | null;
-      if (slot) { this.slot = +slot.dataset.slot!; this.sel = null; this.hint = ''; this.render(); return; }
+      if (slot) { this.slot = +slot.dataset.slot!; this.sel = null; this.hint = ''; this.render(); this.scrollToLane(); return; }
       const f = t.closest('[data-filter]') as HTMLElement | null;
       if (f) { this.filter = f.dataset.filter as RuneKind | 'all'; this.render(); return; }
       const chip = t.closest('.rchip[data-rune]') as HTMLElement | null;
@@ -176,14 +208,24 @@ class Editor {
       const empty = t.closest('.emptyroot');
       if (empty) { if (this.sel) { this.attach(null, this.sel); this.render(); } else this.openMenu(-1, empty as HTMLElement, ['form']); return; }
       const tg = t.closest('[data-target]') as HTMLElement | null;
-      if (tg && this.sel) { this.attach(+tg.dataset.target!, this.sel); this.render(); }
+      if (tg && this.sel) { this.attach(+tg.dataset.target!, this.sel); this.render(); return; }
+      if (refocus) this.render();
     });
     r.addEventListener('contextmenu', (e) => {
-      const nd = (e.target as HTMLElement).closest('[data-node]') as HTMLElement | null;
-      if (nd) { e.preventDefault(); this.remove(+nd.dataset.node!); this.render(); }
+      const t = e.target as HTMLElement;
+      const nd = t.closest('[data-node]') as HTMLElement | null;
+      if (nd) {
+        e.preventDefault();
+        const ls = this.laneOf(t);
+        if (ls !== null) this.slot = ls;
+        this.remove(+nd.dataset.node!); this.render();
+      }
     });
     r.addEventListener('mouseover', (e) => {
       const t = e.target as HTMLElement;
+      // Hover feedback is about the lane under the cursor, without changing the active slot.
+      const keep = this.slot, ls = this.laneOf(t);
+      if (ls !== null) this.slot = ls;
       const rd = t.closest('[data-rune],[data-node]') as HTMLElement | null;
       if (rd) {
         let id = rd.dataset.rune;
@@ -195,12 +237,15 @@ class Editor {
         const n = findNode(this.sp.def, +tg.dataset.target!);
         if (n) { const c = checkAttach(this.sp.def, n.node, this.sel); this.say(c.ok ? `Click to place ${RUNE_BY_ID[this.sel].name} on ${RUNE_BY_ID[n.node.rune].name}.` : c.reason, !c.ok); }
       }
+      this.slot = keep;
     });
     // drag & drop
     r.addEventListener('dragstart', (e) => {
       const t = (e.target as HTMLElement).closest('[data-rune],[data-node]') as HTMLElement | null;
       if (!t) return;
-      this.drag = t.dataset.rune ? { rune: t.dataset.rune } : { node: +t.dataset.node! };
+      const ls = this.laneOf(t);
+      if (ls !== null) this.slot = ls;
+      this.drag = t.dataset.rune ? { rune: t.dataset.rune } : { node: +t.dataset.node!, slot: this.slot };
       e.dataTransfer?.setData('text/plain', 'sa');
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
       this.closeMenu();
@@ -213,12 +258,16 @@ class Editor {
       const tg = t.closest('[data-target]') as HTMLElement | null;
       const inv = t.closest('.inventory');
       const emp = t.closest('.emptyroot');
+      const ls = this.laneOf(t);
+      if (ls !== null) this.slot = ls;
       if (tg) {
         const c = this.checkDrop(+tg.dataset.target!);
         this.say(c.reason, !c.ok);
         if (c.ok) e.preventDefault();
-      } else if (emp && this.drag.rune) {
-        const c = checkAttach(this.sp.def, null, this.drag.rune);
+      } else if (emp && (this.drag.rune || this.drag.node !== undefined)) {
+        const src = this.drag.node !== undefined ? findNode(this.run.spells[this.drag.slot ?? this.slot].def, this.drag.node) : null;
+        const c = this.drag.rune ? checkAttach(this.sp.def, null, this.drag.rune)
+          : src && src.parent && this.drag.slot !== this.slot ? checkTransfer(this.sp.def, null, src.node) : { ok: false, reason: '' };
         this.say(c.ok ? 'Drop to equip this Form in the slot.' : c.reason, !c.ok);
         if (c.ok) e.preventDefault();
       } else if (inv && this.drag.node !== undefined) { e.preventDefault(); this.say('Drop to return this rune to your pool.'); }
@@ -231,12 +280,16 @@ class Editor {
       const tg = t.closest('[data-target]') as HTMLElement | null;
       const inv = t.closest('.inventory');
       const emp = t.closest('.emptyroot');
+      const ls = this.laneOf(t);
+      if (ls !== null) this.slot = ls;
       this.drag = null;
       if (tg) {
         const id = +tg.dataset.target!;
-        if (d.rune) this.attach(id, d.rune); else if (d.node !== undefined) this.move(d.node, id);
+        if (d.rune) this.attach(id, d.rune);
+        else if (d.node !== undefined) { if (d.slot === this.slot) this.move(d.node, id); else this.transfer(d.node, d.slot!, this.slot, id); }
       } else if (emp && d.rune) this.attach(null, d.rune);
-      else if (inv && d.node !== undefined) this.remove(d.node);
+      else if (emp && d.node !== undefined && d.slot !== this.slot) this.transfer(d.node, d.slot!, this.slot, null);
+      else if (inv && d.node !== undefined) { this.slot = d.slot ?? this.slot; this.remove(d.node); }
       this.render();
     });
   }
@@ -246,19 +299,35 @@ class Editor {
     const t = findNode(sp.def, targetId);
     if (!t || !this.drag) return { ok: false, reason: '' };
     if (this.drag.rune) return checkAttach(sp.def, t.node, this.drag.rune);
-    const f = findNode(sp.def, this.drag.node!);
+    const src = this.run.spells[this.drag.slot ?? this.slot];
+    const f = findNode(src.def, this.drag.node!);
     if (!f) return { ok: false, reason: '' };
     if (!f.parent) return { ok: false, reason: 'The slot\'s main Form can\'t be moved. Drag it to the rune pool to unequip the whole spell.' };
+    if (src !== sp) return checkTransfer(sp.def, t.node, f.node);
     return checkAttach(sp.def, t.node, f.node.rune, f.node);
   }
 
   markTargets() {
-    this.root.querySelectorAll<HTMLElement>('[data-target]').forEach((n) => {
-      const c = this.checkDrop(+n.dataset.target!);
-      n.classList.toggle('ok', c.ok); n.classList.toggle('bad', !c.ok);
+    const keep = this.slot;
+    this.root.querySelectorAll<HTMLElement>('[data-lane]').forEach((ln) => {
+      const s = +ln.dataset.lane!;
+      this.slot = s;
+      ln.querySelectorAll<HTMLElement>('[data-target]').forEach((n) => {
+        const ok = this.checkDrop(+n.dataset.target!).ok;
+        n.classList.toggle('ok', ok); n.classList.toggle('bad', !ok);
+      });
+      const em = ln.querySelector('.emptyroot');
+      if (em && this.drag) {
+        const src = this.drag.node !== undefined ? findNode(this.run.spells[this.drag.slot ?? keep].def, this.drag.node) : null;
+        const c = this.drag.rune ? checkAttach(this.sp.def, null, this.drag.rune)
+          : src && src.parent && this.drag.slot !== s ? checkTransfer(this.sp.def, null, src.node) : { ok: false };
+        em.classList.toggle('ok', c.ok); em.classList.toggle('bad', !c.ok);
+      }
     });
-    const em = this.root.querySelector('.emptyroot');
-    if (em && this.drag?.rune) { const c = checkAttach(this.sp.def, null, this.drag.rune); em.classList.toggle('ok', c.ok); em.classList.toggle('bad', !c.ok); }
+    this.slot = keep;
+  }
+  scrollToLane() {
+    this.root.querySelector(`[data-lane="${this.slot}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }
   clearMarks() { this.root.querySelectorAll('.ok,.bad').forEach((n) => { n.classList.remove('ok'); n.classList.remove('bad'); }); }
 
@@ -295,36 +364,35 @@ class Editor {
   /* ------------------------------ rendering ------------------------------ */
 
   /** Render one form card and, recursively, the forms launched by its triggers. */
-  formCard(node: SpellNode, inherit: Element, isRoot: boolean): string {
+  formCard(sp: ActiveSpell, node: SpellNode, inherit: Element, isRoot: boolean): string {
     const rd = RUNE_BY_ID[node.rune];
     const coreNode = node.children.find((c) => RUNE_BY_ID[c.rune].kind === 'core');
     void inherit;
     const element: Element = coreNode ? RUNE_BY_ID[coreNode.rune].element! : 'arcane';
     const E = ELEMENTS[element];
     const sel = this.sel ? RUNE_BY_ID[this.sel] : null;
-    const cls = sel ? (checkAttach(this.sp.def, node, sel.id).ok ? 'ok' : '') : '';
+    const cls = sel ? (checkAttach(sp.def, node, sel.id).ok ? 'ok' : '') : '';
     const augs = node.children.filter((c) => ['behavior', 'modifier'].includes(RUNE_BY_ID[c.rune].kind));
     const trigs = node.children.filter((c) => RUNE_BY_ID[c.rune].kind === 'trigger');
     const core = coreNode
-      ? `<div class="sock core filled" data-node="${coreNode.id}" draggable="true" style="--c:${runeColor(RUNE_BY_ID[coreNode.rune])}"><span>${RUNE_BY_ID[coreNode.rune].icon}</span><b>${RUNE_BY_ID[coreNode.rune].name}</b><button class="nrm" data-rm="${coreNode.id}" title="Remove Core">X</button></div>`
-      : `<button class="sock core empty" data-add="${node.id}" data-kinds="core" title="Socket a Core rune to give this Form an element"><span>+</span><b>Core</b><small>${isRoot ? 'none = Arcane' : 'none = Arcane (not inherited)'}</small></button>`;
+      ? `<div class="sock core filled" data-node="${coreNode.id}" draggable="true" style="--c:${runeColor(RUNE_BY_ID[coreNode.rune])}" title="${RUNE_BY_ID[coreNode.rune].name} (Core)"><span>${RUNE_BY_ID[coreNode.rune].icon}</span><b>${RUNE_BY_ID[coreNode.rune].name}</b><button class="nrm" data-rm="${coreNode.id}" title="Remove Core">✕</button></div>`
+      : `<button class="sock core empty" data-add="${node.id}" data-kinds="core" title="Socket a Core rune to give this Form an element (none = Arcane${isRoot ? '' : ', not inherited'})"><span>＋</span><b>${KIND_GLYPH.core}</b></button>`;
     const chips = augs.map((c) => {
       const r = RUNE_BY_ID[c.rune];
-      return `<span class="chip k-${r.kind}" data-node="${c.id}" draggable="true" style="--c:${runeColor(r)}" title="${r.name}">${r.icon} ${r.name}<button class="nrm" data-rm="${c.id}">X</button></span>`;
+      return `<span class="chip k-${r.kind}" data-node="${c.id}" draggable="true" style="--c:${runeColor(r)}" title="${r.name}">${r.icon} ${r.name}<button class="nrm" data-rm="${c.id}" title="Remove">✕</button></span>`;
     }).join('');
     const trigHtml = trigs.map((t) => {
       const tr = RUNE_BY_ID[t.rune];
-      const kids = t.children.map((k) => this.formCard(k, 'arcane', false)).join('');
-      const selOk = sel && checkAttach(this.sp.def, t, sel.id).ok ? 'ok' : '';
+      const kids = t.children.map((k) => this.formCard(sp, k, 'arcane', false)).join('');
+      const selOk = sel && checkAttach(sp.def, t, sel.id).ok ? 'ok' : '';
       return `<div class="trig ${selOk}" data-node="${t.id}" data-target="${t.id}" draggable="true">
-        <div class="thead"><span class="ti">${TRIG_ICON[tr.trigger!]}</span><b>${tr.name.toUpperCase()}</b><em>${tr.chance !== undefined && tr.chance < 1 ? `${Math.round(tr.chance * 100)}% · ` : ''}launches ></em><button class="nrm" data-rm="${t.id}" title="Remove trigger and its effects">X</button></div>
-        <div class="tkids">${kids || '<div class="hole">Nothing launches yet.</div>'}</div>
-        <button class="addchip" data-add="${t.id}" data-kinds="form">+ Launch a Form</button></div>`;
+        <div class="thead"><span class="ti">${TRIG_ICON[tr.trigger!]}</span><b>${tr.name.toUpperCase()}</b><em title="Launches the Forms below when it fires">${tr.chance !== undefined && tr.chance < 1 ? `${Math.round(tr.chance * 100)}% ` : ''}➜</em><button class="nrm" data-rm="${t.id}" title="Remove trigger and its effects">✕</button></div>
+        <div class="tkids">${kids}<button class="addchip" data-add="${t.id}" data-kinds="form" title="Launch a Form">＋${KIND_GLYPH.form}</button></div></div>`;
     }).join('');
     return `<div class="fcard ${cls} ${isRoot ? 'root' : ''}" data-target="${node.id}" ${isRoot ? '' : `data-node="${node.id}" draggable="true"`} style="--c:${E.css}">
-      <div class="fhead"><span class="fi">${rd.icon}</span><div class="ft"><b>${E.name.toUpperCase()} ${rd.name.toUpperCase()}</b><small>${isRoot ? 'MAIN FORM' : 'EFFECT FORM'} · cost ${rd.cost}</small></div>
-        <button class="nrm" data-rm="${node.id}" title="${isRoot ? 'Unequip this whole spell' : 'Remove'}">X</button></div>
-      <div class="frow">${core}<div class="augs">${chips}<button class="addchip" data-add="${node.id}" data-kinds="behavior,modifier,trigger">+ Augment / Trigger</button></div></div>
+      <div class="fhead" title="${isRoot ? 'Main Form' : 'Effect Form'}"><span class="fi">${rd.icon}</span><div class="ft"><b>${E.name.toUpperCase()} ${rd.name.toUpperCase()}</b></div><span class="fcost" title="Capacity cost">◆${rd.cost}</span>
+        <button class="nrm" data-rm="${node.id}" title="${isRoot ? 'Unequip this whole spell' : 'Remove'}">✕</button></div>
+      <div class="frow">${core}<div class="augs">${chips}<button class="addchip" data-add="${node.id}" data-kinds="behavior,modifier,trigger" title="Add an augment or trigger">＋${KIND_GLYPH.behavior}${KIND_GLYPH.trigger}</button></div></div>
       ${trigHtml ? `<div class="trigs">${trigHtml}</div>` : ''}
     </div>`;
   }
@@ -336,20 +404,28 @@ class Editor {
     const sl = gw ? gw.scrollLeft : 0, st = gw ? gw.scrollTop : 0;
     const c = sp.c;
 
+    const meta = (s: ActiveSpell) => {
+      const root = s.c.valid ? s.c.root : null;
+      return { ico: root ? `${ELEMENTS[root.element].icon}${FORMS[root.form].icon}` : '+', css: root ? ELEMENTS[root.element].css : '#6a5ab0' };
+    };
     const tabs = run.spells.map((s, i) => {
       const cost = spellCost(s.def);
-      const root = s.c.valid ? s.c.root : null;
-      const ico = root ? `${ELEMENTS[root.element].icon}${FORMS[root.form].icon}` : '+';
-      return `<button class="stab ${i === this.slot ? 'on' : ''}" data-slot="${i}" style="--c:${root ? ELEMENTS[root.element].css : '#6a5ab0'}">
-        <span class="sti">${ico}</span><span class="stn"><b>${i + 1}. ${s.def.root ? s.c.name : 'Empty'}</b><small>${cost}/${s.def.capacity} cap</small></span></button>`;
-    }).join('') + (run.slots < 5 ? `<button class="stab locked" disabled title="Buy another slot in the shop"><span class="sti">🔒</span><span class="stn"><b>Slot ${run.slots + 1}</b><small>buy in shop</small></span></button>` : '');
+      const { ico, css } = meta(s);
+      return `<button class="stab ${i === this.slot ? 'on' : ''}" data-slot="${i}" style="--c:${css}" title="${i + 1}. ${s.def.root ? s.c.name : 'Empty'} (${cost}/${s.def.capacity})">
+        <span class="sti">${ico}</span><b>${i + 1}</b><i class="mcap ${cost >= s.def.capacity ? 'full' : ''}"><u style="width:${Math.min(100, s.def.capacity ? cost / s.def.capacity * 100 : 0)}%"></u></i></button>`;
+    }).join('') + (run.slots < 5 ? `<button class="stab locked" disabled title="Buy slot ${run.slots + 1} in the shop"><span class="sti">🔒</span></button>` : '');
 
-    let graph: string;
-    if (!sp.def.root) {
-      graph = `<div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}"><div class="eri">✦</div><b>EMPTY SLOT</b><p>Pick a <span style="color:${KIND_COLOR.form}">Form</span> and click here.</p></div>`;
-    } else {
-      graph = this.formCard(sp.def.root, 'arcane', true);
-    }
+    const lane = (s: ActiveSpell, i: number) => {
+      const { ico, css } = meta(s);
+      if (!s.def.root) {
+        // an empty slot is a small drop tile, not a full-size panel
+        return `<div class="lane empty ${i === this.slot ? 'on' : ''}" data-lane="${i}" style="--c:${css}"><div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}" title="Empty slot ${i + 1}: pick a Form, then click here"><span class="eri">✦</span><b>${i + 1}</b><span class="ep">＋${KIND_GLYPH.form}</span></div></div>`;
+      }
+      const cost = spellCost(s.def);
+      return `<div class="lane ${i === this.slot ? 'on' : ''}" data-lane="${i}" style="--c:${css}">
+        <div class="lanehd"><span>${ico}</span><b>${i + 1}. ${s.c.name}</b><i class="mcap ${cost >= s.def.capacity ? 'full' : ''}"><u style="width:${Math.min(100, s.def.capacity ? cost / s.def.capacity * 100 : 0)}%"></u></i><small>${cost}/${s.def.capacity}</small></div>${this.formCard(s, s.def.root, 'arcane', true)}</div>`;
+    };
+    const graph = `<div class="lanes ${this.view}">${run.spells.map((s, i) => [s, i] as const).filter(([, i]) => this.view === 'all' || i === this.slot).map(([s, i]) => lane(s, i)).join('')}</div>`;
 
     const est = c.valid && c.root ? estimate(c.root, sp.mut) : null;
     const pm = run.player;
@@ -365,27 +441,27 @@ class Editor {
     for (const s2 of run.spells) if (s2.c.valid) for (const e of s2.c.elements) if (e !== 'arcane') loadEls.add(e);
     const inSpell = new Set<Element>(c.valid ? c.elements.filter((e) => e !== 'arcane') : []);
     const pots = REACTIONS.filter((r) => r.needs.every((e) => loadEls.has(e)) && r.needs.some((e) => inSpell.has(e)));
-    const potHtml = pots.length ? `<h4>Reaction potential</h4>${pots.map((r) => {
+    const potHtml = pots.length ? `<div class="elrow" title="Reaction potential">⚗️ ${pots.map((r) => {
       const self = r.needs.every((e) => inSpell.has(e));
-      return `<div class="pot" style="--c:${r.color}"><b>${r.icon} ${r.name}</b> ${self ? '<em>(this spell alone)</em>' : '<em>(with another slot)</em>'}<br>${r.recipe}. ${r.how}</div>`;
-    }).join('')}` : (inSpell.size ? '<h4>Reaction potential</h4><p class="muted">No reactions yet. Pair this element with another one (in this spell or another slot) to unlock some. See the Reactions tab.</p>' : '');
+      return `<span class="elchip" style="--c:${r.color}" title="${r.name} (${self ? 'this spell alone' : 'needs another slot'}): ${r.recipe}. ${r.how}">${r.icon} ${r.name} ${self ? '✓' : '⛓'}</span>`;
+    }).join('')}</div>` : (inSpell.size ? '<div class="elrow muted" title="No reactions yet. Pair this element with another one (in this spell or another slot) to unlock some.">⚗️ ∅</div>' : '');
     const ult = rootC?.evolved ? ULTIMATES[rootC.element] : null;
     const spellInfo = `
       <div class="spname">${sp.def.root ? c.name : 'Empty slot'}</div>
       <div class="elrow">${elems}${rootC?.evolved ? '<span class="elchip" style="--c:#ffd25a">EVOLVED</span>' : ''}</div>
-      ${c.valid ? `<h4>What it does</h4><p class="story">${c.story}</p>` : '<p class="muted">Equip a Form to begin.</p>'}
+      ${c.valid ? `<p class="story">${c.story}</p>` : `<p class="muted">＋${KIND_GLYPH.form}</p>`}
       ${ult ? `<div class="ultbox"><b>${ult.icon} ULTIMATE (SPACE): ${ult.name}</b><p>${ult.desc}</p></div>` : ''}
-      <div class="capbar ${pct >= 100 ? 'full' : ''}"><div style="width:${pct}%"></div><span>CAPACITY ${cost}/${sp.def.capacity}</span></div>
+      <div class="capbar ${pct >= 100 ? 'full' : ''}" title="Capacity"><div style="width:${pct}%"></div><span>◆ ${cost}/${sp.def.capacity}</span></div>
       ${est ? `<div class="tiles">
-        <div><b>${dmg.toFixed(0)}</b><span>Damage / cast</span></div>
-        <div><b>${cd.toFixed(2)}s</b><span>Cooldown</span></div>
-        <div><b>${(est.dps * pm.dmgMul / pm.cdMul).toFixed(0)}</b><span>Est. DPS</span></div>
-        <div><b>${c.runeCount}</b><span>Runes</span></div></div>` : ''}
+        <div title="Damage per cast"><b>${dmg.toFixed(0)}</b><span>💥</span></div>
+        <div title="Cooldown"><b>${cd.toFixed(2)}s</b><span>⏱</span></div>
+        <div title="Estimated DPS"><b>${(est.dps * pm.dmgMul / pm.cdMul).toFixed(0)}</b><span>⚔️</span></div>
+        <div title="Runes in this spell"><b>${c.runeCount}</b><span>🧩</span></div></div>` : ''}
       ${potHtml}
       ${c.warnings.length ? `<div class="warns">${c.warnings.map((w) => `<div>⚠ ${w}</div>`).join('')}</div>` : ''}
-      ${muts ? `<h4>Mutations</h4><div>${muts}</div>` : ''}
-      ${prog ? `<h4>Mutation progress</h4>${prog}` : ''}
-      <h4>Rune details</h4><div class="rdetail"><p class="muted">Hover any rune.</p></div>`;
+      ${muts ? `<div class="elrow" title="Mutations">🧬 ${muts}</div>` : ''}
+      ${prog ? `<div title="Mutation progress">${prog}</div>` : ''}
+      <div class="rdetail"><p class="muted">🔍</p></div>`;
 
     // loadout-wide elements for the Reactions tab
     const present = new Set<Element>();
@@ -424,8 +500,8 @@ class Editor {
           <button class="addchip" data-forge="${e2}" ${n >= EVOLVE_COST ? '' : 'disabled'}>FORGE ${evo.name.toUpperCase()}</button></div>`;
       }).join('')}
       ${mergeHtml}`;
-    const tabsHtml = `<div class="itabs">${(['spell', 'react', 'forge', 'stats'] as const).map((t) => `<button data-tab="${t}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'ready' : ''}">${t === 'spell' ? 'SPELL' : t === 'react' ? 'REACTIONS' : t === 'stats' ? 'STATS' : 'FORGE'}</button>`).join('')}</div>`;
-    const rm = relicBar(run, () => this.render());
+    const tabsHtml = `<div class="itabs">${(['spell', 'react', 'forge', 'stats'] as const).map((t) => `<button data-tab="${t}" title="${t === 'spell' ? 'Spell' : t === 'react' ? 'Reactions' : t === 'stats' ? 'Stats' : 'Forge'}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'ready' : ''}">${t === 'spell' ? '🔮' : t === 'react' ? '⚗️' : t === 'stats' ? '📊' : '🔨'}</button>`).join('')}</div>`;
+    const rm = relicBar(run, () => this.render(), true, true);
     const pl = run.player;
     const statsInfo = `<div class="spname">STATS</div><div class="statgrid">
       <span>Spell power</span><b>x${pl.dmgMul.toFixed(2)}${earlyPower(run.round) > 1.001 ? ` (+${Math.round((earlyPower(run.round) - 1) * 100)}% early)` : ''}</b><span>Cooldown</span><b>x${pl.cdMul.toFixed(2)}</b>
@@ -442,19 +518,19 @@ class Editor {
       <span class="ri">${r.icon}</span><span class="rn">${r.name}</span><span class="rc">${r.cost}</span><span class="rx">×${run.inv[r.id]}</span></div>`).join('');
 
     ed.innerHTML = `
-      <header><h2>SPELL EDITOR</h2><div class="stabs">${tabs}</div><button class="mini ovbtn" data-overview="1" title="See every spell at a glance">🔮 OVERVIEW</button><button class="x" data-a="close" title="Close (Esc / E)">X</button></header>
+      <header><h2 title="Spell Editor">📖</h2><div class="stabs">${tabs}</div><button class="mini ovbtn" data-view="1" title="${this.view === 'all' ? 'Showing every slot. Click to focus one.' : 'Showing one slot. Click to show all.'}">${this.view === 'all' ? '▣' : '▢'}</button><button class="mini ovbtn" data-overview="1" title="Spell overview: every spell at a glance">🗂</button><button class="x" data-a="close" title="Close (Esc / E)">✕</button></header>
       ${rm.html}
       <main>
         <section class="graphwrap">
-          <div class="legend"><span style="--c:${KIND_COLOR.form}">FORM = the spell</span><span style="--c:${KIND_COLOR.core}">CORE = its element</span><span style="--c:${KIND_COLOR.behavior}">AUGMENTS = tweaks</span><span style="--c:${KIND_COLOR.trigger}">TRIGGER = launches more Forms</span></div>
           <div class="graph">${graph}</div>
-          <div class="hintbar ${this.hintBad ? 'bad' : ''}">${this.hint || (this.sel ? `Selected ${RUNE_BY_ID[this.sel].name}. Click a glowing card to place it.` : 'Pick a rune, then click a glowing card. Right-click removes.')}</div></section>
+          <div class="hintbar ${this.hintBad ? 'bad' : ''}"><span class="ht">${this.hint || (this.sel ? `${RUNE_BY_ID[this.sel].icon} ${RUNE_BY_ID[this.sel].name}: click a glowing card.` : 'Pick a rune, click a glowing card. Right-click removes.')}</span>
+            <span class="legend">${(['form', 'core', 'behavior', 'trigger'] as const).map((k) => `<span style="--c:${KIND_COLOR[k]}" title="${KIND_LABEL[k]}${k === 'form' ? ': the spell itself' : k === 'core' ? ': sets its element' : k === 'behavior' ? ': tweaks how it flies (and modifiers)' : ': launches more Forms'}">${KIND_GLYPH[k]}</span>`).join('')}</span></div></section>
         <aside class="info">${info}</aside>
       </main>
       <footer class="inventory">
-        <div class="invh"><b>RUNE POOL</b> <small>${total} rune${total === 1 ? '' : 's'}</small>
-          <div class="filters">${kinds.map((k) => `<button data-filter="${k}" class="${this.filter === k ? 'on' : ''}" style="${k !== 'all' ? `--c:${KIND_COLOR[k]}` : ''}">${k === 'all' ? 'ALL' : KIND_LABEL[k].toUpperCase()}</button>`).join('')}
-          ${this.sel ? '<button data-clear class="clr">DESELECT</button>' : ''}</div></div>
+        <div class="invh"><b title="Rune pool">🎒</b> <small>${total}</small>
+          <div class="filters">${kinds.map((k) => `<button data-filter="${k}" class="${this.filter === k ? 'on' : ''}" title="${k === 'all' ? 'All runes' : KIND_LABEL[k]}" style="${k !== 'all' ? `--c:${KIND_COLOR[k]}` : ''}">${KIND_GLYPH[k]}</button>`).join('')}
+          ${this.sel ? '<button data-clear class="clr" title="Deselect">✕</button>' : ''}</div></div>
         <div class="chips">${chips || '<p class="muted">No runes.</p>'}</div>
       </footer>`;
     const g2 = ed.querySelector('.graph') as HTMLElement;

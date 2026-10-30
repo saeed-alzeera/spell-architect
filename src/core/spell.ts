@@ -356,3 +356,18 @@ export function storyOf(root: CForm): string {
   }
   return sentences.join(' ');
 }
+
+/**
+ * Can the branch rooted at `node`, currently in a different spell, go under `parent` in `def`?
+ * Checks the branch head like a fresh placement, then the whole branch against free capacity and trigger nesting.
+ */
+export function checkTransfer(def: SpellDef, parent: SpellNode | null, node: SpellNode): Check {
+  const head = checkAttach(def, parent, node.rune);
+  if (!head.ok) return head;
+  const cost = subtreeCost(node), free = def.capacity - spellCost(def);
+  if (cost > free) return no(`Not enough Spell Capacity: this branch costs ${cost}, only ${Math.max(0, free)} free.`);
+  const chain = (n: SpellNode): number => Math.max(0, ...n.children.map(chain)) + (RUNE_BY_ID[n.rune].kind === 'trigger' ? 1 : 0);
+  const base = parent ? pathTo(def, parent.id).filter((n) => RUNE_BY_ID[n.rune].kind === 'trigger').length : 0;
+  if (base + chain(node) > MAX_TRIGGER_NEST) return no(`Triggers can only be nested ${MAX_TRIGGER_NEST} deep (prevents runaway spell loops).`);
+  return OK;
+}
