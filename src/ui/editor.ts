@@ -458,7 +458,7 @@ class Editor {
       ${mergeHtml}`;
     const panes = (run.sandbox ? ['forge'] : ['buy', 'sell', 'forge']) as ('buy' | 'sell' | 'forge')[];
     const paneTitle: Record<string, string> = { buy: 'Shop', sell: 'Sell runes', forge: 'Forge' };
-    const paneHead = `<div class="shophd">${run.sandbox ? '' : `<span class="coins" title="Coins">${icon('coins', 14)} ${Math.floor(run.coins)}</span>`}
+    const paneHead = `<div class="shophd"><span class="hpnum" title="Health">❤️ ${Math.ceil(run.player.hp)}/${Math.round(run.player.maxHp)}</span>${run.sandbox ? '' : `<span class="coins" title="Coins">${icon('coins', 14)} ${Math.floor(run.coins)}</span>`}
       <div class="itabs">${panes.map((t) => `<button data-tab="${t}" title="${paneTitle[t]}" class="${this.tab === t ? 'on' : ''} ${t === 'forge' && run.forgeReady().length ? 'ready' : ''}">${icon(t, 15)}</button>`).join('')}</div>
       ${this.tab === 'buy' && !run.sandbox ? this.shop.rerollHtml() : ''}</div>`;
     const paneBody = this.tab === 'buy' ? this.shop.buyHtml() : this.tab === 'sell' ? this.shop.sellHtml() : forgeInfo;
