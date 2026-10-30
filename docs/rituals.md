@@ -27,6 +27,12 @@ Co-op: the zone is a pure function of round, seed and `roundElapsed`, so joiners
 
 Why it moves: a fixed zone would be free (just stand there). A shifting one makes you chase it while enemies chase you.
 
+## Vow of Silence
+
+**Only offered while at least 2 of your spells have a Trigger** (anywhere in the spell, including on Forms launched by other Triggers). For the 3 rounds of the ritual **no Trigger fires at all** for you (`triggersSilenced`, checked in `processEvents`). There is nothing to fail: the ritual is kept by getting through the rounds, so the price is the health plus a build that cannot lean on its Triggers. Reward: **every Trigger gets 2 rolls instead of 1** for the rest of the run (`triggerRolls`): a Trigger with chance c fires with chance 1-(1-c)². A 100% Trigger is unchanged.
+
+Why it has no failure condition: the handicap is the challenge. Co-op: both effects are per player, resolved with the owner of the spell that raised the event.
+
 ## UI
 
 - The Grimoire lists every ritual (challenge, reward, cost) in a Rituals section, generated from `RITUALS`.
@@ -35,6 +41,6 @@ Why it moves: a fixed zone would be free (just stand there). A shifting one make
 
 ## Code
 
-- `RITUALS` lists the rituals (two entries). Adding another means a new def, a challenge flag on `Run.ritualRound`, a check in `ritualRoundEnd` and a reward.
+- `RITUALS` lists the rituals (three entries). Adding another means a new def, a challenge flag on `Run.ritualRound`, a check in `ritualRoundEnd` and a reward.
 - `Run.fallPlayer` raises `ritualEvent(run, { t: 'void' })`; `Run.startRound` / `endRound` call `ritualRoundStart` / `ritualRoundEnd`.
 - Co-op: every player has their own ritual, the host evaluates it per shell, and `validateRituals` rejects doctored lists from joiners. Progress reaches the joiner's HUD in the `rit` control message.
