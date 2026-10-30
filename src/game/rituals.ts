@@ -7,6 +7,7 @@
 import type Phaser from 'phaser';
 import { ARENA, TILE, TN, tileCx, tileCy, tileOf } from './arena';
 import type { Run } from './run';
+import { roundLen } from './rounds';
 
 export const RITUAL_ROUNDS = 3;
 export const POWER_REWARD = 0.2;
@@ -135,7 +136,7 @@ export function ritualRoundEnd(run: Run) {
 
 /** Progress shown for the challenge, as `have / need`. */
 export function ritualProgress(r: ActiveRitual, run: Run): string {
-  if (r.def.id === 'gold') return `${r.prog[0]}/${r.def.rounds} rounds · ${Math.floor(run.ritualRound.zoneT)}s in the zone this round (need ${Math.round(ZONE_NEED * 100)}% of the round)`;
+  if (r.def.id === 'gold') return `${r.prog[0]}/${r.def.rounds} rounds · ${Math.round(Math.min(1, run.ritualRound.zoneT / roundLen(run.quick)) * 100)}% of the round spent in the zone (need ${Math.round(ZONE_NEED * 100)}%)`;
   return `${r.prog[0]}/${r.def.rounds} rounds${run.ritualRound.fell ? ' · fell this round' : ''}`;
 }
 
