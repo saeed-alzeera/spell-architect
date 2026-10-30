@@ -5,7 +5,7 @@ import { ARENA } from './run';
 import { updateStatus } from './combat';
 import { audio } from '../core/audio';
 import { spawnBoss, updateBoss } from './bosses';
-import { resFor, roundLen, isBossRound, bossKind, type Aff } from './rounds';
+import { roundLen, isBossRound, bossKind } from './rounds';
 import { ELEMENTS } from '../data/runes';
 
 export interface EDef { tex: string; hp: number; speed: number; r: number; dmg: number; xp: number; armor: number; sc: number }
@@ -38,15 +38,7 @@ export const playerScale = (run: Run) => 1 + PLAYER_SCALE * (Math.max(1, run.wor
 export const earlyDensity = (t: number) => EARLY_FROM + (1 - EARLY_FROM) * Math.min(1, Math.max(0, t / EARLY_T));
 let eid = 1;
 
-function pickAff(run: Run, elite: boolean): Aff {
-  const shares = run.plan.shares.filter((s) => !(elite && s.aff === 'neutral' && run.plan.shares.length > 1));
-  let tot = 0; for (const x of shares) tot += x.pct;
-  let r = Math.random() * tot;
-  for (const x of shares) { r -= x.pct; if (r <= 0) return x.aff; }
-  return 'neutral';
-}
-
-export function spawnEnemy(run: Run, type: Exclude<EType, 'boss'>, x: number, y: number, elite = false, forceAff?: Aff): Enemy {
+export function spawnEnemy(run: Run, type: Exclude<EType, 'boss'>, x: number, y: number, elite = false): Enemy {
   const d = EDEFS[type];
   [x, y] = run.arena.fix(x, y);
   const t = run.dtime;
@@ -56,7 +48,6 @@ export function spawnEnemy(run: Run, type: Exclude<EType, 'boss'>, x: number, y:
   // speed variety: every enemy has its own pace, a few grunts are fast "sprinters", and later rounds run faster
   let speed = d.speed * (elite ? 1.1 : 1) * (0.85 + Math.random() * 0.3) * (1 + 0.018 * run.round);
   if (type === 'grunt' && !elite && Math.random() < 0.14) { speed *= 1.7; hp *= 0.65; sc *= 0.9; }
-  const aff = forceAff ?? pickAff(run, elite);
   const e: Enemy = {
     id: eid++, type, x, y, vx: 0, vy: 0, hp, maxHp: hp, r: d.r * (elite ? 1.3 : 1), speed,
     dmg: d.dmg * dmgMulT(t) * (elite ? 1.3 : 1), armor: d.armor * (1 + t / 700), xp: d.xp * (elite ? 6 : 1), elite, sc,
@@ -65,9 +56,8 @@ export function spawnEnemy(run: Run, type: Exclude<EType, 'boss'>, x: number, y:
     freeze: 0, freezeImm: 0, poison: 0, poisonT: 0, poisonDps: 0, poisonSrc: null, tickT: 0, burnT: 0, dotAcc: 0, dotShow: 0,
     slowT: 0, slowMul: 1, buff: 0, capT: 0, pulled: 0, tint: -1, conductCd: 0,
     atk: 1 + Math.random() * 2, st: 0, stT: 0, dx: 0, dy: 0, contact: 0, spawnT: 0.3, dashes: 0, dead: false, boss: null,
-    aff, res: resFor(aff, run.plan), badge: null, resTxt: 0, hitOnce: false,
+    aff: 'neutral', res: {}, badge: null, resTxt: 0, hitOnce: false,
   };
-  if (aff !== 'neutral') e.badge = run.img('dot', 6, true).setTint(ELEMENTS[aff].color).setScale(0.85).setAlpha(0.9);
   e.spr.setScale(sc);
   run.enemies.push(e);
   return e;

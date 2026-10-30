@@ -7,6 +7,7 @@ import type { ActiveSpell, Enemy, GameEvent, SEnt, Src } from './types';
 import type { Run } from './run';
 import { ARENA, earlyPower } from './run';
 import { onCast, cooldownMul } from './relics';
+import { triggersSilenced, triggerRolls } from './rituals';
 import {
   dealDamage, applyElement, applyWet, applyPoison, POISON_BASE_STACKS, arc, explode, envReact, gravityImpulse, pullResist, reaction, reactDamage,
 } from './combat';
@@ -435,9 +436,12 @@ export function processEvents(run: Run) {
   for (let i = 0; i < lim; i++) {
     const ev: GameEvent = evs[i];
     const f = ev.src.f;
+    const owner = run.owner(ev.src.sp);
+    if (triggersSilenced(owner)) continue;
+    const rolls = triggerRolls(owner);
     for (const t of f.triggers) {
       if (t.type !== ev.type) continue;
-      if (t.chance < 1 && Math.random() >= t.chance) continue;
+      if (t.chance < 1 && !Array.from({ length: rolls }).some(() => Math.random() < t.chance)) continue;
       for (const child of t.children) {
         if (ev.src.depth + 1 > MAX_DEPTH || run.spawnBudget <= 0 || run.ents.length >= MAX_ENTS) continue;
         run.spawnBudget--;

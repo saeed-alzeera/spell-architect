@@ -51,6 +51,7 @@ export function reaction(run: Run, id: string, x: number, y: number, src: Src | 
   }
   if (run.time - last > 0.9) {
     run.reactTxt[id] = run.time;
+    run.fx.text(x, y - 26, `${def.icon} ${def.name}`, def.color, 12, 0.9, -30);
     audio.play('reaction');
   }
 }
