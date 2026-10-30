@@ -66,12 +66,13 @@ export function generateStock(run: Run): Offer[] {
   const out: Offer[] = [];
   const taken = new Set<string>();
   const weight = (r: RuneDef) => {
-    const rar: Rarity = r.kind === 'core' ? 'common' : r.rarity;
+    const rar: Rarity = r.kind === 'core' ? 'common' : r.kind === 'form' ? (r.rarity === 'common' || r.rarity === 'uncommon' ? r.rarity : 'uncommon') : r.rarity; // forms never roll rarer than uncommon: they're the foundation of a spell
     const rel = r.kind === 'core' || r.kind === 'form' ? 1 : Math.max(0.35, relevance(run, r, forms));
     return OFFER_W[rar] * rel * (r.kind === 'trigger' ? 0.35 : 1) * dropWeight(r); // higher trigger levels are mostly forged, not found
   };
   for (let i = 0; i < RUNE_OFFERS; i++) {
-    const c = pool.filter((r) => !taken.has(r.id));
+    // slot 0 is always a core or form, so the building blocks are never left to luck
+    const c = pool.filter((r) => !taken.has(r.id) && (i > 0 || r.kind === 'core' || r.kind === 'form'));
     let tot = 0; for (const r of c) tot += weight(r);
     let x = Math.random() * tot;
     for (const r of c) { x -= weight(r); if (x <= 0) { taken.add(r.id); out.push({ id: `o${out.length}-${r.id}`, rune: r.id, price: runePrice(run, r), sold: false }); break; } }
