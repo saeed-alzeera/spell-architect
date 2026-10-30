@@ -22,7 +22,7 @@ export function spawnBoss(run: Run, kind: number) {
   const a = Math.random() * 6.28;
   const x = Math.max(80, Math.min(ARENA - 80, p.x + Math.cos(a) * 380));
   const y = Math.max(80, Math.min(ARENA - 80, p.y + Math.sin(a) * 380));
-  const e = spawnEnemy(run, 'grunt', x, y, false, 'neutral');
+  const e = spawnEnemy(run, 'grunt', x, y, false);
   // re-skin the placeholder grunt into a boss
   run.freeImg(e.spr); run.freeImg(e.shadow);
   e.type = 'boss';

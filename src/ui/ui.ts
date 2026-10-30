@@ -15,7 +15,7 @@ import { loadRuns, exportRuns, type RunRecord } from '../core/analytics';
 import { showRelicPick, relicBar } from './relics';
 import { RELIC_BY_ID, relicColor } from '../game/relics';
 import { EVOLVE_COST } from '../data/runes';
-import { describeRes, FINAL_ROUND, roundLen, WEAK_TO, isBossRound, type Aff } from '../game/rounds';
+import { describeRes, FINAL_ROUND, roundLen, isBossRound } from '../game/rounds';
 import { ULT_COOLDOWN } from '../game/ultimates';
 import { ULTIMATES } from '../data/runes';
 import { MUT_TRACKS } from '../data/mutations';
@@ -332,20 +332,12 @@ class UI {
     else this.showPrep(run);
   }
 
-  /** Between-round screen: what's coming (attunements, boss resistances), then edit and start. */
+  /** Between-round screen: what's coming (boss resistances), then edit and start. */
   showPrep(run: Run) {
     const plan = run.plan;
     const r = run.round;
     const boss = plan.boss;
-    const aff = (a: Aff) => (a === 'neutral' ? { name: 'Neutral', icon: '⚪', css: '#d8d8e8' } : { name: ELEMENTS[a].name, icon: ELEMENTS[a].icon, css: ELEMENTS[a].css });
     const elChips = (list: string[]) => list.map((e) => `<span class="rel" style="--c:${ELEMENTS[e as keyof typeof ELEMENTS].css}">${ELEMENTS[e as keyof typeof ELEMENTS].icon} ${ELEMENTS[e as keyof typeof ELEMENTS].name}</span>`).join('');
-    const shares = plan.shares.filter((x) => x.pct > 0).map((x) => {
-      const a = aff(x.aff);
-      const d = x.aff === 'neutral' ? null : { res: [x.aff as string], weak: (WEAK_TO[x.aff] ?? []) as string[] };
-      return `<div class="share" style="--c:${a.css}"><div class="sbarbg"><i style="width:${x.pct}%"></i></div>
-        <b>${a.icon} ${a.name}${x.aff === 'neutral' ? '' : '-attuned'}</b><span>${x.pct}%</span>
-        <small>${d ? `Resists ${elChips(d.res)} (takes ${Math.round(plan.resFactor * 100)}%) · Weak to ${elChips(d.weak)} (+${Math.round((plan.weakMul - 1) * 100)}%)` : 'Takes full damage from everything.'}</small></div>`;
-    }).join('');
     let bossHtml = '';
     if (boss !== null && plan.bossRes) {
       const d = describeRes(plan.bossRes);
@@ -363,7 +355,6 @@ class UI {
       <p class="sub">${boss !== null ? 'Defeat the boss.' : `Survive ${roundLen(run.quick)}s.`}</p></div>
       ${co ? '<div data-lobby></div>' : ''}
       ${bossHtml}
-      <h4>ENEMY MIX THIS ROUND</h4><div class="shares">${shares}</div>
       <h4>YOUR LOADOUT</h4><div class="pslots">${slots}</div>
       ${relicBar(run, () => {}, false).html}
       <div data-rituals></div>
@@ -731,7 +722,7 @@ class UI {
       <p><b>Rounds.</b> Survive 20 timed rounds. Every 5th is a boss. Between rounds you shop, pick rewards and edit spells.</p>
       <p><b>Move</b> with <kbd>WASD</kbd> or arrows. Spells cast on their own. <kbd>Space</kbd> fires an Ultimate. <kbd>Esc</kbd> pauses.</p>
       <p><b>Spells.</b> A <b>Form</b> fills a slot. Socket one <b>Core</b> for its element (none = Arcane). <span style="color:${KIND_COLOR.behavior}">Behaviors</span> and <span style="color:${KIND_COLOR.modifier}">Modifiers</span> tune it; a <span style="color:${KIND_COLOR.trigger}">Trigger</span> launches more Forms.</p>
-      <p><b>Elements</b> hit harder than Arcane, but attuned enemies resist their own element and bosses can be immune. The briefing shows what's coming. Elements from different slots <b>react</b>.</p>
+      <p><b>Elements</b> hit harder than Arcane, but bosses resist some elements, can be immune to others and are weak to a few. The briefing shows what's coming. Elements from different slots <b>react</b>.</p>
       <p><b>Forge.</b> ${EVOLVE_COST} copies of a Core make an evolved Core with an Ultimate. The Forge tab lights up when you can.</p>
       <p><b>Shop.</b> Spend coins on runes, relics and upgrades, and sell runes or relics. You wear 6 relics; to buy another, sell one.</p>
       <p><b>Co-op.</b> Host or join with a 5-letter code. Everyone keeps their own build.</p>

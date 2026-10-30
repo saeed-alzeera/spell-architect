@@ -1,11 +1,13 @@
 // Rituals: an optional three-round contract. Accepting one costs half of your current health; keep up its challenge every round
 // and you gain a permanent upgrade for the rest of the run, miss a round and it lapses (the health is already spent).
-// A ritual's challenge is always something the player can bring about. Today there are two: the Rite of the Fall asks you to be
+// A ritual's challenge is always something the player can bring about. Today there are three: the Vow of Silence asks you to
+// get through its rounds with every Trigger rune dead, the Rite of the Fall asks you to be
 // caught by the crumbling floor (fall into the void) in each of its rounds, the Golden Idol asks you to spend half of each round
 // inside the golden zone (about half of the arena, made of whole floor tiles that keep changing).
 // Co-op: every player has their own ritual (events reach the shell of the player they belong to) and the host evaluates it.
 import type Phaser from 'phaser';
 import { ARENA, TILE, TN, tileCx, tileCy, tileOf } from './arena';
+import type { CForm } from '../core/spell';
 import type { Run } from './run';
 import { roundLen } from './rounds';
 
@@ -14,6 +16,8 @@ export const POWER_REWARD = 0.2;
 /** Golden Idol: the share of a round to spend in the zone, and the chance a coin is doubled. */
 export const ZONE_NEED = 0.5;
 export const GOLD_DOUBLE = 0.5;
+/** Vow of Silence: it is only offered once this many of your spells carry a Trigger. */
+export const SILENCE_SPELLS = 2;
 
 export interface RitualDef { id: string; name: string; icon: string; rounds: number; challenge: string; reward: string }
 /** `prog[0]` counts the rounds in which the challenge was met. */
@@ -22,6 +26,7 @@ export interface ActiveRitual { def: RitualDef; startRound: number; roundsDone: 
 export const RITUALS: RitualDef[] = [
   { id: 'fall', name: 'Rite of the Fall', icon: '🕳️', rounds: RITUAL_ROUNDS, challenge: 'Fall through the crumbling floor at least once in each round', reward: `+${Math.round(POWER_REWARD * 100)}% damage for the rest of the run` },
   { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about half of the arena, whole floor tiles that light up and go dark as it drifts)`, reward: `each coin an enemy drops has a ${Math.round(GOLD_DOUBLE * 100)}% chance to be doubled, for the rest of the run` },
+  { id: 'silence', name: 'Vow of Silence', icon: '🤐', rounds: RITUAL_ROUNDS, challenge: `Triggers do not work at all for ${RITUAL_ROUNDS} rounds (only offered while ${SILENCE_SPELLS} or more of your spells have a Trigger)`, reward: 'every Trigger gets 2 rolls instead of 1, for the rest of the run' },
 ];
 
 /** Half of your current health: what a ritual costs. */
@@ -29,11 +34,23 @@ export const ritualCost = (run: Run) => Math.floor(run.player.hp / 2);
 
 /** The rituals that can be accepted now: each only once per run, any number can run at the same time. */
 export function availableRituals(run: Run): RitualDef[] {
-  return RITUALS.filter((d) => !run.rituals.some((r) => r.def.id === d.id));
+  return RITUALS.filter((d) => !run.rituals.some((r) => r.def.id === d.id) && (d.id !== 'silence' || triggeredSpells(run) >= SILENCE_SPELLS));
 }
 
+/** How many of your spells have a Trigger anywhere in them (including on Forms launched by other Triggers). */
+function triggeredSpells(run: Run): number {
+  const walk = (f: CForm): boolean => f.triggers.length > 0 || f.triggers.some((t) => t.children.some(walk));
+  return run.spells.filter((sp) => sp.c.valid && sp.c.root && walk(sp.c.root)).length;
+}
+
+/** The Vow of Silence is being kept: this player's Triggers do nothing. */
+export const triggersSilenced = (run: Run) => run.rituals.some((r) => r.state === 'active' && r.def.id === 'silence');
+
+/** Rolls a Trigger gets to fire: 2 once the Vow of Silence is fulfilled. */
+export const triggerRolls = (run: Run) => (run.rituals.some((r) => r.state === 'fulfilled' && r.def.id === 'silence') ? 2 : 1);
+
 export function acceptRitual(run: Run, def: RitualDef): string | null {
-  if (!availableRituals(run).some((d) => d.id === def.id)) return 'You have already performed that ritual.';
+  if (!availableRituals(run).some((d) => d.id === def.id)) return 'That ritual is not available.';
   const cost = ritualCost(run);
   if (cost < 1) return 'You are too weak to pay the cost.';
   run.player.hp -= cost;
@@ -110,11 +127,13 @@ export function goldMul(run: Run): number {
 
 /** Has this round's challenge been met (so far)? */
 export function ritualMet(r: ActiveRitual, run: Run): boolean {
+  if (r.def.id === 'silence') return true; // the challenge is simply to go on without Triggers
   return r.def.id === 'gold' ? zoneShare(run) >= ZONE_NEED : run.ritualRound.fell;
 }
 
 /** One line telling the player what to do right now. */
 export function ritualHint(r: ActiveRitual, run: Run): string {
+  if (r.def.id === 'silence') return '▸ Your Triggers are silent. Carry on without them.';
   if (r.def.id === 'gold') return ritualMet(r, run) ? '✔ On track. Stay in the gold to keep it.' : '▸ Behind! Get into the golden zone.';
   return ritualMet(r, run) ? '✔ Done this round. You are safe.' : '▸ Not done yet! Stand on a cracked tile.';
 }
@@ -136,6 +155,7 @@ export function ritualRoundEnd(run: Run) {
 
 /** Progress shown for the challenge, as `have / need`. */
 export function ritualProgress(r: ActiveRitual, run: Run): string {
+  if (r.def.id === 'silence') return `${r.prog[0]}/${r.def.rounds} rounds without Triggers`;
   if (r.def.id === 'gold') return `${r.prog[0]}/${r.def.rounds} rounds · ${Math.round(Math.min(1, run.ritualRound.zoneT / roundLen(run.quick)) * 100)}% of the round spent in the zone (need ${Math.round(ZONE_NEED * 100)}%)`;
   return `${r.prog[0]}/${r.def.rounds} rounds${run.ritualRound.fell ? ' · fell this round' : ''}`;
 }

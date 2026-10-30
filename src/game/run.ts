@@ -215,7 +215,7 @@ export class Run {
     for (const r of [f2, b, m]) if (r) this.addRune(r.id, 1);
     this.shop = newShop(this);
     if (this.sandbox) {
-      this.phase = 'sandbox'; this.god = true; this.round = 8; this.plan = planFor(8, this.seed); this.dtime = 150;
+      this.phase = 'sandbox'; this.god = true; this.round = 8; this.plan = planFor(8); this.dtime = 150;
       this.addSlot(); this.addSlot();
       this.addCapacity(40);
       for (const r of RUNES) this.inv[r.id] = r.evolved ? 3 : r.kind === 'form' ? 4 : 6;
@@ -881,7 +881,7 @@ export class Run {
     this.roundElapsed = 0;
     this.pieces.clear();
     this.spawnAcc = 0;
-    this.plan = planFor(this.round, this.seed);
+    this.plan = planFor(this.round);
     // everyone starts clustered at the centre; players who went down last round are back on their feet
     this.players.forEach((pr, i) => {
       const p = pr.player, a = (i / Math.max(1, this.players.length)) * 6.2832;
@@ -944,7 +944,7 @@ export class Run {
     this.compact();
     if (this.round >= FINAL_ROUND) { this.finish(true); return; }
     this.round++;
-    this.plan = planFor(this.round, this.seed);
+    this.plan = planFor(this.round);
     this.phase = 'prep';
     this.frozen = true;
     this.arena.reset();

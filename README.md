@@ -74,17 +74,17 @@ Each spell tracks its own performance (burning kills, chain jumps, enemies captu
 
 ### Rounds
 
-A run is **20 rounds**. Each normal round is a 45 s survival timer (12 s in accelerated mode); **every 5th round is a boss** (Stone Warden, Plague Matron, Storm Colossus, Void Architect) and ends when the boss falls. Between rounds the field is swept, rewards are chosen, and you get a **briefing** (enemy mix with attunements, boss resistances, tips) before you edit your spells and start the next round. Level-ups apply a random stat boost **instantly**, mid-round, with a floating label; between rounds you get the shop.
+A run is **20 rounds**. Each normal round is a 45 s survival timer (12 s in accelerated mode); **every 5th round is a boss** (Stone Warden, Plague Matron, Storm Colossus, Void Architect) and ends when the boss falls. Between rounds the field is swept, rewards are chosen, and you get a **briefing** (boss resistances) before you edit your spells and start the next round. Level-ups apply a random stat boost **instantly**, mid-round, with a floating label; between rounds you get the shop.
 
-### Attunement, resistance and Arcane
+### Elements, boss resistances and Arcane
 
 * **Elements hit harder than Arcane** (a Form with no Core) and carry an effect (fire burns, ice chills/freezes, poison stacks, water soaks, lightning chains, gravity pulls). Every Form has its own Core socket, so one spell can mix elements (a Fire projectile whose On Hit releases a Lightning Nova). A Form with no Core is Arcane. The editor's **Reaction potential** panel lists what your elements can do together.
-* **Attuned enemies resist their own element** (a glowing badge above them) and are weak to counters (fire: weak to ice/water, ice: fire, lightning: gravity, poison: fire, water: lightning, gravity: poison). Neutral enemies take full damage from everything. Early rounds are mostly neutral; from round 6 most enemies are attuned.
-* **Bosses can be fully immune** to elements. **Arcane is never resisted**, so it is always the fallback.
+* **Regular enemies take full damage from every element.** Only **bosses** have resistances, weaknesses and immunities (shown in the round briefing). **Arcane is never resisted**, so it is always the fallback.
+* Reactions show their name above the enemy when they fire.
 
 ### How reactions work
 
-Reactions come from simple systemic rules, not scripted upgrades. Each reaction needs two elements that can be in **different slots** (they share puddles, clouds and statuses) and **deals both damage types, split evenly**, so a resisted type still leaves the other. Examples: *Lightning + Water puddle* electrifies it; *Fire + Poison cloud* detonates it (fire + poison damage); *Ice + Wet* flash-freezes (ice + water damage). The editor's **Reactions** tab lists every reaction, its ingredients, which ones your current loadout can trigger, and what it deals.
+Reactions come from simple systemic rules, not scripted upgrades. Each reaction needs two elements that can be in **different slots** (they share puddles, clouds and statuses) and **deals both damage types, split evenly**, so a resisted boss still takes the other. Examples: *Lightning + Water puddle* electrifies it; *Fire + Poison cloud* detonates it (fire + poison damage); *Ice + Wet* flash-freezes (ice + water damage). The editor's **Reactions** tab lists every reaction, its ingredients, which ones your current loadout can trigger, and what it deals.
 
 ### Crumbling floor
 
@@ -124,7 +124,7 @@ How it works: connections are peer-to-peer (WebRTC). The **host's computer runs 
 
 ### Sandbox
 
-The **Sandbox** (main menu) unlocks every rune and evolved core, gives 5 slots and huge capacity, and opens the editor any time. A side panel spawns any enemy type with any attunement (elite optional), bosses, toggles god mode and enemy dummies, clears the field, resets ultimate cooldowns and scales enemy strength.
+The **Sandbox** (main menu) unlocks every rune and evolved core, gives 5 slots and huge capacity, and opens the editor any time. A side panel spawns any enemy type (elite optional), bosses, toggles god mode and enemy dummies, clears the field, resets ultimate cooldowns and scales enemy strength.
 
 ### Persistence
 
