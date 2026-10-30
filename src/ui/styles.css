@@ -526,3 +526,17 @@ button.ready, .itabs button.ready { border-color: var(--gold) !important; color:
 .fres { font-size: 7px; line-height: 1.6; color: #cfe8ff; } .fres .bad { color: #ff9aa8; } .fres b { font-weight: normal; color: var(--gold); }
 .lst { display: inline-flex; align-items: center; gap: 3px; font-size: 7px; color: var(--gold); background: #0a0720; border: 2px solid var(--edge2); padding: 1px 4px; cursor: help; }
 .lw { display: inline-flex; color: #ffc26a; cursor: help; }
+
+/* completed rituals: a seal under the HUD rituals, a glow on the prep screen */
+.hud-seals { display: flex; gap: 6px; margin-top: 6px; }
+.hud-seals .seal { position: relative; width: 30px; height: 30px; display: grid; place-items: center; font-size: 15px; background: rgba(28,14,60,.85); border: 3px solid #7cf08a; box-shadow: 0 0 8px #7cf08a88; animation: sealin .9s ease-out; }
+.hud-seals .seal i { position: absolute; right: -5px; bottom: -6px; font-style: normal; font-size: 8px; color: #0b1a0e; background: #7cf08a; padding: 0 2px; }
+@keyframes sealin { 0% { transform: scale(2.2); box-shadow: 0 0 22px #7cf08a; } 100% { transform: scale(1); } }
+.ritdone.fulfilled { padding: 4px 6px; border: 2px solid #7cf08a; background: rgba(124,240,138,.1); box-shadow: 0 0 6px #7cf08a66; }
+
+/* stats panel */
+.stgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.stcard { border: 3px solid #6a5ab0; background: #120d2e; padding: 10px; font-size: 8px; line-height: 1.8; }
+.stcard .sth { display: flex; align-items: center; gap: 8px; }
+.stcard .stl { flex: 1; color: #cfc8f0; } .stcard .stv { color: #ffd25a; font-size: 12px; }
+.stcard ul { margin: 6px 0 0; padding-left: 14px; color: #b8a8e8; } .stcard p { margin: 6px 0 0; }
