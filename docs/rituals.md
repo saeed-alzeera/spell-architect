@@ -17,6 +17,11 @@ Each round part of the arena floor crumbles away (`arena.ts`; warned tiles flash
 
 It trades a lot of health for damage, so it suits a build that can afford the risk and ends with the player in control: stand still on a warned tile and you will fall, dodge and you will not.
 
+## UI
+
+- The Grimoire lists every ritual (challenge, reward, cost) in a Rituals section, generated from `RITUALS`.
+- During a level the HUD card (`updateRituals` in `ui/ui.ts`) pulses while the round's challenge is still open, turns green once it is met, and shows round pips plus a short hint.
+
 ## Code
 
 - `RITUALS` lists the rituals (one entry). Adding another means a new def, a challenge flag on `Run.ritualRound`, a check in `ritualRoundEnd` and a reward.

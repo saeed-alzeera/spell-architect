@@ -24,7 +24,7 @@ import { store, save, saveNow } from '../core/save';
 import { audio } from '../core/audio';
 import { spellCooldown } from '../core/spell';
 import type { Run, RunOpts, RunSummary } from '../game/run';
-import { ritualProgress } from '../game/rituals';
+import { RITUALS, ritualProgress } from '../game/rituals';
 import { generateRewards, type Reward } from '../game/rewards';
 import { openEditor } from './editor';
 import { ritualSection } from './rituals';
@@ -199,7 +199,13 @@ class Hud {
     const key = act.map((r) => `${r.def.id}${r.roundsDone}${r.prog.join(',')}${run.ritualRound.fell}`).join('|');
     if (key === this.ritKey) return;
     this.ritKey = key;
-    this.ritEl.innerHTML = act.map((r) => `<div class="rit"><b>${r.def.icon} ${r.def.name}</b> <small>${r.def.rounds - r.roundsDone} round${r.def.rounds - r.roundsDone === 1 ? '' : 's'} left</small><div class="${run.ritualRound.fell ? 'met' : ''}">${r.def.challenge} <em>${ritualProgress(r, run)}</em></div></div>`).join('');
+    const met = run.ritualRound.fell;
+    this.ritEl.innerHTML = act.map((r) => {
+      const pips = Array.from({ length: r.def.rounds }, (_, i) => `<i class="${i < r.roundsDone ? 'done' : i === r.roundsDone ? (met ? 'done' : 'now') : ''}"></i>`).join('');
+      return `<div class="rit ${met ? 'met' : 'pending'}"><div class="rh"><b>${r.def.icon} RITUAL: ${r.def.name}</b><span class="pips">${pips}</span></div>
+        <div class="rc">Round ${r.roundsDone + 1} of ${r.def.rounds}: ${r.def.challenge}</div>
+        <div class="rs">${met ? '✔ Done this round. You are safe.' : '▸ Not done yet! Stand on a cracked tile.'} <em>${ritualProgress(r, run)}</em></div></div>`;
+    }).join('');
   }
   /** Teammates' health (co-op). */
   updateParty(run: Run) {
@@ -733,7 +739,10 @@ class UI {
         return `<div class="gcard ${un ? 'un' : 'lock'}" title="${r.desc.replace(/"/g, '&quot;')}" style="--c:${runeColor(r)};--rc:${RARITY[r.rarity].color}">
           <div class="gi">${r.icon}</div><div class="gb"><b>${r.name}</b><small>${RARITY[r.rarity].name} · cost ${r.cost}</small></div>
           ${un ? '<span class="ok">Unlocked</span>' : '<span>Locked</span>'}</div>`;
-      }).join('')}</div>`).join('')}</div>`);
+      }).join('')}</div>`).join('')}
+      <h3 style="color:#c9a6ff">Rituals</h3><div class="ggrid ritgrim">${RITUALS.map((d) => `<div class="gcard un" style="--c:#c9a6ff">
+        <div class="gb"><b>${d.icon} ${d.name}</b><small>${d.rounds} rounds · costs half of your current health, offered between rounds</small>
+        <small>Challenge: ${d.challenge}</small><small>Reward: ${d.reward}</small></div></div>`).join('')}</div></div>`);
     this.openModal(this.modal('Grimoire', body, 'wide'), 'grimoire');
   }
 
