@@ -28,7 +28,8 @@ export class GameScene extends Phaser.Scene {
     this.pShadow = this.add.image(0, 0, 'shadow').setScale(3).setDepth(4).setAlpha(0.8);
     this.pSpr = this.add.image(0, 0, 'wiz0').setScale(3).setDepth(8);
     const kb = this.input.keyboard!;
-    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') as Record<string, Phaser.Input.Keyboard.Key>;
+    // enableCapture=false: capturing W/A/S/D would preventDefault them and block typing in DOM inputs (e.g. the room code)
+    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT', false) as Record<string, Phaser.Input.Keyboard.Key>;
     this.run = new Run(this, this.opts);
     this.run.onAnnounce = (t, c, s) => ui.announce(t, c, s);
     this.run.onEnd = (s) => ui.showGameOver(s);

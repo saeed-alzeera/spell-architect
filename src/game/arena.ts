@@ -58,7 +58,7 @@ export class Arena {
     this.reset();
     if (!enabled) return;
     this.roundLen = roundLen;
-    this.warnLen = Math.max(2, Math.min(4, roundLen / 8));
+    this.warnLen = Math.max(1.5, Math.min(2, roundLen / 16));
     const r = rng(round * 4093 + seed * 131 + 7);
     const target = Math.round(fallShare(round) * TN * TN);
     // Weighted shuffle (Efraimidis-Spirakis): tiles further from the middle are likelier to go first, corners most of all,
@@ -177,7 +177,7 @@ export class Arena {
     return true;
   }
 
-  /** Walking distances to the player's tile (doomed tiles cost extra so enemies route around them). */
+  /** Walking distances to the player's tile. Enemies treat cracking tiles as ordinary floor; only fallen tiles block. */
   private computeFlow(px: number, py: number) {
     const src = tileOf(px, py);
     if (src === this.flowFor && this.version === this.flowVer) return;
@@ -199,7 +199,7 @@ export class Arena {
         const k = ny * TN + nx;
         if (this.state[k] >= FALL) continue;
         if (dx && dy && (this.state[uy * TN + nx] >= FALL || this.state[ny * TN + ux] >= FALL)) continue;
-        const w = (dx && dy ? 1.41 : 1) + (this.state[k] === WARN ? 3 : 0);
+        const w = dx && dy ? 1.41 : 1;
         if (ud + w < dist[k]) dist[k] = ud + w;
       }
     }
