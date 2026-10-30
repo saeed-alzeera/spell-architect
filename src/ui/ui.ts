@@ -27,6 +27,7 @@ import { RITUALS, ritualHint, ritualMet, ritualProgress } from '../game/rituals'
 import { generateRewards, type Reward } from '../game/rewards';
 import { openEditor } from './editor';
 import { ritualSection } from './rituals';
+import { showStats } from './stats';
 import { versionLabel } from '../core/version';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, el: ParentNode = document) => el.querySelector(sel) as T;
@@ -49,7 +50,7 @@ class Hud {
   hp!: HTMLElement; hpTxt!: HTMLElement; xp!: HTMLElement; lvl!: HTMLElement; timer!: HTMLElement; kills!: HTMLElement;
   bossBox!: HTMLElement; bossFill!: HTMLElement; bossName!: HTMLElement; slotsEl!: HTMLElement; ann!: HTMLElement; badge!: HTMLElement; coinEl!: HTMLElement; lastCoin = -1; ultsEl!: HTMLElement; ultKey = '';
   ultEls: HTMLElement[] = [];
-  partyEl!: HTMLElement; partyKey = ''; ritEl!: HTMLElement; ritKey = '';
+  partyEl!: HTMLElement; partyKey = ''; ritEl!: HTMLElement; ritKey = ''; sealEl!: HTMLElement; sealKey = '';
   slotKey = '';
   frame = 0; relEl!: HTMLElement; hpBar!: HTMLElement; relKey = '';
   cdEls: HTMLElement[] = [];
@@ -64,6 +65,7 @@ class Hud {
         <div class="rewardbadge hidden"></div>
         <div class="hud-party"></div>
         <div class="hud-rit"></div>
+        <div class="hud-seals"></div>
       </div>
       <div class="hud-ults"></div>
       <div class="hud-tc"><div class="timer">0:00</div><div class="kills">0 slain</div>
@@ -78,7 +80,7 @@ class Hud {
     </div>`);
     uiRef.root.appendChild(this.root);
     this.partyEl = $('.hud-party', this.root);
-    this.ritEl = $('.hud-rit', this.root);
+    this.ritEl = $('.hud-rit', this.root); this.sealEl = $('.hud-seals', this.root);
     this.relEl = $('.hud-relics', this.root); this.hpBar = $('.bar.hp', this.root);
     this.hp = $('.hp .fill', this.root); this.hpTxt = $('.hp span', this.root);
     this.xp = $('.xp .fill', this.root); this.lvl = $('.lvl', this.root);
@@ -99,8 +101,8 @@ class Hud {
   }
   show(run: Run) {
     this.root.classList.remove('hidden');
-    this.slotKey = ''; this.relKey = '';
-    this.last = { hp: -1, xp: -1, t: -1, k: -1, b: -1, k2: -1, kl: -1 };
+    this.slotKey = ''; this.relKey = ''; this.ritKey = ''; this.sealKey = '';
+    this.last ={ hp: -1, xp: -1, t: -1, k: -1, b: -1, k2: -1, kl: -1 };
     this.ultKey = '';
     this.ann.innerHTML = '';
     $('[data-a=mute]', this.root).textContent = store.settings.muted ? '🔇' : '🔊';
@@ -194,6 +196,12 @@ class Hud {
   }
   /** The running rituals' objectives under the health bars. */
   updateRituals(run: Run) {
+    // Completed rituals stay on screen as small seals, so you can see which permanent rewards you have earned.
+    const sealKey = run.rituals.filter((r) => r.state === 'fulfilled').map((r) => r.def.id).join(',');
+    if (sealKey !== this.sealKey) {
+      this.sealKey = sealKey;
+      this.sealEl.innerHTML = run.rituals.filter((r) => r.state === 'fulfilled').map((r) => `<div class="seal" title="${r.def.name} complete: ${r.def.reward}"><span>${r.def.icon}</span><i>✔</i></div>`).join('');
+    }
     const act = run.rituals.filter((r) => r.state === 'active');
     const key = act.map((r) => `${r.def.id}${r.roundsDone}${r.prog.join(',')}${run.ritualRound.fell}${Math.floor(run.ritualRound.zoneT)}${Math.floor(run.roundElapsed)}`).join('|');
     if (key === this.ritKey) return;
@@ -359,7 +367,7 @@ class UI {
       <h4>YOUR LOADOUT</h4><div class="pslots">${slots}</div>
       ${relicBar(run, () => {}, false).html}
       <div data-rituals></div>
-      <div class="rbtns"><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor &amp; Shop <small>◈ ${Math.floor(run.coins)}</small></button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
+      <div class="rbtns"><button class="big" data-a="stats">📊 Stats</button><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor &amp; Shop <small>◈ ${Math.floor(run.coins)}</small></button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
     </div></div>`);
     if (co) n.querySelector('[data-lobby]')!.replaceWith(lobbyPanel(this, co as never));
     n.querySelector('[data-rituals]')!.replaceWith(ritualSection(run, () => { const sb = n.querySelector('[data-a=editor] small'); if (sb) sb.textContent = `◈ ${Math.floor(run.coins)}`; if (co?.role === 'guest') { const g = co as unknown as { ready?: boolean; setReady?(on: boolean): void }; if (g.ready) { g.setReady!(false); const rb = n.querySelector('[data-a=ready]'); if (rb) rb.textContent = 'Ready'; } } }));
@@ -379,7 +387,8 @@ class UI {
       const b = (e.target as HTMLElement).closest('button[data-a]') as HTMLElement | null;
       if (!b) return;
       audio.play('ui');
-      if (b.dataset.a === 'editor') { unready(); openEditor(this, run); }
+      if (b.dataset.a === 'stats') showStats(this, run);
+      else if (b.dataset.a === 'editor') { unready(); openEditor(this, run); }
       else if (b.dataset.a === 'go') startRound();
       else if (b.dataset.a === 'ready') {
         const g = run.coop as unknown as { ready: boolean; setReady(on: boolean): void };
@@ -404,6 +413,7 @@ class UI {
         <button class="big" data-a="resume">Resume</button>
         ${run.sandbox ? '<button class="big" data-a="editor">Spell Editor</button>' : ''}
         <button class="big" data-a="overview">🔮 Spell Overview</button>
+        <button class="big" data-a="stats">📊 Stats</button>
         <button class="big" data-a="journal">📜 Journal</button>
         ${run.coop ? '' : '<button class="big" data-a="retry">Restart Run</button>'}
         <button class="big danger" data-a="quit">${run.coop ? (run.coop.role === 'host' ? 'End Game for Everyone' : 'Leave Game') : 'Quit to Menu'}</button>
@@ -420,6 +430,7 @@ class UI {
       else if (a === 'editor') this.openEditorFromPlay();
       else if (a === 'journal') this.showJournal();
       else if (a === 'overview') showSpellOverview(this, run);
+      else if (a === 'stats') showStats(this, run);
       else if (a === 'retry') this.retry();
       else if (a === 'quit') this.quitToMenu();
     });

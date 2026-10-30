@@ -15,7 +15,7 @@ export function ritualSection(run: Run, onChange: () => void): HTMLElement {
         <ul class="ritobj"><li>${d.challenge}</li></ul><p><b>Reward:</b> ${d.reward}.</p><div class="sprice">ACCEPT ♥ ${cost}</div></div>`).join('');
     const active = run.rituals.filter((r) => r.state === 'active').map((r) => `<div class="ritactive"><b>${r.def.icon} ${r.def.name}</b> <small>${r.roundsDone}/${r.def.rounds} rounds done</small>
         <ul class="ritobj"><li class="${r.prog[0] >= r.def.rounds ? 'met' : ''}">${r.def.challenge} <em>${ritualProgress(r, run)}</em></li></ul><small>Reward: ${r.def.reward}.</small></div>`).join('');
-    const done = run.rituals.filter((r) => r.state !== 'active').map((r) => `<span class="ritdone ${r.state}">${r.def.icon} ${r.def.name}: ${r.state}${r.why ? ` (${r.why})` : ''}</span>`).join('');
+    const done = run.rituals.filter((r) => r.state !== 'active').map((r) => `<span class="ritdone ${r.state}" title="${r.def.reward}">${r.def.icon} ${r.def.name}: ${r.state === 'fulfilled' ? `✔ complete · ${r.def.reward}` : `✖ lapsed${r.why ? ` (${r.why})` : ''}`}</span>`).join('');
     n.innerHTML = `<h4>RITUAL <small>a three-round challenge for a permanent upgrade. It costs half of your current health; miss a round and it lapses.</small></h4>
       ${active}${done ? `<div class="ritdones">${done}</div>` : ''}
       ${offers ? `<div class="scards">${offers}</div>` : ''}

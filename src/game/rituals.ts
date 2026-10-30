@@ -127,6 +127,7 @@ export function ritualRoundEnd(run: Run) {
     else { r.state = 'lapsed'; r.why = r.def.id === 'gold' ? 'You did not spend enough of the round in the golden zone.' : 'You were not caught by the falling floor.'; continue; }
     if (r.roundsDone >= r.def.rounds) {
       r.state = 'fulfilled';
+      if (!run.remote) run.announce(`${r.def.name.toUpperCase()} COMPLETE`, '#7cf08a', r.def.reward);
       if (r.def.id === 'fall') { run.player.dmgMul += POWER_REWARD; run.recomputeRelics(); }
     }
   }

@@ -30,7 +30,8 @@ Why it moves: a fixed zone would be free (just stand there). A shifting one make
 ## UI
 
 - The Grimoire lists every ritual (challenge, reward, cost) in a Rituals section, generated from `RITUALS`.
-- During a level the HUD card (`updateRituals` in `ui/ui.ts`) pulses while the round's challenge is still open, turns green once it is met, and shows round pips plus a short hint.
+- During a level the HUD card (`updateRituals` in `ui/ui.ts`) pulses while the round's challenge is still open, turns green once it is met, and shows round pips plus a short hint. Once a ritual is fulfilled it stays on the HUD as a green seal (`.hud-seals`, tooltip shows the reward), the round ends with a "RITUAL COMPLETE" announcement, and the prep screen lists it as complete with its reward.
+- The Stats panel (`ui/stats.ts`, 📊 button on the pause menu and prep screen) lists each ritual's state and reward next to the rest of your upgrades.
 
 ## Code
 
