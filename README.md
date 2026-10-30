@@ -142,7 +142,8 @@ src/
   core/
     spell.ts              spell graph, validation, compilation, naming, estimates
     save.ts               localStorage persistence
-    audio.ts              procedural WebAudio SFX + music
+    audio.ts              procedural WebAudio SFX + piano synth
+    music.ts              music scores and moods (docs/music.md)
   game/
     run.ts                simulation state & main tick loop (one world; remote co-op players are "shell" Runs that inherit the world and own their personal state)
     arena.ts              crumbling floor tiles, flow-field navigation

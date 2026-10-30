@@ -48,6 +48,7 @@ There are no unit tests for the game itself. `tests/*.cjs` are Playwright end-to
 
 - [`README.md`](README.md): game design, systems, controls, project layout
 - [`docs/multiplayer.md`](docs/multiplayer.md): co-op architecture, protocol, measurements
+- [`docs/music.md`](docs/music.md): music moods, source pieces, how to add one
 - [`docs/analytics.md`](docs/analytics.md): run records, versioning rule, how to compare versions
 - [`docs/rituals.md`](docs/rituals.md): ritual rules and code
 - [`docs/icons.md`](docs/icons.md): UI icon sets (Lucide, Tabler), how to add one
