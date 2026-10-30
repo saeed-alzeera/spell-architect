@@ -2,7 +2,7 @@
 // and you gain a permanent upgrade for the rest of the run, miss a round and it lapses (the health is already spent).
 // A ritual's challenge is always something the player can bring about. Today there are two: the Rite of the Fall asks you to be
 // caught by the crumbling floor (fall into the void) in each of its rounds, the Golden Idol asks you to spend half of each round
-// inside the golden zone (half of the arena, which moves).
+// inside the golden zone (about half of the arena, a blob that keeps shifting).
 // Co-op: every player has their own ritual (events reach the shell of the player they belong to) and the host evaluates it.
 import type Phaser from 'phaser';
 import { ARENA } from './arena';
@@ -10,9 +10,8 @@ import type { Run } from './run';
 
 export const RITUAL_ROUNDS = 3;
 export const POWER_REWARD = 0.2;
-/** Golden Idol: the share of a round to spend in the zone, how often the zone moves (seconds), and the chance a coin is doubled. */
+/** Golden Idol: the share of a round to spend in the zone, and the chance a coin is doubled. */
 export const ZONE_NEED = 0.5;
-export const ZONE_PERIOD = 10;
 export const GOLD_DOUBLE = 0.5;
 
 export interface RitualDef { id: string; name: string; icon: string; rounds: number; challenge: string; reward: string }
@@ -21,7 +20,7 @@ export interface ActiveRitual { def: RitualDef; startRound: number; roundsDone: 
 
 export const RITUALS: RitualDef[] = [
   { id: 'fall', name: 'Rite of the Fall', icon: '🕳️', rounds: RITUAL_ROUNDS, challenge: 'Fall through the crumbling floor at least once in each round', reward: `+${Math.round(POWER_REWARD * 100)}% damage for the rest of the run` },
-  { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (half of the arena, it moves every ${ZONE_PERIOD}s)`, reward: `each coin an enemy drops has a ${Math.round(GOLD_DOUBLE * 100)}% chance to be doubled, for the rest of the run` },
+  { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about half of the arena, it keeps growing on some sides and shrinking on others)`, reward: `each coin an enemy drops has a ${Math.round(GOLD_DOUBLE * 100)}% chance to be doubled, for the rest of the run` },
 ];
 
 /** Half of your current health: what a ritual costs. */
@@ -56,19 +55,17 @@ export function ritualRoundStart(run: Run) {
 
 /* ------------------------------------------------------------------ the golden zone */
 
-/** Which half of the arena is golden during period `k` of a round: 0 left, 1 right, 2 top, 3 bottom. Never the same half twice in a row. */
-function zoneHalf(round: number, seed: number, k: number): number {
-  let h = Math.imul(round, 73856093) ^ Math.imul(seed, 19349663);
-  let idx = (h >>> 0) % 4;
-  for (let i = 1; i <= k; i++) { h = Math.imul(h ^ (h >>> 15), 2246822519) ^ i; idx = (idx + 1 + ((h >>> 0) % 3)) % 4; }
-  return idx;
-}
-const halfRect = (i: number) => [[0, 0, ARENA / 2, ARENA], [ARENA / 2, 0, ARENA / 2, ARENA], [0, 0, ARENA, ARENA / 2], [0, ARENA / 2, ARENA, ARENA / 2]][i];
+/** The golden zone is a blob around a drifting centre. Its radius wobbles with a few slow waves that turn at different speeds, so
+ *  it constantly grows on some sides and recedes on others. It is a pure function of (round, seed, t), so joiners draw the same one. */
+const ZONE_R = 315; // about half of the arena once the wobble is averaged in
+const WAVES: [number, number, number][] = [[1, 0.3, 0.55], [2, 0.22, -0.8], [3, 0.12, 1.1]]; // lobes, amplitude, turn speed (rad/s)
 
-/** The golden zone `t` seconds into the round: `[x, y, w, h]`. Seconds until it moves, and the next one, come with it. */
 export function goldZone(round: number, seed: number, t: number) {
-  const k = Math.floor(t / ZONE_PERIOD);
-  return { rect: halfRect(zoneHalf(round, seed, k)), next: halfRect(zoneHalf(round, seed, k + 1)), left: ZONE_PERIOD - (t - k * ZONE_PERIOD) };
+  const h = Math.imul(round, 73856093) ^ Math.imul(seed, 19349663);
+  const ph = (i: number) => ((Math.imul(h ^ (i * 2246822519), 2654435761) >>> 0) / 4294967296) * 6.2832;
+  const cx = ARENA / 2 + 110 * Math.sin(t * 0.31 + ph(1)), cy = ARENA / 2 + 110 * Math.sin(t * 0.23 + ph(2));
+  const radius = (a: number) => ZONE_R * (1 + WAVES.reduce((s, [n, amp, w], i) => s + amp * Math.sin(n * a + w * t + ph(3 + i)), 0));
+  return { cx, cy, radius };
 }
 
 const isGold = (r: ActiveRitual) => r.state === 'active' && r.def.id === 'gold';
@@ -76,23 +73,25 @@ const isGold = (r: ActiveRitual) => r.state === 'active' && r.def.id === 'gold';
 /** Host: counts the time this player spends in the golden zone. */
 export function ritualTick(run: Run, dt: number) {
   if (!run.rituals.some(isGold)) return;
-  const [x, y, w, h] = goldZone(run.round, run.seed, run.roundElapsed).rect;
-  const p = run.player;
-  if (p.x >= x && p.x < x + w && p.y >= y && p.y < y + h) run.ritualRound.zoneT += dt;
+  const { cx, cy, radius } = goldZone(run.round, run.seed, run.roundElapsed);
+  const p = run.player, dx = p.x - cx, dy = p.y - cy;
+  if (Math.hypot(dx, dy) <= radius(Math.atan2(dy, dx))) run.ritualRound.zoneT += dt;
 }
 
 /** Share of the round spent in the zone so far. */
 const zoneShare = (run: Run) => (run.roundElapsed > 0 ? Math.min(1, run.ritualRound.zoneT / run.roundElapsed) : 0);
 
-/** Paint the golden zone (and, shortly before it moves, where it goes next) for the local player's running Golden Idol. */
+/** Paint the golden zone for the local player's running Golden Idol. */
 export function drawGoldZone(g: Phaser.GameObjects.Graphics, run: Run, time: number) {
   if (run.phase !== 'fight' || !run.rituals.some(isGold)) return;
-  const { rect: [x, y, w, h], next, left } = goldZone(run.round, run.seed, run.roundElapsed);
-  g.fillStyle(0xffd25a, 0.1 + 0.05 * Math.sin(time * 3));
-  g.fillRect(x, y, w, h);
-  g.lineStyle(4, 0xffd25a, 0.8);
-  g.strokeRect(x + 2, y + 2, w - 4, h - 4);
-  if (left < 2) { g.lineStyle(3, 0xfff1b0, 0.35 + 0.35 * Math.sin(time * 14)); g.strokeRect(next[0] + 6, next[1] + 6, next[2] - 12, next[3] - 12); }
+  const { cx, cy, radius } = goldZone(run.round, run.seed, run.roundElapsed);
+  g.beginPath();
+  for (let i = 0; i <= 64; i++) { const a = (i / 64) * 6.2832, r = radius(a); if (i) g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); else g.moveTo(cx + r, cy); }
+  g.closePath();
+  g.fillStyle(0xffd25a, 0.12 + 0.05 * Math.sin(time * 3));
+  g.fillPath();
+  g.lineStyle(4, 0xffd25a, 0.85);
+  g.strokePath();
 }
 
 /** The Golden Idol's reward: how many coins a drop is worth (rolled per drop). */
