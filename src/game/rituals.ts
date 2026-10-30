@@ -135,7 +135,7 @@ export function ritualRoundEnd(run: Run) {
 
 /** Progress shown for the challenge, as `have / need`. */
 export function ritualProgress(r: ActiveRitual, run: Run): string {
-  if (r.def.id === 'gold') return `${r.prog[0]}/${r.def.rounds} rounds · ${Math.round(zoneShare(run) * 100)}% of this round in the zone (need ${Math.round(ZONE_NEED * 100)}%)`;
+  if (r.def.id === 'gold') return `${r.prog[0]}/${r.def.rounds} rounds · ${Math.floor(run.ritualRound.zoneT)}s in the zone this round (need ${Math.round(ZONE_NEED * 100)}% of the round)`;
   return `${r.prog[0]}/${r.def.rounds} rounds${run.ritualRound.fell ? ' · fell this round' : ''}`;
 }
 
