@@ -32,6 +32,7 @@ There are no unit tests for the game itself. `tests/*.cjs` are Playwright end-to
 | `src/scenes/`, `src/gfx/` | Phaser glue and procedural textures |
 | `worker/` | Cloudflare Worker: `/mp/*` signaling (`mp.js`), `/runs` analytics store (`runs.js`) |
 | `tools/analyze.mjs` | Compares run analytics across game versions |
+| `public/graph/` | Static systems map (tree of game systems, flows and open design issues), served at `/graph/`. Vite copies `public/` into `dist/` as is |
 | `docs/` | Deep dives, see below |
 
 ## Rules that are easy to get wrong

@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spell Architect Systems Map</title>
+<meta name="description" content="Tree map of Spell Architect's game systems, the resources that flow between them, and the open design issues.">
+<style>
+  :root {
+    --bg: #0d0b1a; --panel: #16132b; --line: #2c2750; --ink: #e9e4ff; --muted: #9a93c4;
+    --accent: #c9a6ff; --feed: #5ee0a0; --bal: #66b8ff; --reinf: #ffb347; --issue: #ff5a6a; --warn: #ffd25a;
+    --system: #c9a6ff; --concept: #7f78b8; --item: #4d4780;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  body { display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  header h1 { font-size: 15px; margin: 0; letter-spacing: .06em; color: var(--accent); }
+  header p { margin: 0; color: var(--muted); font-size: 12px; flex: 1 1 320px; }
+  .ctl { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { font: inherit; font-size: 12px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button[aria-pressed="true"] { background: #2a2350; border-color: var(--accent); }
+  main { display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
+  #stage { position: relative; overflow: hidden; cursor: grab; touch-action: none; }
+  #stage.drag { cursor: grabbing; }
+  svg { width: 100%; height: 100%; display: block; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); padding: 16px; overflow-y: auto; }
+  aside h2 { font-size: 14px; margin: 0 0 4px; color: var(--accent); }
+  aside .file { color: var(--muted); font-size: 12px; margin-bottom: 10px; word-break: break-all; }
+  aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 6px; }
+  aside ul { margin: 0; padding-left: 18px; }
+  aside li { margin: 3px 0; }
+  .issue { border-left: 3px solid var(--issue); background: #2a1222; padding: 8px 10px; border-radius: 4px; margin-top: 10px; }
+  .issue.warn { border-color: var(--warn); background: #2a2412; }
+  .issue b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px; }
+  .lk { cursor: pointer; text-decoration: underline dotted; }
+  .tag { display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-right: 4px; color: #0d0b1a; font-weight: 700; }
+  .legend { display: grid; gap: 5px; font-size: 12px; color: var(--muted); }
+  .legend span.sw { display: inline-block; width: 22px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+  .node rect { stroke-width: 1.5; rx: 6; }
+  .node text { fill: var(--ink); font-size: 12px; pointer-events: none; }
+  .node .sub { fill: var(--muted); font-size: 10px; }
+  .node { cursor: pointer; }
+  .node.dim { opacity: .25; }
+  .node.sel rect { stroke: #fff; stroke-width: 2.5; }
+  .edge { fill: none; stroke: var(--line); stroke-width: 1.5; }
+  .edge.dim { opacity: .25; }
+  .flow { fill: none; stroke-width: 1.8; stroke-dasharray: 6 4; opacity: .9; }
+  .flow-label { font-size: 10px; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; }
+  .badge { font-size: 11px; font-weight: 700; }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; grid-template-rows: 1fr 42%; }
+    aside { border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>✦ SPELL ARCHITECT · SYSTEMS MAP</h1>
+  <p>Core loop: kill enemies → earn XP, coins and runes → rewire spells between rounds → survive a denser, tougher horde. Click a node for detail and its flows; click ± to fold. Drag to pan, scroll or pinch to zoom.</p>
+  <div class="ctl">
+    <button id="bAll" aria-pressed="false">Show all flows</button>
+    <button id="bIssues" aria-pressed="false">Highlight issues</button>
+    <button id="bExpand">Expand all</button>
+    <button id="bFit">Fit</button>
+  </div>
+</header>
+<main>
+  <div id="stage"><svg id="svg"><defs>
+    <marker id="arF" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--feed)"/></marker>
+    <marker id="arR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--reinf)"/></marker>
+    <marker id="arB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--bal)"/></marker>
+  </defs><g id="vp"><g id="gEdges"></g><g id="gFlows"></g><g id="gNodes"></g></g></svg></div>
+  <aside id="info"></aside>
+</main>
+<script>
+// Data: the tree is the system boundaries, FLOWS are the shared stocks/events between them.
+// issue.sev: 'high' (design fault from the systems review) or 'warn' (watch / unverified).
+const TREE = {
+  id: 'root', label: 'Spell Architect', sub: 'core loop', file: 'src/game/run.ts',
+  desc: 'Top-down Survivors-style roguelite. 20 rounds of 45 s; a boss every 5th round. Spells are built from runes in a node editor between rounds.',
+  children: [
+    { id: 'spell', label: 'Spell graph', sub: 'build system', file: 'src/core/spell.ts, src/data/runes.ts',
+      desc: 'Runes wired Core → Form → Behaviors / Modifiers / Triggers. checkAttach() is the single source of attachment rules; the compiler produces the CompiledSpell used by casting.',
+      inputs: ['Runes (shop, chests, caches)', 'Capacity (shop upgrade)', 'Spell slots (shop upgrade)'], outputs: ['Compiled spells → Combat', 'DPS estimate → Editor UI'],
+      children: [
+        { id: 'forms', label: 'Forms', sub: '7', desc: 'Projectile, Beam, Orbiting Orb, Aura, Mine, Nova, Meteor. Fill a slot or hang under a Trigger.' },
+        { id: 'cores', label: 'Cores / elements', sub: '6 + Arcane', desc: 'Fire 1.3×, Ice 1.25×, Lightning 1.15× (cd 0.85), Poison 0.85×, Water 0.8×, Gravity 1.0× (cd 1.25). No Core = Arcane 1.0×, never resisted.' },
+        { id: 'behav', label: 'Behaviors', desc: 'Split, Pierce, Bounce, Chain, Orbit, Homing, Pull, Push, Expand. Form-compatible only.' },
+        { id: 'mods', label: 'Modifiers', desc: 'Duplicate, Accelerate, Grow, Duration, Area, Reduce Cooldown (0.8ⁿ, max 3).',
+          issue: { sev: 'warn', text: 'Grow tooltip says "+30% size and damage" (spell.ts:318); damage is +15% per stack (spell.ts:223).' } },
+        { id: 'trig', label: 'Triggers', sub: '20/45/60/80%', desc: 'On Hit / On Kill / On Expiry / On Crit launch child Forms. Two of a kind forge into one with summed chance (max 80%). Global cap 90% after relics.' },
+        { id: 'cap', label: 'Capacity & slots', desc: 'Each rune costs capacity; 12 per slot to start. Capacity +2 targets one spell, which concentrates power in a single spell.',
+          issue: { sev: 'warn', text: 'Players used 1.75 of 3 slots on average; per-spell capacity and per-spell mutations reward one big spell.' } },
+        { id: 'est', label: 'DPS estimate', sub: 'editor', desc: 'Shown in each spell header. Computed with defaultMut() at compile time.',
+          issue: { sev: 'high', text: 'Ignores relics, mutations, player stats, earlyPower, crits and reactions, so most multipliers are invisible at decision time.' } },
+      ] },
+    { id: 'combat', label: 'Combat', sub: 'damage pipeline', file: 'src/game/combat.ts, casting.ts',
+      desc: 'dealDamage(): resistances → relic multipliers → status bonuses → armor → crit → kill. Every hit can queue trigger events.',
+      inputs: ['Compiled spells', 'Player stats (dmgMul, cdMul, crit)', 'Relic & mutation multipliers', 'Enemies from the director'], outputs: ['Kills (XP, coins, drops)', 'Per-spell stats → Mutations', 'Damage taken → Health'],
+      children: [
+        { id: 'status', label: 'Statuses', desc: 'Burn, chill/freeze (+25% damage taken), poison stacks, wet, pull.' },
+        { id: 'react', label: 'Reactions', sub: 'systemic', desc: 'Conduct, electrified puddle, gas explosion, flash-freeze, steam, toxic arc, wildfire, gravity collapse. Damage split evenly across both elements.' },
+        { id: 'crit', label: 'Crits', desc: 'Base 5%, ×1.8. Lightning +12%, Overcharge +20%.',
+          issue: { sev: 'high', text: 'Shop stops crit at 60% but the Keen Eye level-up (rewards.ts:36) has no cap.' } },
+        { id: 'cd', label: 'Cooldowns', desc: 'Form × element × 0.8^ReduceCooldown × mutation × player cdMul × relic.',
+          issue: { sev: 'high', text: 'No minimum cooldown (casting.ts:345). Shop Haste stops at 0.45 but Quickened Mind and Ascension level-ups have no floor.' } },
+        { id: 'stack', label: 'Multiplier stack', desc: 'Form × element × grow × mutation dmg × evolved × Forgemaster × player dmgMul × earlyPower × relics (Prism, Idol, Baton, Ember, Whetstone, Purist) × freeze × wet-lightning × crit.',
+          issue: { sev: 'high', text: 'About six systems multiply together. Quick-mode win: 615k damage, 89% from one spell. Group bonuses into additive buckets.' } },
+        { id: 'res', label: 'Boss resistances', desc: 'Only bosses resist; Arcane is never resisted. Shown in the round briefing.' },
+      ] },
+    { id: 'enemies', label: 'Enemies & director', sub: 'difficulty', file: 'src/game/enemies.ts, bosses.ts, rounds.ts',
+      desc: 'Spawn rate, cap, HP and damage all follow the director clock dtime = (round−1)×50 + progress. It never reads player power.',
+      inputs: ['Round number / time'], outputs: ['Enemies → Combat', 'Contact & projectile damage → Health'],
+      children: [
+        { id: 'arch', label: 'Archetypes', sub: '6', desc: 'Grunt, swarmer, archer, charger, armored, shaman. Swarmers + grunts were 78% of damage taken.' },
+        { id: 'clock', label: 'Director curve', sub: 'open loop', desc: 'HP_SCALE 1.7, DMG_SCALE 1.3, COUNT_SCALE 1.45, ramp (r4→r12), earlyDensity, plus earlyPower on the player side.',
+          issue: { sev: 'high', text: 'Four overlapping curves tune one balance ("shifting the burden"). Difficulty raised to hide multiplier stacking, then early rounds softened to undo it.' } },
+        { id: 'pieces', label: 'Set pieces', desc: 'Swarm ring (even rounds ≥4), charger stampede (every 3rd ≥6), elites (≥4).' },
+        { id: 'bosses', label: 'Bosses', sub: 'r5/10/15/20', desc: 'Stone Warden, Plague Matron, Storm Colossus, Void Architect.',
+          issue: { sev: 'warn', text: 'No normal-mode run has reached a boss. Rounds 5–20 are unvalidated.' } },
+      ] },
+    { id: 'arena', label: 'Arena', sub: 'crumbling floor', file: 'src/game/arena.ts',
+      desc: '22×22 tiles; 10–20% fall per round with warning. Falls cost 12% max HP. Enemies path around holes.', outputs: ['Fall damage → Health', 'Fall events → Rite of the Fall'],
+      children: [
+        { id: 'floor', label: 'Tile collapse', desc: 'Seeded, edge-biased, resets each round. 2% of damage taken in saved runs.' },
+        { id: 'flow', label: 'Flow field', desc: 'Enemy navigation around holes.' },
+      ] },
+    { id: 'prog', label: 'In-run progression', file: 'src/game/run.ts, rewards.ts, data/mutations.ts, ultimates.ts',
+      desc: 'Power gained during a run: levels, per-spell mutations, evolutions.',
+      children: [
+        { id: 'xp', label: 'XP & levels', desc: 'Kills give XP; xpFor(l) = 8 + 8l + 0.5l². Each level: +1.5% damage and a random stat boost (heals weighted by missing HP).', inputs: ['Kills'], outputs: ['Stats → Combat', 'Heals → Health', 'Coin Purse → Coins'] },
+        { id: 'mut', label: 'Mutations', sub: '9 tracks', desc: 'Per-spell counters (burn kills, chain jumps, freezes…) unlock a choice of two. Each track once per run.', inputs: ['Per-spell combat stats'], outputs: ['Per-spell multipliers → Combat'] },
+        { id: 'evo', label: 'Evolutions', desc: '6 copies of a Core forge an evolved Core: +40% damage, a passive, and an Ultimate.' },
+        { id: 'ult', label: 'Ultimates', desc: '45 s recharge, −0.2 s per kill. About 15 s late in a run.' },
+      ] },
+    { id: 'econ', label: 'Economy', sub: 'coins', file: 'src/game/shop.ts, rewards.ts',
+      desc: 'Coins drop from kills (10–50% by type, elites 3), +3+round per cleared round, +8+2k per boss.',
+      inputs: ['Kills', 'Round/boss clears', 'Selling', 'Economy relics', 'Golden Idol'], outputs: ['Runes', 'Relics', 'Upgrades', 'Rerolls'],
+      issue: { sev: 'warn', text: 'Income grows with spawn rate (~20× r1→r20); rune prices only +5%/round. Late gold likely flows into uncapped Spell Power. Unverified.' },
+      children: [
+        { id: 'shop', label: 'Shop', sub: '8 cards', desc: '4 runes (slot 0 always Core/Form) + 1 relic + 3 upgrades. Rune price ×1.05/round ×1.35/owned. Reroll cost rises per visit.' },
+        { id: 'upg', label: 'Upgrades', desc: 'Capacity, Slot, Power (1.65ⁿ), Haste, Vitality, Keen Edge, Healing Draught.',
+          issue: { sev: 'warn', text: 'shop.ts:2 says "Nothing has a purchase cap"; README says capped; code soft-caps 4 of 7.' } },
+        { id: 'sell', label: 'Selling', desc: 'Runes sell for half base price; relics for half. No arbitrage.' },
+        { id: 'drops', label: 'Chests & caches', desc: 'Elite chests: 3 runes of different kinds. Boss caches: strong runes + relic pick. Relevance-weighted.' },
+      ] },
+    { id: 'relics', label: 'Relics', sub: '6 slots', file: 'src/game/relics.ts',
+      desc: 'Passive conditional effects through hook points (damage, kill, crit, cast, reaction, round start). Hard cap of 6, no stash.',
+      inputs: ['Coins (shop)', 'Elites, bosses'], outputs: ['Multipliers → Combat', 'Coin bonuses → Economy', 'Heals → Health'],
+      children: [
+        { id: 'rDmg', label: 'Damage relics', desc: 'Cracked Prism, Glass Cannon Idol, Whetstone, Ember Heart, Conductor\'s Baton, Forgemaster\'s Hammer, Alchemist\'s Ledger, Null Lens. All multiply each other.' },
+        { id: 'purist', label: 'Arcane Purist', desc: '+50% damage and −25% cooldown for spells whose main Form has no Core.',
+          issue: { sev: 'high', text: 'Checks only the root element (relics.ts:97) but buffs every hit of the spell, including elemental child Forms and their reactions. Stacks with Prism. Cancels the Arcane vs element trade-off.' } },
+        { id: 'rTrig', label: 'Trigger relics', desc: 'Echo Chamber (+8 pp), Gambler\'s Dice (×1.5, +1 capacity per trigger).' },
+        { id: 'rEcon', label: 'Economy relics', desc: 'Bargain Bell, Lodestone, Hungry Purse, Lucky Penny, Resin Vial.' },
+        { id: 'rSus', label: 'Sustain relics', desc: 'Healer\'s Thimble, Vampire Fang, Phoenix Feather.' },
+        { id: 'rCast', label: 'Cast relics', desc: 'Static Sock, Mirror Shard, Metronome, Duelist\'s Glove. The only ones that reward several slots.' },
+      ] },
+    { id: 'rituals', label: 'Rituals', sub: '3 rounds', file: 'src/game/rituals.ts',
+      desc: 'Pay 50% of current HP for a 3-round challenge the player controls. Reward lasts the run.',
+      inputs: ['Current HP'], outputs: ['Damage / coins / trigger rolls'],
+      children: [
+        { id: 'fall', label: 'Rite of the Fall', desc: 'Fall once in each of 3 rounds → +20% damage.' },
+        { id: 'gold', label: 'Golden Idol', desc: '50% of each round in the drifting gold zone → coin drops 50% chance to double.',
+          issue: { sev: 'warn', text: 'Co-op: coins have no owner, so doubled coins go to whoever picks them up.' } },
+        { id: 'vow', label: 'Vow of Silence', desc: 'Triggers silenced for 3 rounds → every Trigger rolls twice.',
+          issue: { sev: 'warn', text: 'Two rolls on a 90% cap give 99%, so the documented cap no longer holds.' } },
+      ] },
+    { id: 'health', label: 'Health', sub: 'the run clock', file: 'src/game/run.ts',
+      desc: 'Carried between rounds. The analytics show attrition, not spikes, as the cause of death.',
+      issue: { sev: 'warn', text: 'Low HP → earlier death → less loot: a runaway-loser loop. Hearts heal a flat 6 HP while enemy damage scales ~2.7× by r20.' },
+      children: [
+        { id: 'hSrc', label: 'Sources', desc: 'Regen 0.15/s, 6% at round start, hearts (6 HP), Mend/Draught, Vitality, Thimble, Fang, Phoenix.' },
+        { id: 'hSink', label: 'Sinks', desc: 'Enemy contact and projectiles, falls (12% max HP), ritual cost (50% current HP).' },
+      ] },
+    { id: 'meta', label: 'Meta & analytics', file: 'src/core/save.ts, analytics.ts, worker/runs.js',
+      desc: 'Persistent between runs.',
+      children: [
+        { id: 'unlock', label: 'Rune unlocks', desc: 'Start with 6 runes; each finished run unlocks 2 more. Variety, not power.' },
+        { id: 'runs', label: 'Run analytics', desc: 'Every run uploaded with its game version.',
+          issue: { sev: 'high', text: '9 runs total; no normal-mode run past round 4. The designer\'s own feedback loop has the longest delay.' } },
+      ] },
+    { id: 'coop', label: 'Co-op', sub: 'host-authoritative', file: 'src/net/',
+      desc: 'Host runs the only simulation; joiners are "shell" runs. Shared XP; per-player coins, spells, relics. Enemy count ×1.75 (2p) to ×3.25 (4p).' },
+  ],
+};
+
+// type: 'R' reinforcing, 'B' balancing, 'F' plain flow
+const FLOWS = [
+  ['spell', 'combat', 'compiled spells', 'F'],
+  ['enemies', 'combat', 'enemies', 'F'],
+  ['enemies', 'health', 'damage', 'B'],
+  ['combat', 'xp', 'kills', 'R'],
+  ['combat', 'econ', 'coin drops', 'R'],
+  ['combat', 'mut', 'per-spell stats', 'R'],
+  ['combat', 'ult', 'kills recharge', 'R'],
+  ['xp', 'combat', 'stats', 'R'],
+  ['xp', 'health', 'weighted heals', 'B'],
+  ['mut', 'combat', 'multipliers', 'R'],
+  ['evo', 'combat', '+40% damage', 'R'],
+  ['econ', 'shop', 'coins', 'F'],
+  ['shop', 'spell', 'runes', 'F'],
+  ['shop', 'relics', 'relic', 'F'],
+  ['upg', 'combat', 'power, haste, crit', 'R'],
+  ['upg', 'cap', 'capacity, slots', 'F'],
+  ['drops', 'spell', 'runes', 'F'],
+  ['cores', 'evo', '6 copies', 'F'],
+  ['relics', 'stack', 'multipliers', 'R'],
+  ['rEcon', 'econ', 'coin bonuses', 'R'],
+  ['rSus', 'health', 'heals', 'B'],
+  ['purist', 'stack', '×1.5 whole spell', 'R'],
+  ['arena', 'health', 'fall damage', 'B'],
+  ['floor', 'fall', 'fall events', 'F'],
+  ['health', 'rituals', '50% HP cost', 'F'],
+  ['fall', 'combat', '+20% damage', 'R'],
+  ['gold', 'econ', 'doubled coins', 'R'],
+  ['vow', 'trig', 'double rolls', 'R'],
+  ['clock', 'enemies', 'HP, damage, count', 'B'],
+  ['unlock', 'shop', 'rune pool', 'F'],
+  ['stack', 'clock', 'hidden by raised difficulty', 'B'],
+  ['est', 'spell', 'what the player sees', 'F'],
+];
+
+const NW = 168, NH = 38, DX = 230, DY = 50;
+const COLORS = { F: 'var(--feed)', R: 'var(--reinf)', B: 'var(--bal)' };
+const MARK = { F: 'url(#arF)', R: 'url(#arR)', B: 'url(#arB)' };
+const NAMES = { F: 'flow', R: 'reinforcing', B: 'balancing' };
+const byId = {};
+(function index(n, p, d) { n.parent = p; n.depth = d; n.open = d < 1; byId[n.id] = n; (n.children || []).forEach((c) => index(c, n, d + 1)); })(TREE, null, 0);
+
+const svg = document.getElementById('svg'), vp = document.getElementById('vp');
+const gE = document.getElementById('gEdges'), gF = document.getElementById('gFlows'), gN = document.getElementById('gNodes');
+const info = document.getElementById('info');
+let sel = null, showAll = false, showIssues = false;
+const view = { x: 40, y: 0, k: 1 };
+const NS = 'http://www.w3.org/2000/svg';
+const el = (t, a, parent) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (parent) parent.appendChild(e); return e; };
+
+/** Visible node, walking up to the nearest open ancestor (so flows to folded nodes attach to their parent). */
+function shown(n) { let v = n; for (let p = n.parent; p; p = p.parent) if (!p.open) v = p; return v; }
+const issueOf = (n) => n.issue ? n.issue.sev : null;
+const hasIssueBelow = (n) => !!(n.children || []).some((c) => c.issue || hasIssueBelow(c));
+
+function layout() {
+  let row = 0;
+  (function place(n) {
+    n.x = n.depth * DX;
+    const kids = n.open ? (n.children || []) : [];
+    if (!kids.length) { n.y = row++ * DY; return; }
+    kids.forEach(place);
+    n.y = (kids[0].y + kids[kids.length - 1].y) / 2;
+  })(TREE);
+}
+
+function visible() { const out = []; (function w(n) { out.push(n); if (n.open) (n.children || []).forEach(w); })(TREE); return out; }
+
+function render() {
+  layout();
+  gE.textContent = ''; gN.textContent = ''; gF.textContent = '';
+  const nodes = visible();
+  const related = new Set();
+  if (sel) { related.add(sel.id); for (const [a, b] of FLOWS) { if (shown(byId[a]) === sel) related.add(shown(byId[b]).id); if (shown(byId[b]) === sel) related.add(shown(byId[a]).id); } }
+  const dimNode = (n) => (showIssues && !n.issue && !(!n.open && hasIssueBelow(n))) || (sel && !showAll && !related.has(n.id) && n !== sel);
+
+  for (const n of nodes) if (n.parent) {
+    const p = n.parent, x1 = p.x + NW, y1 = p.y, x2 = n.x, y2 = n.y, mx = (x1 + x2) / 2;
+    el('path', { d: `M${x1},${y1}C${mx},${y1} ${mx},${y2} ${x2},${y2}`, class: 'edge' + (dimNode(n) ? ' dim' : '') }, gE);
+  }
+
+  const drawn = new Set();
+  for (const [a, b, label, t] of FLOWS) {
+    const A = shown(byId[a]), B = shown(byId[b]);
+    if (A === B) continue;
+    if (!showAll && !(sel && (A === sel || B === sel))) continue;
+    const key = A.id + '>' + B.id; if (drawn.has(key)) continue; drawn.add(key);
+    const fwd = B.y >= A.y;
+    const x1 = A.x + NW / 2, y1 = A.y + (fwd ? NH / 2 : -NH / 2), x2 = B.x + NW / 2, y2 = B.y + (fwd ? -NH / 2 : NH / 2);
+    const bend = Math.max(60, Math.abs(y2 - y1) * 0.35) * (A.x > B.x ? -1 : 1);
+    const cx = (x1 + x2) / 2 + bend, cy = (y1 + y2) / 2;
+    el('path', { d: `M${x1},${y1}Q${cx},${cy} ${x2},${y2}`, class: 'flow', stroke: COLORS[t], 'marker-end': MARK[t] }, gF);
+    if (sel) { const tx = el('text', { x: (x1 + 2 * cx + x2) / 4, y: (y1 + 2 * cy + y2) / 4, class: 'flow-label', fill: COLORS[t], 'text-anchor': 'middle' }, gF); tx.textContent = label; }
+  }
+
+  for (const n of nodes) {
+    const kind = n.depth === 0 ? 'root' : n.depth === 1 ? 'system' : 'concept';
+    const g = el('g', { class: 'node' + (dimNode(n) ? ' dim' : '') + (n === sel ? ' sel' : ''), transform: `translate(${n.x},${n.y - NH / 2})`, tabindex: 0 }, gN);
+    const fill = kind === 'root' ? '#3a2d6e' : kind === 'system' ? '#251f48' : '#1b1736';
+    const stroke = n.issue ? (n.issue.sev === 'high' ? 'var(--issue)' : 'var(--warn)') : kind === 'concept' ? 'var(--concept)' : 'var(--system)';
+    el('rect', { width: NW, height: NH, fill, stroke }, g);
+    const t = el('text', { x: 10, y: n.sub ? 16 : 23 }, g); t.textContent = n.label;
+    if (n.sub) { const s = el('text', { x: 10, y: 30, class: 'sub' }, g); s.textContent = n.sub; }
+    if (n.issue) { const b = el('text', { x: NW - (n.children ? 34 : 18), y: 16, class: 'badge', fill: n.issue.sev === 'high' ? 'var(--issue)' : 'var(--warn)' }, g); b.textContent = '!'; }
+    else if (!n.open && hasIssueBelow(n)) { el('circle', { cx: NW - 30, cy: NH / 2, r: 3, fill: 'var(--issue)' }, g); }
+    if (n.children && n.children.length) {
+      const tg = el('g', { transform: `translate(${NW - 14},${NH / 2})`, style: 'cursor:pointer' }, g);
+      el('circle', { r: 8, fill: '#0d0b1a', stroke: 'var(--muted)' }, tg);
+      const tt = el('text', { x: 0, y: 4, 'text-anchor': 'middle', fill: 'var(--ink)', style: 'font-size:12px' }, tg); tt.textContent = n.open ? '−' : '+';
+      tg.addEventListener('click', (ev) => { ev.stopPropagation(); n.open = !n.open; render(); });
+    }
+    g.addEventListener('click', (ev) => { ev.stopPropagation(); select(n); });
+    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') select(n); });
+  }
+  applyView();
+}
+
+function flowList(n, dir) {
+  return FLOWS.filter(([a, b]) => (dir === 'out' ? a : b) === n.id).map(([a, b, l, t]) => ({ other: byId[dir === 'out' ? b : a], label: l, t }));
+}
+
+function select(n) {
+  sel = sel === n ? null : n;
+  // reveal the path to the node so it stays visible
+  if (sel) for (let p = sel.parent; p; p = p.parent) p.open = true;
+  render(); panel();
+}
+
+function panel() {
+  const n = sel;
+  if (!n) {
+    info.innerHTML = `<h2>How to read this</h2>
+      <p>Each branch is one system with one purpose. Dashed arrows are the stocks and events that pass between systems.</p>
+      <div class="legend">
+        <div><span class="sw" style="border-color:var(--reinf)"></span>Reinforcing: success gives power</div>
+        <div><span class="sw" style="border-color:var(--bal)"></span>Balancing: pushes a value back</div>
+        <div><span class="sw" style="border-color:var(--feed)"></span>Plain flow of a resource</div>
+        <div><span class="sw" style="border-color:var(--issue)"></span>Node outline: design fault from the review</div>
+        <div><span class="sw" style="border-color:var(--warn)"></span>Node outline: watch / unverified</div>
+      </div>
+      <h3>Open issues</h3><ul>${Object.values(byId).filter((x) => x.issue).sort((a, b) => (a.issue.sev === 'high' ? 0 : 1) - (b.issue.sev === 'high' ? 0 : 1))
+        .map((x) => `<li><span class="lk" data-id="${x.id}" style="color:${x.issue.sev === 'high' ? 'var(--issue)' : 'var(--warn)'}">${x.label}</span></li>`).join('')}</ul>`;
+  } else {
+    const li = (arr) => arr.map((s) => `<li>${s}</li>`).join('');
+    const fl = (arr) => arr.map((f) => `<li><span class="tag" style="background:${COLORS[f.t]}">${NAMES[f.t]}</span><span class="lk" data-id="${f.other.id}">${f.other.label}</span>: ${f.label}</li>`).join('');
+    const outs = flowList(n, 'out'), ins = flowList(n, 'in');
+    const path = []; for (let p = n.parent; p; p = p.parent) path.unshift(p.label);
+    info.innerHTML = `<div class="file">${path.join(' › ') || 'root'}</div><h2>${n.label}</h2>${n.file ? `<div class="file">${n.file}</div>` : ''}
+      <p>${n.desc || ''}</p>
+      ${n.issue ? `<div class="issue ${n.issue.sev === 'high' ? '' : 'warn'}"><b>${n.issue.sev === 'high' ? 'Design fault' : 'Watch'}</b>${n.issue.text}</div>` : ''}
+      ${n.inputs ? `<h3>Takes in</h3><ul>${li(n.inputs)}</ul>` : ''}
+      ${n.outputs ? `<h3>Gives out</h3><ul>${li(n.outputs)}</ul>` : ''}
+      ${ins.length ? `<h3>Flows in</h3><ul>${fl(ins)}</ul>` : ''}
+      ${outs.length ? `<h3>Flows out</h3><ul>${fl(outs)}</ul>` : ''}
+      ${n.children ? `<h3>Contains</h3><ul>${n.children.map((c) => `<li><span class="lk" data-id="${c.id}">${c.label}</span>${c.issue ? ' <span style="color:var(--issue)">!</span>' : ''}</li>`).join('')}</ul>` : ''}`;
+  }
+  info.querySelectorAll('.lk').forEach((a) => a.addEventListener('click', () => { const t = byId[a.dataset.id]; sel = null; select(t); focusOn(t); }));
+}
+
+/* ---- pan & zoom ---- */
+function applyView() { vp.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`); }
+function bounds() { const ns = visible(); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const n of ns) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x + NW); y0 = Math.min(y0, n.y - NH / 2); y1 = Math.max(y1, n.y + NH / 2); } return { x0, y0, x1, y1 }; }
+function fit() {
+  const r = svg.getBoundingClientRect(), b = bounds(), pad = 30;
+  view.k = Math.min(1.4, Math.max(0.6, Math.min((r.width - pad * 2) / (b.x1 - b.x0), (r.height - pad * 2) / (b.y1 - b.y0))));
+  view.x = pad - b.x0 * view.k + Math.max(0, (r.width - pad * 2 - (b.x1 - b.x0) * view.k) / 2);
+  view.y = pad - b.y0 * view.k + Math.max(0, (r.height - pad * 2 - (b.y1 - b.y0) * view.k) / 2);
+  if (view.k === 0.6 && sel) focusOn(sel);
+  applyView();
+}
+function focusOn(n) { const r = svg.getBoundingClientRect(); view.x = r.width / 2 - (n.x + NW / 2) * view.k; view.y = r.height / 2 - n.y * view.k; applyView(); }
+const stage = document.getElementById('stage');
+const ptrs = new Map(); let pinch = null, moved = false;
+// No pointer capture: it would retarget the click away from the node under the pointer.
+stage.addEventListener('pointerdown', (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = false; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), k: view.k }; } });
+window.addEventListener('pointermove', (e) => {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  if (!moved && Math.hypot(dx, dy) < 4) return;
+  moved = true; stage.classList.add('drag');
+  if (ptrs.size === 1) { view.x += dx; view.y += dy; }
+  p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size === 2 && pinch) { const [a, b] = [...ptrs.values()]; zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, pinch.k * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d / view.k); }
+  applyView();
+});
+const up = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) stage.classList.remove('drag'); };
+window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+// a drag that ends on a node must not select it
+stage.addEventListener('click', (e) => { if (moved) { e.stopPropagation(); moved = false; } }, true);
+function zoomAt(cx, cy, f) { const r = svg.getBoundingClientRect(), k = Math.min(2.5, Math.max(0.2, view.k * f)), x = cx - r.left, y = cy - r.top; view.x = x - (x - view.x) * (k / view.k); view.y = y - (y - view.y) * (k / view.k); view.k = k; applyView(); }
+stage.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+svg.addEventListener('click', () => { if (sel) { sel = null; render(); panel(); } });
+
+/* ---- controls ---- */
+const tog = (btn, fn) => btn.addEventListener('click', () => { const v = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', v); fn(v); render(); });
+tog(document.getElementById('bAll'), (v) => { showAll = v; if (v) { Object.values(byId).forEach((n) => { if (n.depth === 0) n.open = true; }); } });
+tog(document.getElementById('bIssues'), (v) => { showIssues = v; if (v) Object.values(byId).forEach((n) => { if (n.children && hasIssueBelow(n)) n.open = true; }); });
+let expanded = false;
+document.getElementById('bExpand').addEventListener('click', (e) => { expanded = !expanded; Object.values(byId).forEach((n) => { if (n.depth > 0) n.open = expanded; }); e.target.textContent = expanded ? 'Collapse all' : 'Expand all'; render(); fit(); });
+document.getElementById('bFit').addEventListener('click', fit);
+window.addEventListener('resize', fit);
+
+render(); panel(); fit();
+</script>
+</body>
+</html>
