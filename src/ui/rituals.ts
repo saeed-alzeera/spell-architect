@@ -1,4 +1,4 @@
-// The Rituals block on the round-prep screen: the running ritual, or the one on offer (see game/rituals.ts).
+// The Rituals block on the round-prep screen: the running rituals, and those on offer (see game/rituals.ts).
 import { audio } from '../core/audio';
 import { acceptRitual, availableRituals, ritualCost, ritualProgress } from '../game/rituals';
 import type { Run } from '../game/run';

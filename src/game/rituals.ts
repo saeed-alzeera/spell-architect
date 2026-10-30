@@ -26,14 +26,12 @@ export const RITUALS: RitualDef[] = [
 /** Half of your current health: what a ritual costs. */
 export const ritualCost = (run: Run) => Math.floor(run.player.hp / 2);
 
-/** The rituals that can be accepted now: one at a time, and each only once per run. */
+/** The rituals that can be accepted now: each only once per run, any number can run at the same time. */
 export function availableRituals(run: Run): RitualDef[] {
-  if (run.rituals.some((r) => r.state === 'active')) return [];
   return RITUALS.filter((d) => !run.rituals.some((r) => r.def.id === d.id));
 }
 
 export function acceptRitual(run: Run, def: RitualDef): string | null {
-  if (run.rituals.some((r) => r.state === 'active')) return 'A ritual is already running.';
   if (!availableRituals(run).some((d) => d.id === def.id)) return 'You have already performed that ritual.';
   const cost = ritualCost(run);
   if (cost < 1) return 'You are too weak to pay the cost.';
