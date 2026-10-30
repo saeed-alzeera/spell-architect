@@ -235,7 +235,7 @@ function syncEnt(run: Run, en: SEnt) {
       en.spr.setPosition(en.x, en.y).setScale((R / base) * pulse);
       const zs = zoneStyle(en.el);
       const baseA = en.env === 'puddle' && en.ice ? 0.7 : zs.alpha;
-      en.spr.setAlpha(baseA * a * (en.electric > 0 ? 0.7 + 0.3 * Math.sin(T * 40) : 1) * (en.kind === 'aura' ? auraFill * (lead.has(en.id) ? 1 : AURA_SIDE_FILL) : decalVis.get(en.id) ?? 1));
+      en.spr.setAlpha(baseA * a * (en.electric > 0 ? 0.7 + 0.3 * Math.sin(T * 40) : 1) * (en.kind === 'aura' ? auraFill * (lead.has(en.id) ? 1 : AURA_SIDE_FILL) : vis.get(en.id) ?? 1));
       if (en.electric > 0) en.spr.setTint(0xfff35e);
       else if (en.ice) en.spr.setTint(0xb8f0ff);
       if (en.kind === 'aura') {
@@ -252,7 +252,7 @@ function syncEnt(run: Run, en: SEnt) {
     case 'mine': {
       const armed = en.armT <= 0;
       en.spr.setPosition(en.x, en.y).setScale(0.7 + (armed ? 0.15 * Math.sin(T * 10) : 0)).setRotation(T * 2);
-      en.spr2?.setPosition(en.x, en.y).setAlpha(armed ? 0.3 : 0.12);
+      en.spr2?.setPosition(en.x, en.y).setAlpha((armed ? 0.3 : 0.12) * (vis.get(en.id) ?? 1));
       break;
     }
     case 'beam': {
@@ -269,16 +269,18 @@ function syncEnt(run: Run, en: SEnt) {
       const t = 1 - en.life / en.maxLife;
       const e = 1 - (1 - t) * (1 - t);
       const R = en.r * e;
-      en.spr.setPosition(en.x, en.y).setScale(Math.max(0.05, R / 60)).setAlpha(1 - t * t);
-      en.spr2?.setPosition(en.x, en.y).setScale(Math.max(0.05, R / 61)).setAlpha(0.45 * (1 - t));
-      d[0]?.setPosition(en.x, en.y).setScale(Math.max(0.05, R / 64 * 0.92)).setAlpha(0.8 * (1 - t));
+      const v = vis.get(en.id) ?? 1;
+      en.spr.setPosition(en.x, en.y).setScale(Math.max(0.05, R / 60)).setAlpha((1 - t * t) * v);
+      en.spr2?.setPosition(en.x, en.y).setScale(Math.max(0.05, R / 61)).setAlpha(0.45 * (1 - t) * v);
+      d[0]?.setPosition(en.x, en.y).setScale(Math.max(0.05, R / 64 * 0.92)).setAlpha(0.8 * (1 - t) * (lead.has(en.id) ? v : 0)); // the white edge ring only on the first nova of a pile
       break;
     }
     case 'meteor': {
       const k = Math.max(0, en.armT) / (en.maxLife - 0.5);
       const R = en.blast;
-      en.spr2?.setPosition(en.x, en.y).setScale((R / 64) * (1 + k * 0.8)).setRotation(T * 2).setAlpha(0.35 + 0.5 * (1 - k));
-      d[0]?.setPosition(en.x, en.y).setScale(R / 61).setAlpha(0.1 + 0.18 * (1 - k));
+      const v = vis.get(en.id) ?? 1;
+      en.spr2?.setPosition(en.x, en.y).setScale((R / 64) * (1 + k * 0.8)).setRotation(T * 2).setAlpha((0.35 + 0.5 * (1 - k)) * v);
+      d[0]?.setPosition(en.x, en.y).setScale(R / 61).setAlpha((0.1 + 0.18 * (1 - k)) * v);
       const fy = en.y - 520 * k * k - 6;
       const fx = en.x - 120 * k;
       en.spr.setPosition(fx, fy).setScale(2 + 1.4 * (1 - k)).setAlpha(Math.min(1, a * 1.5));
@@ -460,33 +462,60 @@ export function processEvents(run: Run) {
 /** Overlap presentation, worked out once per frame. Drawing only: nothing here touches damage, ticks or lifetimes.
  *  - Auras all draw around the player, so their fills stack and their additive rings add up to a white disc. Only the oldest
  *    aura keeps its full rings; every other one is a thin faint outline in its own colour, and all fills fade with the count.
- *  - A puddle or cloud is drawn lighter the more older ones of its element it overlaps (so overlaps never get darker), and not
- *    at all when it sits almost exactly on one. */
+ *  - Puddles, clouds, meteor telegraphs, novas and mine rings are drawn lighter the more older ones of their kind they overlap
+ *    (so a pile never gets brighter or darker than a single one), and a puddle sitting almost exactly on an older one is not drawn. */
 let auraFill = 1;
 const AURA_SIDE_RING = 0.3, AURA_SIDE_FILL = 0.45;
 const lead = new Set<number>();
-const decalVis = new Map<number, number>();
+/** entity id -> how strongly its overlay is drawn this frame (1 = alone). */
+const vis = new Map<number, number>();
+
+/** Radius of the part of an entity that is drawn as an overlay, for the kinds that get thinned out when they pile up. */
+function overlayR(en: SEnt): number {
+  switch (en.kind) {
+    case 'decal': return currentR(en);
+    case 'meteor': case 'mine': return en.blast;
+    case 'nova': return en.r * 0.8;
+    default: return 0;
+  }
+}
 
 function sortOutOverlapVisuals(ents: SEnt[]) {
-  lead.clear(); decalVis.clear();
+  lead.clear(); vis.clear();
   let auras = 0;
-  const seen: SEnt[] = [];
+  const decals: SEnt[] = [], seen: SEnt[] = [];
+  const piles: Record<string, SEnt[]> = { meteor: [], nova: [], mine: [] };
   for (let i = 0; i < ents.length; i++) {
     const en = ents[i];
     if (en.dead) continue;
     if (en.kind === 'aura') { if (auras++ === 0) lead.add(en.id); }
     else if (en.kind === 'decal') {
-      const R = currentR(en);
+      // alpha-blended: lighter the more older puddles of the same colour it overlaps, hidden when almost exactly on one
+      const R = overlayR(en);
       let k = 0, buried = false;
       for (let j = 0; j < seen.length; j++) {
         const o = seen[j];
         if (o.el !== en.el) continue;
-        const Ro = currentR(o), dx = o.x - en.x, dy = o.y - en.y, d2 = dx * dx + dy * dy;
+        const Ro = overlayR(o), dx = o.x - en.x, dy = o.y - en.y, d2 = dx * dx + dy * dy;
         if (d2 < (Ro * 0.5) ** 2 && R <= Ro * 1.15) { buried = true; break; }
         if (d2 < ((R + Ro) * 0.7) ** 2) k++;
       }
-      decalVis.set(en.id, buried ? 0 : 1 / (1 + 0.6 * k));
+      vis.set(en.id, buried ? 0 : 1 / (1 + 0.6 * k));
       if (!buried) seen.push(en);
+    } else piles[en.kind]?.push(en);
+  }
+  // additive overlays (meteor telegraphs, novas, mine rings) share a brightness budget: a pile of five glows about like two
+  for (const list of Object.values(piles)) {
+    for (let i = 0; i < list.length; i++) {
+      const en = list[i], R = overlayR(en);
+      let n = 0, older = 0;
+      for (let j = 0; j < list.length; j++) {
+        if (j === i) continue;
+        const o = list[j], dx = o.x - en.x, dy = o.y - en.y;
+        if (dx * dx + dy * dy < ((R + overlayR(o)) * 0.5) ** 2) { n++; if (j < i) older++; }
+      }
+      vis.set(en.id, Math.max(0.12, Math.min(1, 1.6 / (n + 1))));
+      if (older === 0) lead.add(en.id);
     }
   }
   auraFill = 1 / (0.6 + 0.4 * Math.max(1, auras));
@@ -835,11 +864,12 @@ function updateNova(run: Run, en: SEnt, dt: number) {
   const R = en.r * (1 - (1 - t) * (1 - t));
   const inward = en.pull;
   const col = ELEMENTS[en.el].color;
-  if (Math.random() < 0.9) {
+  const v = vis.get(en.id) ?? 1; // a pile of novas emits no more sparks than the brightness budget allows
+  if (Math.random() < 0.9 * v) {
     const a = Math.random() * 6.283;
     run.fx.spark(en.x + Math.cos(a) * R, en.y + Math.sin(a) * R, Math.cos(a) * 60, Math.sin(a) * 60, col, 0.4, 1.4);
   }
-  if (en.el === 'lightning' && Math.random() < 0.5) {
+  if (en.el === 'lightning' && Math.random() < 0.5 * v) {
     const a = Math.random() * 6.283;
     run.fx.bolt(en.x + Math.cos(a) * R * 0.8, en.y + Math.sin(a) * R * 0.8, en.x + Math.cos(a + 0.4) * R, en.y + Math.sin(a + 0.4) * R, 0xfff35e, 5, 0.1);
   }
@@ -867,7 +897,7 @@ function updateMeteor(run: Run, en: SEnt, dt: number) {
     }
   }
   if (en.armT > 0) {
-    if (Math.random() < 0.7) run.fx.spark(en.x + (Math.random() - 0.5) * en.blast, en.y + (Math.random() - 0.5) * en.blast, 0, 0, ELEMENTS[en.el].color, 0.3, 0.9);
+    if (Math.random() < 0.7 * (vis.get(en.id) ?? 1)) run.fx.spark(en.x + (Math.random() - 0.5) * en.blast, en.y + (Math.random() - 0.5) * en.blast, 0, 0, ELEMENTS[en.el].color, 0.3, 0.9);
     return;
   }
   run.fx.ring(en.x, en.y, 0xffffff, 10, en.blast * 0.8, 0.25, 0.8);
