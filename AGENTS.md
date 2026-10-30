@@ -28,7 +28,7 @@ There are no unit tests for the game itself. `tests/*.cjs` are Playwright end-to
 | `src/core/` | `spell.ts` (spell graph, `checkAttach()` rules, compile), `save.ts` (localStorage), `analytics.ts`, `version.ts`, `audio.ts` |
 | `src/game/` | Simulation, no rendering concerns: `run.ts` (state + tick), `casting.ts`, `combat.ts` (damage, statuses, reactions), `enemies.ts`, `bosses.ts`, `arena.ts`, `rewards.ts`, `shop.ts`, `relics.ts`, `rituals.ts`, `rounds.ts`, `ultimates.ts` |
 | `src/net/` | Co-op: host-authoritative, joiner predicts its own movement only. Wire format in `proto.ts` / `wire.ts` |
-| `src/ui/` | DOM UI (menus, HUD, editor, shop). Styles in `styles.css` |
+| `src/ui/` | DOM UI (menus, HUD, editor, shop). Styles in `styles.css`. The shop is not a screen of its own: `shop.ts` is a `ShopPane` embedded in the editor |
 | `src/scenes/`, `src/gfx/` | Phaser glue and procedural textures |
 | `worker/` | Cloudflare Worker: `/mp/*` signaling (`mp.js`), `/runs` analytics store (`runs.js`) |
 | `tools/analyze.mjs` | Compares run analytics across game versions |

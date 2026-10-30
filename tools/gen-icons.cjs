@@ -10,6 +10,7 @@ const SET = [
   ['trigger', 'l', 'zap'], ['modifier', 'l', 'wrench'], ['spell', 'l', 'sparkles'], ['react', 'l', 'flask-conical'], ['forge', 'l', 'hammer'], ['stats', 'l', 'chart-bar'],
   ['damage', 't', 'bolt'], ['cooldown', 'l', 'timer'], ['dps', 'l', 'activity'], ['runes', 'l', 'puzzle'], ['cost', 'l', 'diamond'], ['plus', 'l', 'plus'],
   ['launch', 'l', 'corner-down-right'], ['check', 'l', 'check'], ['link', 'l', 'link'], ['none', 'l', 'ban'], ['dna', 'l', 'dna'], ['coins', 'l', 'coins'], ['search', 'l', 'search'],
+  ['reroll', 'l', 'refresh-cw'], ['alert', 'l', 'triangle-alert'], ['buy', 'l', 'shopping-bag'], ['sell', 'l', 'hand-coins'],
 ];
 const lines = SET.map(([n, lib, id]) => {
   let svg = fs.readFileSync((lib === 'l' ? L : T) + id + '.svg', 'utf8');

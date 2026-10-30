@@ -53,7 +53,7 @@ Rules (enforced by `checkAttach()` in `src/core/spell.ts`, which also produces t
 * Every rune costs **Spell Capacity**; each slot has its own capacity (12 to start, raised in the shop).
 * Safety against runaway loops: trigger nesting is limited (3 deep), runtime event depth is capped (4), and there are global entity and per-frame spawn budgets, per-source trigger cooldowns and an event-queue cap.
 
-The editor shows each slot as nested cards (Form → Core socket, augment chips, trigger blocks → launched Forms), with a plain-language **What it does** story written beside it.
+The editor shows every slot side by side as nested cards (Form → Core socket, augment chips, trigger blocks → launched Forms), with each spell's estimated DPS and any warnings in its header. Drag runes between spells, or click a rune and then a glowing card. The right-hand pane holds the **shop** (buy / sell) and the **forge**, so building and buying happen on one screen; the layers button opens the full spell overview.
 
 ### Elemental interactions (systemic, not scripted upgrades)
 
@@ -100,13 +100,13 @@ Enemies drop **coins** as pickups (roughly 1 per ten kills; elites pay 3; cleari
 
 ### Rarity and Triggers
 
-In the editor's **Forge / Merge** tab, two same-type triggers from your pool (On Hit, On Kill, On Critical Hit) merge into one trigger with the summed chance (max 80%): two 20% On Hits become one 40% On Hit. Trigger chance can never exceed 90% after relics.
+In the editor's **Forge** pane, two same-type triggers from your pool (On Hit, On Kill, On Critical Hit) merge into one trigger with the summed chance (max 80%): two 20% On Hits become one 40% On Hit. Trigger chance can never exceed 90% after relics.
 
 Everything except Cores has a rarity. **On Hit / On Kill / On Critical Hit** are not guaranteed: they come in tiers that fire 20% (Common), 45% (Uncommon), 60% (Rare) and 80% (Epic) of the time.
 
 ### Relics
 
-Passive items with conditions, found from bosses, elites and the shop. Wear up to **6**; there is no stash, so to take a new relic with full slots you **sell** one (Relics tab in the editor/shop, or right on the pick screen) for coins. Common to Legendary, plus **cursed** relics with a real downside (Glass Cannon Idol, Gambler's Dice, Hungry Purse). Active relics show on the HUD with live counters.
+Passive items with conditions, found from bosses, elites and the shop. Wear up to **6**; there is no stash, so to take a new relic with full slots you **sell** one (the relic row at the top of the editor, or right on the pick screen) for coins. Common to Legendary, plus **cursed** relics with a real downside (Glass Cannon Idol, Gambler's Dice, Hungry Purse). Active relics show on the HUD with live counters.
 
 ### Run history
 
@@ -114,7 +114,7 @@ Every run (won, lost or abandoned) is recorded with its spells, relics, per-roun
 
 ### Evolutions and Ultimates
 
-Collect **6 copies of the same Core** (pool or equipped, including Cores in nested trigger Forms) and **forge** an evolved Core in the editor's **Forge** tab (the Forge tab and the round briefing glow when you can): Inferno, Glacier, Tempest, Pestilence, Tsunami, Singularity. An evolved Core gives +40% damage, a new passive, and unlocks that element's **Ultimate** on `Space` (Meteor Storm, Absolute Zero, Thunderstorm, Plague Wave, Tidal Surge, Event Horizon). Ultimates recharge over 45 s and faster with kills.
+Collect **6 copies of the same Core** (pool or equipped, including Cores in nested trigger Forms) and **forge** an evolved Core in the editor's **Forge** pane (the Forge tab and the round briefing glow when you can): Inferno, Glacier, Tempest, Pestilence, Tsunami, Singularity. An evolved Core gives +40% damage, a new passive, and unlocks that element's **Ultimate** on `Space` (Meteor Storm, Absolute Zero, Thunderstorm, Plague Wave, Tidal Surge, Event Horizon). Ultimates recharge over 45 s and faster with kills.
 
 ### Online co-op
 

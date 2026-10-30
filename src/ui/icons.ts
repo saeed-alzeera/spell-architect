@@ -31,6 +31,10 @@ const PATHS = {
   dna: "<path d=\"m10 16 1.5 1.5\" /> <path d=\"m14 8-1.5-1.5\" /> <path d=\"M15 2c-1.798 1.998-2.518 3.995-2.807 5.993\" /> <path d=\"m16.5 10.5 1 1\" /> <path d=\"m17 6-2.891-2.891\" /> <path d=\"M2 15c6.667-6 13.333 0 20-6\" /> <path d=\"m20 9 .891.891\" /> <path d=\"M3.109 14.109 4 15\" /> <path d=\"m6.5 12.5 1 1\" /> <path d=\"m7 18 2.891 2.891\" /> <path d=\"M9 22c1.798-1.998 2.518-3.995 2.807-5.993\" />", // Lucide dna
   coins: "<path d=\"M13.744 17.736a6 6 0 1 1-7.48-7.48\" /> <path d=\"M15 6h1v4\" /> <path d=\"m6.134 14.768.866-.5 2 3.464\" /> <circle cx=\"16\" cy=\"8\" r=\"6\" />", // Lucide coins
   search: "<path d=\"m21 21-4.34-4.34\" /> <circle cx=\"11\" cy=\"11\" r=\"8\" />", // Lucide search
+  reroll: "<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\" /> <path d=\"M21 3v5h-5\" /> <path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\" /> <path d=\"M8 16H3v5\" />", // Lucide refresh-cw
+  alert: "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /> <path d=\"M12 9v4\" /> <path d=\"M12 17h.01\" />", // Lucide triangle-alert
+  buy: "<path d=\"M16 10a4 4 0 0 1-8 0\" /> <path d=\"M3.103 6.034h17.794\" /> <path d=\"M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z\" />", // Lucide shopping-bag
+  sell: "<path d=\"M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17\" /> <path d=\"m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9\" /> <path d=\"m2 16 6 6\" /> <circle cx=\"16\" cy=\"9\" r=\"2.9\" /> <circle cx=\"6\" cy=\"5\" r=\"3\" />", // Lucide hand-coins
 } as const;
 
 export type IconName = keyof typeof PATHS;
