@@ -75,7 +75,6 @@
   <div class="ctl">
     <input id="q" type="search" placeholder="Search nodes…" autocomplete="off">
     <button id="bIssues" aria-pressed="false">Issues only</button>
-    <button id="bAll" aria-pressed="false">All links</button>
     <button id="bFit">Fit</button>
   </div>
   </header>
@@ -560,7 +559,7 @@ for (const n of all) {
 const svg = document.getElementById('svg'), vp = document.getElementById('vp');
 const gE = document.getElementById('gEdges'), gF = document.getElementById('gFlows'), gN = document.getElementById('gNodes');
 const info = document.getElementById('info'), countEl = document.getElementById('count');
-let sel = null, showAll = false, showIssues = false, query = '', matches = null, saved = null;
+let sel = null, showIssues = false, query = '', matches = null, saved = null;
 const view = { x: 0, y: 0, k: 1 };
 const NS = 'http://www.w3.org/2000/svg';
 const el = (t, a, parent) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (parent) parent.appendChild(e); return e; };
@@ -615,7 +614,7 @@ function render() {
   layout();
   gE.textContent = ''; gN.textContent = ''; gF.textContent = '';
   const nodes = visible(), rel = related();
-  const dimNode = (n) => (matches && !matches.has(n) && !matches.anc.has(n)) || (showIssues && !n.issue && !(n.children.length && hasIssueBelow(n)) && !(n.depth === 0)) || (sel && !rel.has(n) && !showAll);
+  const dimNode = (n) => (matches && !matches.has(n) && !matches.anc.has(n)) || (showIssues && !n.issue && !(n.children.length && hasIssueBelow(n)) && !(n.depth === 0)) || (sel && !rel.has(n));
 
   for (const n of nodes) if (n.parent) {
     const p = n.parent, s = n.side;
@@ -623,18 +622,7 @@ function render() {
     el('path', { d: `M${x1},${y1}C${mx},${y1} ${mx},${y2} ${x2},${y2}`, class: 'edge' + (dimNode(n) ? ' dim' : ''), stroke: n.col, 'stroke-width': Math.max(1.2, 4.2 - n.depth * 0.9), 'stroke-opacity': n.depth > 2 ? 0.7 : 0.95 }, gE);
   }
 
-  const drawn = new Set();
-  for (const [a, b, label, t] of FLOWS) {
-    const A = shown(byId[a]), B = shown(byId[b]);
-    if (A === B) continue;
-    if (!showAll && !(sel && (A === sel || B === sel || isAnc(sel, byId[a]) || isAnc(sel, byId[b]) || byId[a] === sel || byId[b] === sel))) continue;
-    const key = A.id + '>' + B.id; if (drawn.has(key)) continue; drawn.add(key);
-    const x1 = A.x + A.w / 2, y1 = A.y, x2 = B.x + B.w / 2, y2 = B.y;
-    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, bend = Math.min(160, len * 0.25);
-    const cx = (x1 + x2) / 2 - dy / len * bend, cy = (y1 + y2) / 2 + dx / len * bend;
-    el('path', { d: `M${x1},${y1}Q${cx},${cy} ${x2},${y2}`, class: 'flow', stroke: COLORS[t], 'marker-end': MARK[t] }, gF);
-    if (sel) { const tx = el('text', { x: (x1 + 2 * cx + x2) / 4, y: (y1 + 2 * cy + y2) / 4, class: 'flow-label', style: `fill:${COLORS[t]}`, 'text-anchor': 'middle' }, gF); tx.textContent = label; }
-  }
+  /* Cross-links (FLOWS) are listed in the sidebar only; drawing them over the map made it unreadable. */
 
   for (const n of nodes) {
     const g = el('g', { class: `node d${Math.min(n.depth, 2)}` + (dimNode(n) ? ' dim' : '') + (n === sel ? ' sel' : '') + (matches && matches.has(n) ? ' hit' : ''), transform: `translate(${n.x},${n.y - n.h / 2})`, tabindex: 0 }, gN);
@@ -695,7 +683,7 @@ function panel() {
         <div><span class="sw" style="border-color:var(--feed)"></span>Link: plain flow</div>
         <div>Rarity:${Object.entries(RC).map(([k, v]) => `<span class="dot" style="background:${v}"></span>${k}`).join('')}</div>
       </div>
-      <p class="sub">Depth buttons fold the whole map to a level. Search opens every branch that matches. Links show for the selected node; "All links" shows every one.</p>
+      <p class="sub">Depth buttons fold the whole map to a level. Search opens every branch that matches. Select a node to see its cross-links listed here.</p>
       <h3>Open issues</h3><ul>${issues.map((x) => `<li><span class="lk" data-id="${x.id}" style="color:${sev(x)}">${x.label}</span></li>`).join('')}</ul>`;
   } else {
     const li = (arr) => arr.map((s) => `<li>${s}</li>`).join('');
@@ -757,9 +745,8 @@ svg.addEventListener('click', () => { if (sel) { sel = null; render(); panel(); 
 function setDepth(k) { all.forEach((n) => { n.open = n.depth < k; }); render(); fit(); }
 document.querySelectorAll('[data-depth]').forEach((b) => b.addEventListener('click', () => { if (matches) clearSearch(); setDepth(Number(b.dataset.depth)); }));
 document.getElementById('bFit').addEventListener('click', fit);
-const bI = document.getElementById('bIssues'), bA = document.getElementById('bAll');
+const bI = document.getElementById('bIssues');
 bI.addEventListener('click', () => { showIssues = bI.getAttribute('aria-pressed') !== 'true'; bI.setAttribute('aria-pressed', showIssues); if (showIssues) all.forEach((n) => { if (n.children.length && hasIssueBelow(n)) n.open = true; }); render(); fit(); });
-bA.addEventListener('click', () => { showAll = bA.getAttribute('aria-pressed') !== 'true'; bA.setAttribute('aria-pressed', showAll); render(); });
 
 function clearSearch() { if (saved) all.forEach((n) => { n.open = saved.get(n.id); }); saved = null; matches = null; query = ''; document.getElementById('q').value = ''; }
 document.getElementById('q').addEventListener('input', (e) => {
