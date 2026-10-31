@@ -3,6 +3,7 @@ import type { Element, FormId, TriggerType } from '../data/runes';
 import type { CForm, CompiledSpell, SpellDef } from '../core/spell';
 import type { Mut, StatKey } from '../data/mutations';
 import type { Aff } from './rounds';
+import type { SpellTel } from './telemetry';
 
 export type EntKind = FormId | 'decal';
 export type Img = Phaser.GameObjects.Image;
@@ -21,6 +22,8 @@ export interface ActiveSpell {
   ultCd: number;
   casts: number;
   crits: number;
+  /** Per-round telemetry counters (reset when a round starts), see telemetry.ts. */
+  tel: SpellTel;
 }
 
 /** Provenance of a damage instance; also stored on statuses so DoT kills still trigger runes. */
@@ -30,6 +33,8 @@ export interface Src {
   depth: number;
   el: Element;
   icd: { hit: number; crit: number };
+  /** Set when a relic caused this cast (Mirror Shard, Sock, Compass): its damage is credited to that relic in the telemetry. */
+  rel?: string;
 }
 
 export type EType = 'grunt' | 'swarmer' | 'archer' | 'charger' | 'armored' | 'boss';
@@ -57,6 +62,7 @@ export interface Enemy {
   x: number; y: number; vx: number; vy: number;
   hp: number; maxHp: number; r: number; speed: number; dmg: number; armor: number; xp: number;
   elite: boolean; sc: number;
+  born: number; // world time when it spawned (telemetry: enemy lifetime)
   spr: Img; shadow: Img;
   flash: number; face: number; wob: number;
   wet: number;

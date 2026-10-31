@@ -503,7 +503,7 @@ const TREE = {
     c: [
       L('unlock', 'Rune unlocks', '6 → all', 'Start with Fire, Projectile, Nova, Pierce, On Hit and Grow; each finished run unlocks 2 more. Variety, not power.'),
       L('save', 'Saves', 'localStorage', 'Key spell-architect-save-v1, RunRecord v2. Must stay backward compatible.'),
-      L('runs', 'Run analytics', 'per game version', 'Every run is uploaded with its game version; compare versions with tools/analyze.mjs.',
+      L('runs', 'Run analytics', 'per game version', 'Every run is uploaded with its game version; compare versions with tools/analyze.mjs, one run in depth with tools/run-report.mjs. Records (v3) carry per-round telemetry from src/game/telemetry.ts: enemy HP spawned vs damage dealt (damage is capped by the spawn), damage by source, per-slot spell structure that survives Core swaps, per-relic damage and cooldown attribution, when each relic/rune/forge was gained, and the round the run ended in.',
         { issue: { sev: 'high', text: "9 runs total; no normal-mode run past round 4. The designer's own feedback loop has the longest delay." } }),
     ] },
   ],

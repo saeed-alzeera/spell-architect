@@ -6,6 +6,7 @@ import { hpMul, playerScale, ramp, spawnEnemy } from './enemies';
 import { audio } from '../core/audio';
 
 import { BOSS_RES } from './rounds';
+import { tallyReskin } from './telemetry';
 
 type Minion = 'grunt' | 'swarmer' | 'armored' | 'archer';
 /** `tier` 0..3 is the boss round (5/10/15/20); three bosses share each tier and the run seed picks one. */
@@ -39,12 +40,14 @@ export function spawnBoss(run: Run, kind: number) {
   const e = spawnEnemy(run, 'grunt', x, y, false);
   // re-skin the placeholder grunt into a boss
   run.freeImg(e.spr); run.freeImg(e.shadow);
+  const startHp = e.hp;
   e.type = 'boss';
   e.spr = run.img(d.tex, 6); e.shadow = run.img('shadow', 4).setScale(d.sc * 1.1).setAlpha(0.8);
   e.sc = d.sc; e.r = d.r; e.speed = d.speed * 1.35; e.elite = false;
   e.aff = 'neutral'; e.res = { ...BOSS_RES[kind] };
   e.maxHp = e.hp = d.hp * Math.pow(hpMul(run.dtime), 0.75) * (run.quick ? 0.8 : 1) * playerScale(run); // more players, tougher boss
   e.dmg = d.dmg * (1 + 0.25 * ramp(run.dtime)) * (1 + run.dtime / 60 * 0.05);
+  tallyReskin(run.world, 'boss', 'grunt', startHp, e.hp); // telemetry: the placeholder grunt counted as a spawn; swap it for the boss
   e.xp = d.xp; e.armor = 2 + d.tier * 2; e.spawnT = 0.5;
   e.boss = {
     kind, name: d.name, phase: 0, cd: 2.2, atk: '', atkT: 0, dash: 0, dx: 0, dy: 0, spiral: 0, spiralAng: 0, pull: 0, last: '', enraged: false,

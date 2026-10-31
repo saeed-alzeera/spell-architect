@@ -26,12 +26,13 @@ There are no unit tests for the game itself. `tests/*.cjs` are Playwright end-to
 | --- | --- |
 | `src/data/` | Data-driven definitions: `runes.ts` (runes, elements, forms), `mutations.ts`, `reactions.ts` |
 | `src/core/` | `spell.ts` (spell graph, `checkAttach()` rules, compile), `save.ts` (localStorage), `analytics.ts`, `version.ts`, `audio.ts` |
-| `src/game/` | Simulation, no rendering concerns: `run.ts` (state + tick), `casting.ts`, `combat.ts` (damage, statuses, reactions), `enemies.ts`, `bosses.ts`, `arena.ts`, `rewards.ts`, `shop.ts`, `relics.ts`, `rituals.ts`, `rounds.ts`, `ultimates.ts` |
+| `src/game/` | Simulation, no rendering concerns: `run.ts` (state + tick), `casting.ts`, `combat.ts` (damage, statuses, reactions), `enemies.ts`, `bosses.ts`, `arena.ts`, `rewards.ts`, `shop.ts`, `relics.ts`, `rituals.ts`, `rounds.ts`, `ultimates.ts`, `telemetry.ts` (analytics counters; counts only, never changes gameplay) |
 | `src/net/` | Co-op: host-authoritative, joiner predicts its own movement only. Wire format in `proto.ts` / `wire.ts` |
 | `src/ui/` | DOM UI (menus, HUD, editor, shop). Styles in `styles.css`. The shop is not a screen of its own: `shop.ts` is a `ShopPane` embedded in the editor |
 | `src/scenes/`, `src/gfx/` | Phaser glue and procedural textures |
 | `worker/` | Cloudflare Worker: `/mp/*` signaling (`mp.js`), `/runs` analytics store (`runs.js`) |
 | `tools/analyze.mjs` | Compares run analytics across game versions |
+| `tools/run-report.mjs` | One run in depth: damage growth vs enemy HP spawned, spell slots, relic attribution, timelines |
 | `tools/check-graph.mjs` | Checks the graph is in sync with the game (used by the Stop hook) |
 | `public/graph/` | Static mind map of everything in the game (concepts drilling down to single runes, enemies, bosses, relics), cross-links and open design issues, served at `/graph/`. Hand-maintained data at the top of `index.html`: update it when you add content. Vite copies `public/` into `dist/` as is |
 | `docs/` | Deep dives, see below |
@@ -45,6 +46,7 @@ There are no unit tests for the game itself. `tests/*.cjs` are Playwright end-to
 - **UI direction:** declutter. No pop-ups, no relic stash, sparse effects (see recent history: "UI/UX declutter").
 - **Rune/spell rules live in code, not just docs.** Attachment legality is `checkAttach()` in `src/core/spell.ts`; it also generates the editor's explanations. Add runes via `src/data/runes.ts` (steps in README, "Adding a rune").
 - **Run saves are versioned and persisted** (`localStorage` key `spell-architect-save-v1`, `RunRecord` v2). Don't break old saves; add fields compatibly.
+- **New mechanics should be measurable.** When you add a relic, behaviour or damage source that changes damage or cooldowns, count it in `src/game/telemetry.ts` (a relic multiplier goes through `relicDamageMul`'s `mul()`; a relic that causes casts passes `rel` to `castForm` and calls `tallyProc`), so run analytics can attribute it. See [`docs/analytics.md`](docs/analytics.md), "Telemetry".
 - The worker is deployed by CI on push to `main`; don't change its public routes casually.
 
 ## Docs
