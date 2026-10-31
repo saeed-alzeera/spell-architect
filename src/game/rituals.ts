@@ -3,7 +3,7 @@
 // A ritual's challenge is always something the player can bring about. Today there are three: the Vow of Silence asks you to
 // get through its rounds with every Trigger rune dead, the Rite of the Fall asks you to be
 // caught by the crumbling floor (fall into the void) in each of its rounds, the Golden Idol asks you to spend half of each round
-// inside the golden zone (about half of the arena, made of whole floor tiles that keep changing).
+// inside the golden zone (about a fifth of the arena, made of whole floor tiles that keep changing).
 // Co-op: every player has their own ritual (events reach the shell of the player they belong to) and the host evaluates it.
 import type Phaser from 'phaser';
 import { ARENA, TILE, TN, tileCx, tileCy, tileOf } from './arena';
@@ -36,7 +36,7 @@ export interface ActiveRitual { def: RitualDef; startRound: number; roundsDone: 
 
 export const RITUALS: RitualDef[] = [
   { id: 'fall', name: 'Rite of the Fall', icon: '🕳️', rounds: RITUAL_ROUNDS, challenge: 'Fall through the crumbling floor at least once in each round', reward: `+${Math.round(POWER_REWARD * 100)}% damage for the rest of the run` },
-  { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about half of the arena, whole floor tiles that light up and go dark as it drifts)`, reward: `every coin you earn (kill drops, round and boss bonuses) is worth ${Math.round(GOLD_BONUS * 100)}% more, for the rest of the run` },
+  { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about a fifth of the arena, whole floor tiles that light up and go dark as it drifts)`, reward: `every coin you earn (kill drops, round and boss bonuses) is worth ${Math.round(GOLD_BONUS * 100)}% more, for the rest of the run` },
   { id: 'silence', name: 'Vow of Silence', icon: '🤐', rounds: RITUAL_ROUNDS, challenge: `Triggers do not work at all for ${RITUAL_ROUNDS} rounds (only offered while ${SILENCE_SPELLS} or more of your spells have a Trigger)`, reward: 'every Trigger gets 2 rolls instead of 1, for the rest of the run' },
   { id: 'purity', name: 'Oath of Purity', icon: '🕯️', rounds: RITUAL_ROUNDS, challenge: `Only your weakest spell may cast for ${RITUAL_ROUNDS} rounds, the others (and their ultimates) fall silent (only offered while ${PURITY_SPELLS} or more spells are at least ${Math.round(PURITY_FILL * 100)}% full)`, reward: `one spell of your choice gets ${Math.round(PURITY_CAP * 100)}% more capacity` },
   { id: 'sanguine', name: 'Sanguine Pact', icon: '🩸', rounds: RITUAL_ROUNDS, challenge: `Heal nothing for ${RITUAL_ROUNDS} rounds: no regeneration, round-start healing, hearts, draughts or relic heals (only offered from round ${SANGUINE_ROUND} on, at full health)`, reward: `+${SANGUINE_REGEN} health regenerated per second and +${SANGUINE_HP} maximum health, for the rest of the run` },
@@ -124,7 +124,7 @@ export function ritualRoundStart(run: Run) {
 
 /** The golden zone is a blob around a drifting centre, snapped to the floor grid: a tile is gold when its centre is inside the blob. Its radius wobbles with a few slow waves that turn at different speeds, so
  *  it constantly grows on some sides and recedes on others. It is a pure function of (round, seed, t), so joiners draw the same one. */
-const ZONE_R = 315; // about half of the arena once the wobble is averaged in
+const ZONE_R = 264; // about 20% of the floor tiles once the wobble is averaged in (measured: 315 was 28%, which made it too easy to just stay in)
 const WAVES: [number, number, number][] = [[1, 0.3, 0.55], [2, 0.22, -0.8], [3, 0.12, 1.1]]; // lobes, amplitude, turn speed (rad/s)
 
 export function goldZone(round: number, seed: number, t: number) {
