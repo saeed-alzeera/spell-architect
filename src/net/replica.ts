@@ -245,7 +245,7 @@ export class Replica {
     const pid = r.u8(), f = r.u8(), x = r.i16() / POS, y = r.i16() / POS;
     let o = this.players.get(pid);
     if (!o) {
-      const label = this.scene.add.text(0, 0, this.names.get(pid) ?? `P${pid}`, { fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: '#9fd8ff', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(15);
+      const label = this.scene.add.text(0, 0, this.names.get(pid) ?? `P${pid}`, { fontFamily: '"Press Start 2P", monospace', fontSize: '11px', color: '#9fd8ff', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(15);
       o = { pid, tr: new Track(2), flags: f, seq, spr: this.run.img('wiz0', 8), shadow: this.run.img('shadow', 4).setScale(3), label, walkT: 0, lx: x };
       o.spr.setScale(3); this.players.set(pid, o);
     }
