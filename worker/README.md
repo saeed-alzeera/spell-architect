@@ -27,3 +27,7 @@ token covers several accounts).
 | GET | `/mp/rooms/:code/signal?as=&key=&after=&wait=` | long-poll the mailbox |
 | POST | `/mp/rooms/:code/lock` | `{ key }` (host only): no new players, existing ones may reconnect |
 | POST | `/mp/rooms/:code/close` | `{ key }` (host only) |
+| GET | `/runs/notes` | admin key: design notes written on the systems map (`/graph/`) -> `{ notes: [{ id, text, at }] }` |
+| POST | `/runs/notes` | admin key: `{ id, text }` saves the note for map node `id` (`_general` = the map itself); empty text deletes it |
+
+Notes are stored in the `RunStore` Durable Object under `n:` keys. The map page keeps them in `localStorage` and syncs when the admin key is pasted into its "Sync key" box.

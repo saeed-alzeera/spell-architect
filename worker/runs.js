@@ -5,6 +5,9 @@
  *   GET  /runs?version=&build=&since=&limit=&after=   ADMIN (Authorization: Bearer <ADMIN_KEY>)
  *                                       -> { runs, next }  oldest first, `next` is the cursor for `after` (null at the end)
  *
+ *   GET  /runs/notes                    ADMIN: all design notes written on the systems map (public/graph) -> { notes: [{ id, text, at }] }
+ *   POST /runs/notes                    ADMIN: { id, text } saves the note for map node `id` (empty text deletes it)
+ *
  * The game queues every finished (non-sandbox) run and uploads it from the player's browser. Records carry the game
  * version and build they were played on, so results can be compared across versions (tools/analyze.mjs).
  * Nothing identifies a player: `installId` is a random id made by the browser.
@@ -46,6 +49,8 @@ export function validateRun(r) {
   return null;
 }
 
+const MAX_NOTE = 4000;
+
 const pad = (n) => String(Math.floor(n)).padStart(13, '0');
 
 /** Storage logic, independent of the Durable Object so it can be unit-tested. `storage` needs get/put/list. */
@@ -60,6 +65,18 @@ export class RunStoreCore {
     await this.storage.put(key, rec);
     await this.storage.put(`i:${rec.id}`, key);
     return { ok: true, duplicate: false };
+  }
+
+  /** Saves (or, for empty text, deletes) the note for a map node. */
+  async noteSet(id, text, now = Date.now()) {
+    if (!text) { await this.storage.delete(`n:${id}`); return { ok: true, deleted: true }; }
+    await this.storage.put(`n:${id}`, { id, text, at: now });
+    return { ok: true, deleted: false };
+  }
+
+  async noteList() {
+    const all = await this.storage.list({ prefix: 'n:' });
+    return { notes: [...all.values()] };
   }
 
   /** Oldest first, optionally filtered by version/build, starting after the cursor `after` (a storage key). */
@@ -109,7 +126,22 @@ function throttled(ip) {
 /** Routes /runs. `env.RUNS` is the RunStore Durable Object namespace, `env.ADMIN_KEY` the read key. */
 export async function handleRuns(request, env, parts) {
   const stub = env.RUNS.get(env.RUNS.idFromName('main'));
-  if (parts.length !== 1) return fail(404, 'Not found');
+  const isNotes = parts.length === 2 && parts[1] === 'notes';
+  if (parts.length !== 1 && !isNotes) return fail(404, 'Not found');
+
+  if (isNotes) {
+    if (!env.ADMIN_KEY) return fail(503, 'ADMIN_KEY is not set on the worker');
+    const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!same(given, env.ADMIN_KEY)) return fail(401, 'Unauthorized');
+    if (request.method === 'GET') return json(await stub.noteList());
+    if (request.method !== 'POST') return fail(405, 'Method not allowed');
+    const text = await request.text();
+    if (text.length > MAX_NOTE + 200) return fail(413, 'Note too large');
+    let body;
+    try { body = JSON.parse(text); } catch { return fail(400, 'Invalid JSON'); }
+    if (!body || !str(body.id, 80) || typeof body.text !== 'string' || body.text.length > MAX_NOTE) return fail(400, 'Bad note');
+    return json(await stub.noteSet(body.id, body.text.trim()));
+  }
 
   if (request.method === 'POST') {
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
