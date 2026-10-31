@@ -18,7 +18,7 @@ import { ruleMods } from '../core/spell';
 import { generateRewards } from './rewards';
 import { Tally, newSpellTel, roundTel, spellTelRec, describeForm, sampleAlive, type AcqRec } from './telemetry';
 import { drawTelegraph } from './draw';
-import { drawGoldZone, goldMul, ritualEvent, ritualRoundEnd, ritualRoundStart, ritualTick, type ActiveRitual } from './rituals';
+import { drawGoldZone, goldMul, healingBlocked, spellSilenced, ritualEvent, ritualRoundEnd, ritualRoundStart, ritualTick, type ActiveRitual } from './rituals';
 import { updateCasting, updateEnts, processEvents } from './casting';
 
 import { Arena, ARENA, tileCx, tileCy } from './arena';
@@ -355,6 +355,7 @@ export class Run {
   addRune(id: string, n: number) { this.inv[id] = (this.inv[id] ?? 0) + n; store.seeRune(id); }
   heal(n: number) {
     const p = this.player;
+    if (healingBlocked(this)) return; // Sanguine Pact
     p.hp = Math.min(p.maxHp, p.hp + n);
     this.fx.text(p.x, p.y - 30, `+${Math.round(n)}`, '#7dff9a', 16, 0.8);
   }
@@ -820,7 +821,7 @@ export class Run {
     const p = this.player;
     if (p.inv > 0) p.inv -= dt;
     if (p.hurtFlash > 0) p.hurtFlash -= dt;
-    p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
+    if (!healingBlocked(this)) p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
   }
 
   /** Host: queue input commands from a joiner (already de-duplicated and in order). */
@@ -910,7 +911,7 @@ export class Run {
       const off = this.players.length > 1 ? 36 : 0;
       p.x = ARENA / 2 + Math.cos(a) * off; p.y = ARENA / 2 + Math.sin(a) * off; p.vx = p.vy = 0; p.pullT = 0;
       if (pr.down) { pr.down = false; p.hp = Math.max(p.hp, p.maxHp * 0.35); }
-      p.hp = Math.min(p.maxHp, p.hp + p.maxHp * ROUND_START_HEAL);
+      if (!healingBlocked(pr)) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * ROUND_START_HEAL);
       p.inv = 1;
       pr.coins = pr.remote ? 0 : pr.coins; // a remote shell reports the coins earned this round
       pr.kills = pr.remote ? 0 : pr.kills; pr.totalDamage = pr.remote ? 0 : pr.totalDamage;
@@ -1025,7 +1026,7 @@ export class Run {
 
   /** Ultimates available from equipped evolved cores. */
   ultimates() {
-    return this.spells.map((sp, i) => ({ sp, i })).filter((x) => x.sp.c.valid && x.sp.c.root?.evolved);
+    return this.spells.map((sp, i) => ({ sp, i })).filter((x) => x.sp.c.valid && x.sp.c.root?.evolved && !spellSilenced(this, x.sp));
   }
 
   useUltimate(): boolean {
