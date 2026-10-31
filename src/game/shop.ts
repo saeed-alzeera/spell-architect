@@ -102,7 +102,7 @@ export function buyOffer(run: Run, offer: Offer, spellIndex = -1): string | null
   run.coins -= offer.price;
   offer.sold = true;
   if (offer.relic) run.addRelic(offer.rune);
-  else run.addRune(offer.rune, 1);
+  else { run.addRune(offer.rune, 1); run.logAcq('rune', offer.rune); }
   refreshPrices(run);
   return null;
 }

@@ -16,6 +16,7 @@ import { RELIC_BY_ID, RELIC_SLOTS, relicSellPrice, recomputeMods, onRoundStart, 
 import { saveRunRecord, installId, versionStamp, type RunRecord, type RoundRec } from '../core/analytics';
 import { ruleMods } from '../core/spell';
 import { generateRewards } from './rewards';
+import { Tally, newSpellTel, roundTel, spellTelRec, describeForm, sampleAlive, type AcqRec } from './telemetry';
 import { drawTelegraph } from './draw';
 import { drawGoldZone, goldMul, ritualEvent, ritualRoundEnd, ritualRoundStart, ritualTick, type ActiveRitual } from './rituals';
 import { updateCasting, updateEnts, processEvents } from './casting';
@@ -134,7 +135,10 @@ export class Run {
   roundLog: RoundRec[] = [];
   hurtBy: Record<string, number> = {};
   lastHurt = '';
-  snap = { kills: 0, damage: 0, taken: 0, spell: [] as number[], t: 0, coins: 0 };
+  snap = { kills: 0, damage: 0, taken: 0, spell: {} as Record<number, { damage: number; casts: number; crits: number; kills: number }>, t: 0, coins: 0 };
+  /** Telemetry (telemetry.ts): this round's counters and the build-changing things gained so far. */
+  tal = new Tally();
+  acq: AcqRec[] = [];
   ultTrack: { sp: ActiveSpell; t: number; kills: number } | null = null;
   saved = false;
 
@@ -312,7 +316,7 @@ export class Run {
       const def: SpellDef = JSON.parse(JSON.stringify(bs.def));
       const sp: ActiveSpell = {
         uid: def.uid, def, c: compileSpell(def), cd: 0.3, live: 0, mut: defaultMut(), mutations: [...bs.mutations], tiers: { ...bs.tiers },
-        st: { ...bs.st }, damage: bs.damage, ultCd: bs.ultCd, casts: 0, crits: 0,
+        st: { ...bs.st }, damage: bs.damage, ultCd: bs.ultCd, casts: 0, crits: 0, tel: newSpellTel(),
       };
       this.recomputeMut(sp);
       return sp;
@@ -336,7 +340,7 @@ export class Run {
     return {
       uid: def.uid, def, c: compileSpell(def), cd: 0.3, live: 0, mut: defaultMut(), mutations: [], tiers: {},
       st: { kills: 0, burnKills: 0, chainJumps: 0, captured: 0, freezes: 0, spreads: 0, wetHits: 0, reactions: 0 },
-      damage: 0, ultCd: 0, casts: 0, crits: 0,
+      damage: 0, ultCd: 0, casts: 0, crits: 0, tel: newSpellTel(),
     };
   }
   private capExtra = 0;
@@ -398,10 +402,16 @@ export class Run {
   }
   /** True when every relic slot is taken. */
   get relicsFull() { return this.equipped.length >= RELIC_SLOTS; }
+  /** Telemetry: remember when something that changes the build was gained (or sold). */
+  logAcq(k: AcqRec['k'], id: string) {
+    if (this.sandbox || this.remote) return;
+    this.acq.push({ t: Math.round(this.world.time * 10) / 10, r: this.world.round, k, id });
+  }
   /** Wear a relic. Returns false (and does nothing) when there is no free slot or it is already worn. */
   addRelic(id: string): boolean {
     if (this.equipped.includes(id) || this.relicsFull) return false;
     this.equipped.push(id);
+    this.logAcq('relic', id);
     RELIC_BY_ID[id].onEquip?.(this);
     this.recomputeRelics();
     return true;
@@ -411,6 +421,7 @@ export class Run {
     const i = this.equipped.indexOf(id);
     if (i < 0) return 0;
     RELIC_BY_ID[id].onUnequip?.(this);
+    this.logAcq('sell', id);
     this.equipped.splice(i, 1);
     const v = relicSellPrice(RELIC_BY_ID[id]);
     this.coins += v;
@@ -441,6 +452,7 @@ export class Run {
   private setCurse() { void ruleMods; }
   applyMutation(sp: ActiveSpell, track: MutTrack, optId: string) {
     sp.mutations.push(`${track.id}:${optId}`);
+    this.logAcq('mut', `${track.id}:${optId}`);
     this.recomputeMut(sp);
   }
 
@@ -583,6 +595,7 @@ export class Run {
     this.fx.text(p.x, p.y - 52, `LEVEL ${p.level}`, '#ffe08a', 14, 1.4);
     this.fx.text(p.x, p.y - 70, `${pick.icon} ${pick.title}`, '#ffffff', 11, 1.6);
     this.boosts.push(`${pick.icon} ${pick.title}`);
+    this.logAcq('boost', pick.title);
   }
 
   /* -------------------------- enemy projectiles etc -------------------------- */
@@ -671,24 +684,29 @@ export class Run {
     }
   }
 
-  /** Compact description of each equipped spell (for analytics). */
-  snapshotSpells() {
-    return this.spells.filter((sp) => sp.c.valid && sp.c.root).map((sp) => {
+  /** Compact description of each equipped spell (for analytics). `round` adds this round's telemetry counters. */
+  snapshotSpells(round = false) {
+    return this.spells.map((sp, slot) => ({ sp, slot })).filter((x) => x.sp.c.valid && x.sp.c.root).map(({ sp, slot }) => {
       const forms: string[] = [];
       const walkF = (f: import('../core/spell').CForm) => { forms.push(`${ELEMENTS[f.element].name} ${f.form}`); f.triggers.forEach((t) => t.children.forEach(walkF)); };
       walkF(sp.c.root!);
-      return { name: sp.c.name, element: sp.c.root!.element, damage: Math.round(sp.damage), cost: sp.c.cost, cap: sp.def.capacity, forms, evolved: !!sp.c.root!.evolved };
+      return {
+        name: sp.c.name, element: sp.c.root!.element, damage: Math.round(sp.damage), cost: sp.c.cost, cap: sp.def.capacity, forms, evolved: !!sp.c.root!.evolved,
+        uid: sp.uid, slot, sig: describeForm(sp.c.root!), mut: [...sp.mutations], casts: sp.casts, crits: sp.crits, kills: sp.st.kills,
+        ...(round ? spellTelRec(sp.tel) : {}),
+      };
     });
   }
 
   private buildRecord(result: RunRecord['result']): RunRecord {
     const taken = Object.values(this.hurtBy).reduce((a, b) => a + b, 0);
     return {
-      id: `${this.startedAt}-${this.seed}-${installId().slice(0, 6)}`, v: 2, ...versionStamp(), players: this.coopSize(), role: this.world.coop?.role ?? 'solo', startedAt: this.startedAt, endedAt: Date.now(), result, quick: this.quick, sandbox: this.sandbox,
+      id: `${this.startedAt}-${this.seed}-${installId().slice(0, 6)}`, v: 3, ...versionStamp(), players: this.coopSize(), role: this.world.coop?.role ?? 'solo', startedAt: this.startedAt, endedAt: Date.now(), result, quick: this.quick, sandbox: this.sandbox,
       seed: this.seed, startForm: this.opts.form, reachedRound: this.round, time: Math.round(this.time), level: this.player.level, kills: this.kills,
       damage: Math.round(this.totalDamage), taken, hurtBy: { ...this.hurtBy }, deathCause: result === 'lost' ? this.lastHurt : '', shards: 0, // the shard currency is gone; the field stays so older stats servers still accept records
 
       bosses: this.bossesKilled, reactions: this.reactionCount, spells: this.snapshotSpells(), relics: [...this.equipped], roundLog: this.roundLog, discoveries: [...this.discoveries],
+      acq: this.acq,
     };
   }
 
@@ -696,6 +714,7 @@ export class Run {
   abandon() {
     if (this.over || this.saved || this.sandbox || this.roundLog.length === 0) return;
     this.saved = true;
+    if (this.phase === 'fight') this.pushRoundRecord(true);
     saveRunRecord(this.buildRecord('abandoned'));
   }
 
@@ -712,6 +731,7 @@ export class Run {
     s.bestTime = Math.max(s.bestTime, Math.floor(this.time));
     s.kills += this.kills;
     store.d.stats = s;
+    if (!this.sandbox && this.phase === 'fight') this.pushRoundRecord(true); // the final boss round, or the round the run was lost in
     const rec = this.buildRecord(won ? 'won' : 'lost');
     this.saved = true;
     saveRunRecord(rec);
@@ -750,6 +770,7 @@ export class Run {
     this.recalcEnemyIndex();
     if (!this.over && this.phase === 'fight') updateDirector(this, dt);
     updateEnemies(this, dt);
+    if (this.phase === 'fight') sampleAlive(this);
     if (!this.over && this.phase !== 'clearing') for (const pr of this.players) if (!pr.down) updateCasting(pr, dt);
     if (this.sandbox) this.pending.length = 0;
     updateEnts(this, dt);
@@ -898,7 +919,8 @@ export class Run {
     this.rebuildOwners();
     for (const pr of this.players) ritualRoundStart(pr);
     this.arena.start(this.round, this.seed, isBossRound(this.round) ? roundLen(false) : roundLen(this.quick), !this.sandbox);
-    this.snap = { kills: this.kills, damage: this.totalDamage, taken: Object.values(this.hurtBy).reduce((a, b) => a + b, 0), spell: this.spells.map((x) => x.damage), t: this.time, coins: this.coins };
+    this.snap = { kills: this.kills, damage: this.totalDamage, taken: Object.values(this.hurtBy).reduce((a, b) => a + b, 0), spell: Object.fromEntries(this.spells.map((x) => [x.uid, { damage: x.damage, casts: x.casts, crits: x.crits, kills: x.st.kills }])), t: this.time, coins: this.coins };
+    for (const pr of new Set<Run>([this, ...this.players])) { pr.tal = new Tally(); for (const sp of pr.spells) sp.tel = newSpellTel(); }
     for (const pr of this.players) { onRoundStart(pr); for (const sp of pr.spells) sp.cd = 0.3; }
     this.frozen = false;
     this.dtime = (this.round - 1) * ROUND_DIFF;
@@ -908,13 +930,20 @@ export class Run {
     this.coop?.onStart?.();
   }
 
-  private pushRoundRecord() {
+  /** Append this round to the run's log. `partial` = the round did not end by its timer or boss kill (the run was lost, won on the final
+   *  boss, or abandoned), so the log still shows the round that mattered most. */
+  private pushRoundRecord(partial = false) {
     const sn = this.snap;
     const taken = Object.values(this.hurtBy).reduce((a, b) => a + b, 0);
-    const spells = this.snapshotSpells().map((x, i) => ({ ...x, damage: Math.round(x.damage - (sn.spell[i] ?? 0)) }));
+    const spells = this.snapshotSpells(true).map((x) => {
+      const b = sn.spell[x.uid];
+      return { ...x, damage: Math.round(x.damage - (b?.damage ?? 0)), casts: x.casts - (b?.casts ?? 0), crits: x.crits - (b?.crits ?? 0), kills: x.kills - (b?.kills ?? 0) };
+    });
+    const casts = spells.reduce((n, s) => n + s.casts, 0);
     this.roundLog.push({
       round: this.round, boss: isBossRound(this.round), secs: Math.round(this.time - sn.t), kills: this.kills - sn.kills, damage: Math.round(this.totalDamage - sn.damage),
       taken: taken - sn.taken, hpEnd: Math.round(this.player.hp), maxHp: this.player.maxHp, coins: Math.round(this.coins * 10) / 10, level: this.player.level, spells, relics: [...this.equipped],
+      ...(partial ? { partial: true } : {}), tel: roundTel(this, this, sn.t, casts),
     });
   }
 
@@ -985,6 +1014,7 @@ export class Run {
       if (took) { need -= took; this.recompile(sp); }
     }
     this.addRune(EVOLVED_OF[el], 1);
+    this.logAcq('forge', el);
     return true;
   }
 
@@ -1004,6 +1034,7 @@ export class Run {
       if (u.sp.ultCd <= 0) {
         u.sp.ultCd = this.sandbox ? 6 : ULT_COOLDOWN;
         this.ultTrack = { sp: u.sp, t: this.time, kills: this.kills };
+        this.tal.ults++;
         castUltimate(this, u.sp);
         return true;
       }

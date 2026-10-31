@@ -8,6 +8,7 @@ import type { Run } from './run';
 import { spawnEnv } from './casting';
 import { rollRelics } from './relics';
 import { relicDamageMul, reactionMul, onReaction, onCrit, onKill, has } from './relics';
+import { tallyDamage, tallyKill } from './telemetry';
 
 export interface DmgOpts {
   dot?: boolean; noCrit?: boolean; noTrig?: boolean; react?: boolean;
@@ -209,6 +210,7 @@ export function dealDamage(run: Run, e: Enemy, amount: number, el: Element, src:
   e.hp -= a;
   run.totalDamage += dealt;
   if (src) src.sp.damage += dealt;
+  tallyDamage(run, src, el, a, dealt, o, crit);
   if (!o.dot) e.flash = 0.06;
   if (!o.dot) {
     run.fx.text(e.x + (Math.random() - 0.5) * 14, e.y - e.r - 6, String(Math.max(1, Math.round(a))), crit ? '#ffe14d' : o.react ? ELEMENTS[el].css : rm < 1 ? '#9aa0c0' : rm > 1 ? '#ffc070' : '#ffffff', crit ? 22 : 14, 0.6);
@@ -430,6 +432,7 @@ export function killEnemy(run: Run, e: Enemy, src: Src | null, el: Element) {
   e.dead = true;
   if (src) run = run.owner(src.sp); // the caster's stats, relics and rewards apply
   run.kills++;
+  tallyKill(run, e.born);
   for (const sp of run.spells) if (sp.ultCd > 0) sp.ultCd = Math.max(0, sp.ultCd - 0.2);
   const wasBurn = e.burn > 0, wasPoison = e.poison > 0, wasFrozen = e.freeze > 0;
   const psrc = e.poisonSrc;

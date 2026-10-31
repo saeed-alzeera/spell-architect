@@ -13,7 +13,9 @@
  * Nothing identifies a player: `installId` is a random id made by the browser.
  */
 
-const MAX_BYTES = 64 * 1024;
+// v3 records carry per-round telemetry (src/game/telemetry.ts); the game trims anything over 120 KB before uploading (fitForUpload).
+// A Durable Object value is limited to 128 KiB, hence the cap.
+const MAX_BYTES = 125 * 1024;
 const MAX_LIMIT = 1000;
 const RESULTS = new Set(['won', 'lost', 'abandoned']);
 const ROLES = new Set(['solo', 'host', 'guest']);
@@ -46,6 +48,9 @@ export function validateRun(r) {
   for (const k of ['reachedRound', 'time', 'level', 'kills', 'damage', 'taken', 'bosses', 'reactions', 'shards']) if (!num(r[k])) return `Bad ${k}`;
   if (r.players !== undefined && !(Number.isInteger(r.players) && r.players >= 1 && r.players <= 4)) return 'Bad players';
   if (!Array.isArray(r.spells) || !Array.isArray(r.relics) || !Array.isArray(r.roundLog)) return 'Bad lists';
+  if (r.acq !== undefined && !(Array.isArray(r.acq) && r.acq.length <= 500)) return 'Bad acq';
+  if (r.roundLog.length > 100) return 'Bad roundLog';
+  for (const q of r.roundLog) if (!q || typeof q !== 'object' || (q.tel !== undefined && (typeof q.tel !== 'object' || q.tel === null))) return 'Bad roundLog entry';
   return null;
 }
 

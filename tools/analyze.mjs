@@ -7,6 +7,7 @@
 //
 // Per version: runs, win rate, round reached, survival time, damage/kill rates and top death causes, with a rough 95% interval
 // on the win rate and on mean round, so small samples are not over-read. Abandoned runs and sandbox runs are left out.
+// For one run in depth (slots, relics, timelines) use tools/run-report.mjs.
 import { readFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
@@ -77,6 +78,12 @@ for (const v of versions) {
   console.log(`  win rate       ${pct(wins / g.length)}   95% CI ${pct(lo)}-${pct(hi)}`);
   console.log(`  round reached  ${mean(rounds).toFixed(2)} ± ${half.toFixed(2)}   survival ${fmtT(mean(secs))}`);
   console.log(`  damage/s ${mean(dps).toFixed(0)}   kills/min ${mean(kpm).toFixed(0)}   damage taken/run ${mean(g.map((r) => r.taken)).toFixed(0)}`);
+  // Telemetry (records from game 1.3.1 on, `v: 3`): is damage capped by the spawn? Compare builds by sat and by what is left alive, not by raw damage.
+  const tel = g.flatMap((r) => (r.roundLog || []).filter((q) => q.tel && !q.boss && !q.partial && q.tel.hpPool > 0));
+  if (tel.length) {
+    const sat = tel.map((q) => q.damage / q.tel.hpPool);
+    console.log(`  telemetry      ${tel.length} rounds: damage / enemy HP spawned ${mean(sat).toFixed(2)} (near 1 = build clears the spawn, damage totals then only mirror enemy HP)   enemies left alive at round end ${mean(tel.map((q) => q.tel.alive)).toFixed(1)}   mean enemy life ${mean(tel.map((q) => q.tel.life)).toFixed(1)}s`);
+  }
   const deaths = {};
   for (const r of g) if (r.result === 'lost' && r.deathCause) deaths[r.deathCause] = (deaths[r.deathCause] || 0) + 1;
   const top = Object.entries(deaths).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => `${k} ${n}`).join(', ');

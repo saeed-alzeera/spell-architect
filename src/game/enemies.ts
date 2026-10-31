@@ -7,6 +7,7 @@ import { audio } from '../core/audio';
 import { spawnBoss, updateBoss } from './bosses';
 import { roundLen, isBossRound, bossKind } from './rounds';
 import { ELEMENTS } from '../data/runes';
+import { tallySpawn } from './telemetry';
 
 export interface EDef { tex: string; hp: number; speed: number; r: number; dmg: number; xp: number; armor: number; sc: number }
 export const EDEFS: Record<Exclude<EType, 'boss'>, EDef> = {
@@ -48,7 +49,7 @@ export function spawnEnemy(run: Run, type: Exclude<EType, 'boss'>, x: number, y:
   let speed = d.speed * (elite ? 1.1 : 1) * (0.85 + Math.random() * 0.3) * (1 + 0.018 * run.round);
   if (type === 'grunt' && !elite && Math.random() < 0.14) { speed *= 1.7; hp *= 0.65; sc *= 0.9; }
   const e: Enemy = {
-    id: eid++, type, x, y, vx: 0, vy: 0, hp, maxHp: hp, r: d.r * (elite ? 1.3 : 1), speed,
+    born: run.world.time, id: eid++, type, x, y, vx: 0, vy: 0, hp, maxHp: hp, r: d.r * (elite ? 1.3 : 1), speed,
     dmg: d.dmg * dmgMulT(t) * (elite ? 1.3 : 1), armor: d.armor * (1 + t / 700), xp: d.xp * (elite ? 6 : 1), elite, sc,
     spr: run.img(d.tex, 5), shadow: run.img('shadow', 4).setScale(sc * 0.9).setAlpha(0.8),
     flash: 0, face: 1, wob: Math.random() * 6, wet: 0, burn: 0, burnDps: 0, burnSrc: null, chill: 0, chillT: 0,
@@ -59,6 +60,7 @@ export function spawnEnemy(run: Run, type: Exclude<EType, 'boss'>, x: number, y:
   };
   e.spr.setScale(sc);
   run.enemies.push(e);
+  tallySpawn(run.world, type, hp);
   return e;
 }
 

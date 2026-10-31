@@ -4,6 +4,7 @@ import { RARITY, ELEMENTS, type Rarity } from '../data/runes';
 import { ruleMods } from '../core/spell';
 import { dealDamage, arc } from './combat';
 import { castForm } from './casting';
+import { relicFactors, tallyProc } from './telemetry';
 import type { Run } from './run';
 import type { Enemy, Src, ActiveSpell } from './types';
 
@@ -88,15 +89,17 @@ export function recomputeMods(run: Run) {
 
 /** Conditional damage multiplier from relics, applied to every damage instance. */
 export function relicDamageMul(run: Run, e: Enemy, el: string, src: Src | null, o: { dot?: boolean; react?: boolean }): number {
+  relicFactors.length = 0; // telemetry: which relic multiplied this hit by how much
   if (!run.equipped.length) return 1;
   let m = 1;
-  if (has(run, 'prism')) m *= 1 + 0.04 * Math.min(6, run.mods.elements);
-  if (has(run, 'idol')) m *= 1.5;
-  if (has(run, 'ember') && e.burn > 0) m *= 1.15;
-  if (has(run, 'whetstone') && !o.dot && !e.hitOnce) { e.hitOnce = true; m *= 1.3; }
-  if (has(run, 'purist') && src && src.sp.c.root && src.sp.c.root.element === 'arcane') m *= 1.5;
-  if (has(run, 'baton')) m *= 1 + 0.04 * Object.keys(st(run, 'baton')).length;
-  if (has(run, 'hammer') && src && src.sp.c.root?.evolved) m *= 1.2;
+  const mul = (id: string, x: number) => { m *= x; relicFactors.push([id, x]); };
+  if (has(run, 'prism')) mul('prism', 1 + 0.04 * Math.min(6, run.mods.elements));
+  if (has(run, 'idol')) mul('idol', 1.5);
+  if (has(run, 'ember') && e.burn > 0) mul('ember', 1.15);
+  if (has(run, 'whetstone') && !o.dot && !e.hitOnce) { e.hitOnce = true; mul('whetstone', 1.3); }
+  if (has(run, 'purist') && src && src.sp.c.root && src.sp.c.root.element === 'arcane') mul('purist', 1.5);
+  if (has(run, 'baton')) mul('baton', 1 + 0.04 * Object.keys(st(run, 'baton')).length);
+  if (has(run, 'hammer') && src && src.sp.c.root?.evolved) mul('hammer', 1.2);
   return m;
 }
 
@@ -112,8 +115,8 @@ export function onReaction(run: Run, id: string) {
 }
 
 export function onCrit(run: Run, e: Enemy, src: Src, dmg: number) {
-  if (has(run, 'glove')) { const g = st(run, 'glove'); if (run.time >= (g[src.sp.uid] ?? 0)) { g[src.sp.uid] = run.time + 1; src.sp.cd = Math.max(0, src.sp.cd - 0.4); } }
-  if (has(run, 'compass') && !run.inRelic) { run.inRelic = true; arc(run, e, dmg * 0.5, 'lightning', src, 2, 170, [e]); run.inRelic = false; }
+  if (has(run, 'glove')) { const g = st(run, 'glove'); if (run.time >= (g[src.sp.uid] ?? 0)) { g[src.sp.uid] = run.time + 1; tallyProc(run, 'glove', 1, Math.min(0.4, src.sp.cd)); src.sp.cd = Math.max(0, src.sp.cd - 0.4); } }
+  if (has(run, 'compass') && !run.inRelic) { run.inRelic = true; tallyProc(run, 'compass'); arc(run, e, dmg * 0.5, 'lightning', { ...src, rel: 'compass' }, 2, 170, [e]); run.inRelic = false; }
 }
 
 export function onKill(run: Run, e: Enemy, crit: boolean) {
@@ -134,13 +137,13 @@ export function onCast(run: Run, sp: ActiveSpell) {
   const i = run.spells.indexOf(sp);
   if (has(run, 'sock')) {
     const s = st(run, 'sock'); s.n = (s.n ?? 0) + 1;
-    if (s.n >= 8 && sp.c.root) { s.n = 0; run.inRelic = true; castForm(run, sp, sp.c.root, run.player.x, run.player.y, Math.random() * 6.28, true); run.inRelic = false; }
+    if (s.n >= 8 && sp.c.root) { s.n = 0; run.inRelic = true; tallyProc(run, 'sock'); castForm(run, sp, sp.c.root, run.player.x, run.player.y, Math.random() * 6.28, true, 1, 'sock'); run.inRelic = false; }
   }
   if (has(run, 'mirror') && i === 0) {
     const o = run.spells[1];
-    if (o && o.c.valid && o.c.root) { run.inRelic = true; castForm(run, o, o.c.root, run.player.x, run.player.y, Math.random() * 6.28, true, 0.5); run.inRelic = false; }
+    if (o && o.c.valid && o.c.root) { run.inRelic = true; tallyProc(run, 'mirror'); castForm(run, o, o.c.root, run.player.x, run.player.y, Math.random() * 6.28, true, 0.5, 'mirror'); run.inRelic = false; }
   }
-  if (has(run, 'metronome') && run.spells.length > 1) { const n = run.spells[(i + 1) % run.spells.length]; n.cd = Math.max(0, n.cd - 0.5); }
+  if (has(run, 'metronome') && run.spells.length > 1) { const n = run.spells[(i + 1) % run.spells.length]; tallyProc(run, 'metronome', 1, Math.min(0.5, n.cd)); n.cd = Math.max(0, n.cd - 0.5); }
 }
 
 export function onRoundStart(run: Run) {

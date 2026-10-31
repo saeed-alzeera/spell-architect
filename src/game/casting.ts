@@ -8,6 +8,7 @@ import type { Run } from './run';
 import { ARENA, earlyPower } from './run';
 import { onCast, cooldownMul } from './relics';
 import { triggersSilenced, triggerRolls } from './rituals';
+import { triggerRoll } from './telemetry';
 import {
   dealDamage, applyElement, applyWet, applyPoison, POISON_BASE_STACKS, arc, explode, envReact, gravityImpulse, pullResist, reaction, reactDamage,
 } from './combat';
@@ -370,10 +371,11 @@ function castRoot(run: Run, sp: ActiveSpell, f: CForm): boolean {
   return true;
 }
 
-export function castForm(run: Run, sp: ActiveSpell, f: CForm, x: number, y: number, hint: number, root: boolean, dmgMul = 1) {
+export function castForm(run: Run, sp: ActiveSpell, f: CForm, x: number, y: number, hint: number, root: boolean, dmgMul = 1, rel?: string) {
   run = run.owner(sp);
   const n = f.form === 'aura' ? 1 : copiesOf(f, sp.mut);
   const src = makeSrc(sp, f, f.depth);
+  if (rel) src.rel = rel; // telemetry: damage from this cast and everything it spawns is credited to the relic
   const o = (extra: SpawnOpts): SpawnOpts => ({ root, dmgMul, src: { ...src, icd: { hit: 0, crit: 0 } }, ...extra });
   const nearTo = run.nearest(x, y, 700);
   const aim = nearTo ? Math.atan2(nearTo.y - y, nearTo.x - x) : hint;
@@ -445,11 +447,13 @@ export function processEvents(run: Run) {
     const rolls = triggerRolls(owner);
     for (const t of f.triggers) {
       if (t.type !== ev.type) continue;
-      if (t.chance < 1 && !Array.from({ length: rolls }).some(() => Math.random() < t.chance)) continue;
+      const fired = t.chance >= 1 || Array.from({ length: rolls }).some(() => Math.random() < t.chance);
+      if (t.chance < 1) triggerRoll(ev.src.sp, t.type, fired);
+      if (!fired) continue;
       for (const child of t.children) {
         if (ev.src.depth + 1 > MAX_DEPTH || run.spawnBudget <= 0 || run.ents.length >= MAX_ENTS) continue;
         run.spawnBudget--;
-        castForm(run, ev.src.sp, child, ev.x, ev.y, ev.ang, false);
+        castForm(run, ev.src.sp, child, ev.x, ev.y, ev.ang, false, 1, ev.src.rel);
         run.fx.ring(ev.x, ev.y, ELEMENTS[child.element].color, 4, 22, 0.2, 0.7);
       }
     }
