@@ -25,6 +25,10 @@
   input:focus, button:focus-visible { outline: 2px solid var(--bal); outline-offset: 1px; }
   button[aria-pressed="true"], button.on { background: var(--btn-on); border-color: var(--ink); font-weight: 600; }
   input { width: 220px; }
+  .notes textarea { width: 100%; min-height: 110px; resize: vertical; font: inherit; font-size: 14px; padding: 8px; border: 1px solid #b8bec9; border-radius: 6px; background: #fff; color: var(--ink); }
+  .notes .st { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .notes details { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .notes input { width: 100%; margin-top: 6px; }
   main { display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
   #stage { position: relative; overflow: hidden; cursor: grab; touch-action: none; background: var(--bg); }
   #stage.drag { cursor: grabbing; }
@@ -668,6 +672,54 @@ function flowList(n, dir) {
   return FLOWS.filter(([a, b]) => (dir === 'out' ? a : b) === n.id).map(([a, b, l, t]) => ({ other: byId[dir === 'out' ? b : a], label: l, t }));
 }
 
+/* ---- notes: written here, kept in this browser, and synced to the worker (/runs/notes) when a sync key is set ---- */
+const NOTE_API = 'https://spell-architect-mp.saeed-a-alzeera.workers.dev/runs/notes';
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
+let NOTES = {}; try { NOTES = JSON.parse(lsGet('sa-graph-notes') || '{}'); } catch { NOTES = {}; }
+const GENERAL = '_general';
+const noteKey = () => lsGet('sa-graph-key') || '';
+function noteLabel(id) { return id === GENERAL ? 'General' : (byId[id] ? byId[id].label : id); }
+
+async function pullNotes() {
+  const key = noteKey(); if (!key) return;
+  try {
+    const r = await fetch(NOTE_API, { headers: { Authorization: 'Bearer ' + key } });
+    if (!r.ok) return;
+    for (const n of (await r.json()).notes) if (!NOTES[n.id] || NOTES[n.id].at < n.at) NOTES[n.id] = { text: n.text, at: n.at };
+    lsSet('sa-graph-notes', JSON.stringify(NOTES)); panel();
+  } catch { /* offline: local notes still work */ }
+}
+async function pushNote(id, status) {
+  const key = noteKey();
+  if (!key) { status.textContent = 'Saved in this browser only. Add the sync key below to sync.'; return; }
+  try {
+    const r = await fetch(NOTE_API, { method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify({ id, text: (NOTES[id] || {}).text || '' }) });
+    status.textContent = r.ok ? 'Synced' : r.status === 401 ? 'Not synced: wrong sync key' : 'Not synced (' + r.status + ')';
+  } catch { status.textContent = 'Not synced: offline. Saved in this browser.'; }
+}
+function notesBox(id) {
+  return `<div class="notes"><h3>Notes${id === GENERAL ? '' : ' on ' + noteLabel(id)}</h3>
+    <textarea id="noteText" placeholder="${id === GENERAL ? 'Notes about the game or this map…' : 'Notes on this node…'}"></textarea>
+    <div class="st" id="noteSt"></div>
+    <details${noteKey() ? '' : ' open'}><summary>Sync key</summary><input id="noteKey" type="password" placeholder="Paste the worker ADMIN_KEY" autocomplete="off"></details></div>`;
+}
+function wireNotes(id) {
+  const ta = document.getElementById('noteText'), st = document.getElementById('noteSt'), ki = document.getElementById('noteKey');
+  if (!ta) return;
+  ta.value = (NOTES[id] || {}).text || '';
+  ki.value = noteKey();
+  let timer = 0;
+  ta.addEventListener('input', () => {
+    const text = ta.value.trim();
+    if (text) NOTES[id] = { text, at: Date.now() }; else delete NOTES[id];
+    lsSet('sa-graph-notes', JSON.stringify(NOTES));
+    st.textContent = 'Saving…'; clearTimeout(timer);
+    timer = setTimeout(() => { if (!text) NOTES[id] = { text: '', at: Date.now() }; pushNote(id, st); if (!text) delete NOTES[id]; }, 800);
+  });
+  ki.addEventListener('change', () => { lsSet('sa-graph-key', ki.value.trim()); st.textContent = 'Key saved'; pullNotes(); });
+}
+
 function panel() {
   const n = sel;
   const sev = (x) => (x.issue.sev === 'high' ? 'var(--issue)' : 'var(--warn)');
@@ -684,7 +736,9 @@ function panel() {
         <div>Rarity:${Object.entries(RC).map(([k, v]) => `<span class="dot" style="background:${v}"></span>${k}`).join('')}</div>
       </div>
       <p class="sub">Depth buttons fold the whole map to a level. Search opens every branch that matches. Select a node to see its cross-links listed here.</p>
-      <h3>Open issues</h3><ul>${issues.map((x) => `<li><span class="lk" data-id="${x.id}" style="color:${sev(x)}">${x.label}</span></li>`).join('')}</ul>`;
+      <h3>Open issues</h3><ul>${issues.map((x) => `<li><span class="lk" data-id="${x.id}" style="color:${sev(x)}">${x.label}</span></li>`).join('')}</ul>
+      ${notesBox(GENERAL)}
+      ${Object.keys(NOTES).filter((k) => k !== GENERAL && byId[k]).length ? `<h3>Nodes with notes</h3><ul>${Object.keys(NOTES).filter((k) => k !== GENERAL && byId[k]).map((k) => `<li><span class="lk" data-id="${k}">${byId[k].label}</span> <span class="sub">${NOTES[k].text.slice(0, 60).replace(/</g, '&lt;')}</span></li>`).join('')}</ul>` : ''}`;
   } else {
     const li = (arr) => arr.map((s) => `<li>${s}</li>`).join('');
     const fl = (arr) => arr.map((f) => `<li><span class="tag" style="background:${COLORS[f.t]}">${NAMES[f.t]}</span><span class="lk" data-id="${f.other.id}">${f.other.label}</span>: ${f.label}</li>`).join('');
@@ -699,9 +753,11 @@ function panel() {
       ${n.outputs ? `<h3>Gives out</h3><ul>${li(n.outputs)}</ul>` : ''}
       ${ins.length ? `<h3>Links in</h3><ul>${fl(ins)}</ul>` : ''}
       ${outs.length ? `<h3>Links out</h3><ul>${fl(outs)}</ul>` : ''}
-      ${n.children.length ? `<h3>Contains (${n.children.length})</h3><ul>${n.children.map((c) => `<li><span class="lk" data-id="${c.id}">${c.label}</span>${c.sub ? ` <span class="sub">${c.sub}</span>` : ''}${c.issue ? ' <span style="color:var(--issue)">!</span>' : ''}</li>`).join('')}</ul>` : ''}`;
+      ${n.children.length ? `<h3>Contains (${n.children.length})</h3><ul>${n.children.map((c) => `<li><span class="lk" data-id="${c.id}">${c.label}</span>${c.sub ? ` <span class="sub">${c.sub}</span>` : ''}${c.issue ? ' <span style="color:var(--issue)">!</span>' : ''}</li>`).join('')}</ul>` : ''}
+      ${notesBox(n.id)}`;
   }
   info.querySelectorAll('.lk').forEach((a) => a.addEventListener('click', () => go(byId[a.dataset.id])));
+  wireNotes(n ? n.id : GENERAL);
 }
 
 /** Jump to a node from the panel: open its path, select it and centre it. */
@@ -764,7 +820,7 @@ document.getElementById('q').addEventListener('input', (e) => {
 });
 window.addEventListener('resize', fit);
 
-render(); panel(); fit();
+render(); panel(); fit(); pullNotes();
 </script>
 </body>
 </html>

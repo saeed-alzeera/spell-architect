@@ -39,6 +39,8 @@ export class RunStore extends DurableObject {
   }
   put(rec) { return this.core.put(rec); }
   list(opts) { return this.core.list(opts); }
+  noteSet(id, text) { return this.core.noteSet(id, text); }
+  noteList() { return this.core.noteList(); }
 }
 
 export default {

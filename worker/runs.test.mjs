@@ -9,6 +9,7 @@ function memStorage() {
   const sorted = () => [...m.keys()].sort();
   return {
     get: async (k) => m.get(k),
+    delete: async (k) => { m.delete(k); },
     put: async (k, v) => { m.set(k, structuredClone(v)); },
     list: async ({ prefix = '', start, startAfter, limit = 1e9 } = {}) => {
       const out = new Map();
@@ -85,4 +86,17 @@ test('list filters by version and pages oldest first', async () => {
   assert.deepEqual(p2.body.runs.map((r) => r.id), ['r2', 'r3']);
   const since = await call(env, 'GET', '/runs?since=2003', undefined, 'k');
   assert.deepEqual(since.body.runs.map((r) => r.id), ['r3', 'r4']);
+});
+
+test('notes: admin-only, save, list, delete', async () => {
+  const env = fakeEnv('k');
+  assert.equal((await call(env, 'GET', '/runs/notes')).status, 401);
+  assert.equal((await call(env, 'POST', '/runs/notes', { id: 'crit', text: 'x' })).status, 401);
+  assert.equal((await call(env, 'POST', '/runs/notes', { id: 'crit', text: 'too strong' }, 'k')).status, 200);
+  assert.equal((await call(env, 'POST', '/runs/notes', { id: '', text: 'x' }, 'k')).status, 400);
+  const l = await call(env, 'GET', '/runs/notes', undefined, 'k');
+  assert.equal(l.body.notes.length, 1);
+  assert.equal(l.body.notes[0].text, 'too strong');
+  await call(env, 'POST', '/runs/notes', { id: 'crit', text: '' }, 'k');
+  assert.equal((await call(env, 'GET', '/runs/notes', undefined, 'k')).body.notes.length, 0);
 });
