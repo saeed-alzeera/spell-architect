@@ -97,7 +97,7 @@
    inputs/outputs (lists), c (children). FLOWS below are the cross-links between nodes. */
 /* Game version this map was last brought up to date with. Must equal package.json "version"
    (enforced by tools/check-graph.mjs). Set it only after the nodes below reflect that version. */
-const GRAPH_SYNCED_VERSION = '1.4.1';
+const GRAPH_SYNCED_VERSION = '1.4.2';
 document.getElementById('ver').textContent = 'synced to game v' + GRAPH_SYNCED_VERSION;
 const RC = { common: '#8a94a8', uncommon: '#16a34a', rare: '#2563eb', epic: '#9333ea', legendary: '#d97706' };
 const L = (id, label, sub, desc, o) => Object.assign({ id, label, sub, desc }, o);   // leaf
@@ -478,7 +478,7 @@ const TREE = {
 
   /* ============================== RITUALS ============================== */
   { id: 'rituals', label: 'Rituals', sub: '3 rounds', file: 'src/game/rituals.ts',
-    desc: 'Pay 50% of current HP for a 3-round challenge the player controls. Keep it up every round and the reward lasts the run; miss a round and it lapses.',
+    desc: 'Pay 50% of current HP for a 3-round challenge the player controls. Only one ritual is offered per round, so two can never start in the same round. Keep it up every round and the reward lasts the run; miss a round and it lapses.',
     inputs: ['Current HP'], outputs: ['Damage / coins / trigger rolls / capacity / regen'],
     c: [
       L('fall', 'Rite of the Fall', '+20% damage', 'Fall through the crumbling floor once in each of 3 rounds.'),
