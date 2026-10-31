@@ -12,7 +12,7 @@ import { ELEMENTS } from '../data/runes';
 import { textureHash } from '../gfx/textures';
 import { TN } from '../game/arena';
 
-export const PROTO = 9;
+export const PROTO = 10;
 /** Floor tile states packed 2 bits per tile. */
 export const FLOOR_BYTES = Math.ceil((TN * TN) / 4);
 /** Largest payload we put in one datagram; under the ~1200 byte path MTU WebRTC data channels assume. */
@@ -28,7 +28,7 @@ export const enum O { Ent = 0, Bullet = 1, Pickup = 2, Zone = 3 }
 /** Effect packet event types (the first six mirror FxKind). */
 export const enum E { Sfx = 8 }
 
-export const ETYPES = ['grunt', 'swarmer', 'archer', 'charger', 'armored', 'shaman'] as const;
+export const ETYPES = ['grunt', 'swarmer', 'archer', 'charger', 'armored'] as const;
 export const BOSS_BASE = 16;
 export const ELEMENT_IDS = Object.keys(ELEMENTS);
 export const SFX_IDS = ['arcane', 'fire', 'ice', 'lightning', 'poison', 'water', 'gravity', 'hit', 'kill', 'hurt', 'gem', 'level', 'reaction', 'boom', 'boss', 'ui', 'pick', 'warn', 'win', 'lose', 'freeze'];

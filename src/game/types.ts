@@ -32,7 +32,7 @@ export interface Src {
   icd: { hit: number; crit: number };
 }
 
-export type EType = 'grunt' | 'swarmer' | 'archer' | 'charger' | 'armored' | 'shaman' | 'boss';
+export type EType = 'grunt' | 'swarmer' | 'archer' | 'charger' | 'armored' | 'boss';
 
 export interface BossState {
   kind: number;
@@ -65,7 +65,7 @@ export interface Enemy {
   freeze: number; freezeImm: number;
   poison: number; poisonT: number; poisonDps: number; poisonSrc: Src | null;
   tickT: number; burnT: number; dotAcc: number; dotShow: number;
-  slowT: number; slowMul: number; buff: number; capT: number; pulled: number; tint: number; conductCd: number;
+  slowT: number; slowMul: number; capT: number; pulled: number; tint: number; conductCd: number;
   atk: number; st: number; stT: number; dx: number; dy: number;
   contact: number; spawnT: number; dashes: number;
   aff: Aff; res: Partial<Record<Element, number>>; badge: Img | null; resTxt: number; hitOnce: boolean;

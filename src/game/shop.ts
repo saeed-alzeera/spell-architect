@@ -57,11 +57,8 @@ export const sellPrice = (run: Run, r: RuneDef) => Math.max(1, Math.floor((BASE[
 
 export const rerollCost = (run: Run) => Math.max(1, Math.round((1 + run.shop.rerolls) * run.mods.rerollMul) - run.mods.rerollMinus);
 
-/** Hard per-rune ownership caps (how many you may hold) so a stack of one rune can't carry a run. */
-export const OWN_CAP = (r: RuneDef) => (r.kind === 'core' ? 8 : r.kind === 'form' ? 4 : 5);
-
 export function generateStock(run: Run): Offer[] {
-  const pool = RUNES.filter((r) => store.isUnlocked(r.id) && !r.evolved && owned(run, r.id) < OWN_CAP(r));
+  const pool = RUNES.filter((r) => store.isUnlocked(r.id) && !r.evolved);
   const forms = formsInPlay(run);
   const out: Offer[] = [];
   const taken = new Set<string>();
@@ -134,7 +131,7 @@ export function upgrades(run: Run): Upgrade[] {
     { id: 'power', title: 'Spell Power +4%', desc: 'All spells deal 4% more damage.', icon: '🔺', rarity: 'uncommon', price: P(12 * Math.pow(1.65, n('power'))), avail: true, weight: 3 },
     { id: 'haste', title: 'Haste -4% cooldown', desc: 'Every spell recharges 4% faster.', icon: '⏩', rarity: 'uncommon', price: P(12 * Math.pow(1.65, n('haste'))), avail: p.cdMul > 0.45, weight: 2.5 },
     { id: 'maxhp', title: 'Vitality +10 HP', desc: '+10 maximum health and heal 5.', icon: '❤️', rarity: 'common', price: P(6 * Math.pow(1.35, n('maxhp'))), avail: p.maxHp < 400, weight: 4 },
-    { id: 'crit', title: 'Keen Edge +3% crit', desc: 'Critical hit chance +3%.', icon: '🎯', rarity: 'uncommon', price: P(10 * Math.pow(1.6, n('crit'))), avail: p.crit < 0.6, weight: 2.5 },
+    { id: 'crit', title: 'Keen Edge +3% crit', desc: 'Critical hit chance +3%.', icon: '🎯', rarity: 'uncommon', price: P(10 * Math.pow(1.6, n('crit'))), avail: true, weight: 2.5 },
     { id: 'heal', title: 'Healing Draught', desc: 'Restore 20% of your maximum health.', icon: '💚', rarity: 'uncommon', price: P((8 + run.round * 0.8) * Math.pow(1.25, n('heal'))), avail: p.hp < p.maxHp * 0.95, weight: p.hp < p.maxHp * 0.6 ? 6 : 2 },
   ];
 }

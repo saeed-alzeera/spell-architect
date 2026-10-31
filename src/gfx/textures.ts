@@ -104,14 +104,6 @@ export function generateTextures(scene: Phaser.Scene) {
     'dAaAAaaA', 'daaAaaaa', 'dAaAaaaa', 'dAaAaaaa', '.daaaaaa', '..ddaaaa', '..dAaAdd', '..dddd..',
   ], { a: '#8a93a6', A: '#c3cad8', d: '#363c4c', k: '#14161c', e: '#ff5a3c' }, c));
 
-  canvasTex(scene, 'shaman', 16, 16, (c) => {
-    halfSprite([
-      'h......h', 'hh....hh', '.hh..hh.', '..hhhhhh', '..hrrrrr', '..rrkkkk', '..rrkyky', '..rrrrrr',
-      '..rrRRRR', '.rrRrrrr', '.rrRrrrr', '.rrrrrrr', 'rrrrgrrr', 'rrrrrrrr', 'rr.rrr.r', '.....rrr',
-    ], { h: '#ffe9a8', r: '#c2412d', R: '#e66a4c', k: '#26100d', y: '#ffe14d', g: '#ffd25a' }, c);
-    pixDisc(c, 14, 3, 2, '#ffd25a'); px(c, '#fff', 14, 2, 1, 1);
-  });
-
   /* ---------------- bosses (32x32, symmetric) ---------------- */
   canvasTex(scene, 'boss0', 32, 32, (c) => { // Stone Warden
     const W = 32;
@@ -152,6 +144,90 @@ export function generateTextures(scene: Phaser.Scene) {
     sym(c, W, '#c26bff', 3, 11, 2, 10); sym(c, W, '#e0b0ff', 3, 11, 1, 3);
     pixDisc(c, 16, 18, 3, '#c26bff'); pixDisc(c, 16, 18, 1, '#ffffff');
     sym(c, W, '#6a2fd0', 5, 28, 3, 3);
+  });
+
+  canvasTex(scene, 'boss4', 32, 32, (c) => { // Cinder Golem
+    const W = 32;
+    sym(c, W, '#3a1a12', 5, 8, 9, 20); sym(c, W, '#6b2c18', 6, 9, 7, 18);
+    px(c, '#2a100a', 12, 8, 8, 20); px(c, '#8a3a1c', 13, 9, 6, 18);
+    sym(c, W, '#3a1a12', 9, 2, 7, 8); sym(c, W, '#6b2c18', 10, 3, 6, 6);
+    sym(c, W, '#ffb02a', 11, 5, 3, 2); px(c, '#fff2a0', 12, 5, 1, 1); px(c, '#fff2a0', 19, 5, 1, 1);
+    sym(c, W, '#3a1a12', 2, 12, 5, 13); sym(c, W, '#ff6a2a', 3, 14, 3, 8);
+    px(c, '#ff6a2a', 14, 13, 4, 8); px(c, '#ffd25a', 15, 15, 2, 4);
+    sym(c, W, '#ff6a2a', 8, 0, 2, 3); px(c, '#ffb02a', 15, 0, 2, 3);
+    sym(c, W, '#3a1a12', 8, 27, 5, 4);
+  });
+  canvasTex(scene, 'boss5', 32, 32, (c) => { // Frost Sentinel
+    const W = 32;
+    sym(c, W, '#1d4a66', 6, 8, 8, 20); sym(c, W, '#66ddff', 7, 9, 6, 18);
+    px(c, '#12304a', 12, 8, 8, 20); px(c, '#9fe8ff', 13, 9, 6, 16);
+    sym(c, W, '#12304a', 9, 2, 7, 8); sym(c, W, '#d8f8ff', 10, 3, 6, 6);
+    sym(c, W, '#2a7fff', 11, 5, 3, 2); px(c, '#fff', 12, 5, 1, 1); px(c, '#fff', 19, 5, 1, 1);
+    sym(c, W, '#d8f8ff', 7, 0, 1, 4); sym(c, W, '#d8f8ff', 10, 0, 1, 3); px(c, '#d8f8ff', 15, 0, 2, 3);
+    sym(c, W, '#12304a', 3, 12, 4, 13); sym(c, W, '#9fe8ff', 4, 13, 2, 11);
+    px(c, '#fff', 15, 14, 2, 6);
+    sym(c, W, '#12304a', 8, 27, 5, 4);
+  });
+  canvasTex(scene, 'boss6', 32, 32, (c) => { // Tide Oracle
+    const W = 32;
+    pixDisc(c, 16, 16, 11, '#143a8a'); pixDisc(c, 16, 15, 9, '#2f6fe0'); pixDisc(c, 14, 12, 4, '#8ac4ff');
+    sym(c, W, '#0c2660', 4, 22, 3, 8); sym(c, W, '#0c2660', 8, 25, 3, 6); sym(c, W, '#0c2660', 12, 26, 3, 5);
+    sym(c, W, '#e8f6ff', 10, 10, 3, 3); sym(c, W, '#08183c', 11, 11, 1, 1);
+    px(c, '#08183c', 12, 18, 8, 2); px(c, '#e8f6ff', 13, 18, 1, 1); px(c, '#e8f6ff', 18, 18, 1, 1);
+    sym(c, W, '#9fd0ff', 7, 5, 2, 2); sym(c, W, '#9fd0ff', 4, 14, 2, 2); px(c, '#9fd0ff', 15, 3, 2, 2);
+    pixDisc(c, 16, 7, 2, '#fff35e');
+  });
+  canvasTex(scene, 'boss7', 32, 32, (c) => { // Pyre Warlock
+    const W = 32;
+    sym(c, W, '#4a0e0e', 6, 9, 9, 20); sym(c, W, '#a8281a', 7, 10, 7, 18);
+    px(c, '#2a0606', 12, 8, 8, 21); px(c, '#d6401f', 13, 9, 6, 18);
+    sym(c, W, '#2a0606', 9, 2, 7, 9); sym(c, W, '#6b1410', 10, 3, 6, 7);
+    sym(c, W, '#ffd25a', 11, 6, 3, 2); px(c, '#fff', 12, 6, 1, 1); px(c, '#fff', 19, 6, 1, 1);
+    sym(c, W, '#ff7a1a', 8, 0, 2, 4); sym(c, W, '#ffb02a', 11, 0, 1, 3); px(c, '#ff7a1a', 15, 0, 2, 4);
+    sym(c, W, '#4a0e0e', 2, 13, 4, 12); pixDisc(c, 3, 11, 2, '#ff7a1a'); pixDisc(c, 28, 11, 2, '#ff7a1a');
+    px(c, '#ffd25a', 15, 15, 2, 6);
+  });
+  canvasTex(scene, 'boss8', 32, 32, (c) => { // Glacier Titan
+    const W = 32;
+    sym(c, W, '#3b6a8a', 4, 8, 10, 22); sym(c, W, '#9fe8ff', 5, 9, 8, 20);
+    px(c, '#1d4a66', 12, 8, 8, 22); px(c, '#d8f8ff', 13, 9, 6, 18);
+    sym(c, W, '#1d4a66', 9, 2, 7, 8); sym(c, W, '#d8f8ff', 10, 3, 6, 6);
+    sym(c, W, '#2a7fff', 11, 5, 3, 2); px(c, '#fff', 12, 5, 1, 1);
+    sym(c, W, '#d8f8ff', 6, 0, 2, 5); sym(c, W, '#9fe8ff', 10, 0, 1, 3); px(c, '#fff', 15, 0, 2, 4);
+    sym(c, W, '#1d4a66', 1, 12, 5, 14); sym(c, W, '#66ddff', 2, 13, 3, 12);
+    px(c, '#66ddff', 14, 14, 4, 6); px(c, '#fff', 15, 15, 2, 4);
+    sym(c, W, '#1d4a66', 8, 28, 5, 3);
+  });
+  canvasTex(scene, 'boss9', 32, 32, (c) => { // Quake Colossus
+    const W = 32;
+    sym(c, W, '#4a3a22', 4, 10, 9, 20); sym(c, W, '#8a6c3c', 5, 11, 7, 18);
+    px(c, '#2e2414', 12, 8, 8, 22); px(c, '#b08a4c', 13, 9, 6, 20);
+    sym(c, W, '#2e2414', 9, 3, 7, 8); sym(c, W, '#c2a36b', 10, 4, 6, 6);
+    sym(c, W, '#b36bff', 11, 6, 3, 2); px(c, '#fff', 12, 6, 1, 1); px(c, '#fff', 19, 6, 1, 1);
+    sym(c, W, '#6e5a34', 7, 1, 2, 4); px(c, '#6e5a34', 15, 0, 2, 4);
+    sym(c, W, '#2e2414', 1, 13, 6, 14); sym(c, W, '#8a6c3c', 2, 14, 4, 12);
+    px(c, '#b36bff', 15, 14, 2, 8); px(c, '#e0b0ff', 15, 16, 2, 3);
+    sym(c, W, '#2e2414', 7, 28, 6, 3);
+  });
+  canvasTex(scene, 'boss10', 32, 32, (c) => { // The Hollow Regent
+    const W = 32;
+    sym(c, W, '#0c3a2e', 6, 7, 7, 23); sym(c, W, '#1a6a52', 8, 9, 5, 19);
+    px(c, '#06201a', 11, 4, 10, 26); px(c, '#0f4a3a', 12, 6, 8, 22);
+    sym(c, W, '#06201a', 9, 1, 5, 8); sym(c, W, '#12604a', 10, 2, 4, 6);
+    px(c, '#020c08', 12, 4, 8, 7);
+    sym(c, W, '#7affc8', 12, 6, 2, 2); sym(c, W, '#ffffff', 12, 6, 1, 1);
+    sym(c, W, '#7affc8', 8, 0, 1, 3); sym(c, W, '#7affc8', 11, 0, 1, 2); px(c, '#7affc8', 15, 0, 2, 3);
+    sym(c, W, '#7affc8', 3, 11, 2, 10);
+    px(c, '#020c08', 14, 14, 4, 8); px(c, '#7affc8', 15, 16, 2, 4);
+    sym(c, W, '#1a6a52', 5, 28, 3, 3);
+  });
+  canvasTex(scene, 'boss11', 32, 32, (c) => { // The Star Eater
+    const W = 32;
+    pixDisc(c, 16, 17, 12, '#2a1a05'); pixDisc(c, 16, 17, 10, '#6b4a10'); pixDisc(c, 16, 17, 7, '#c9922a');
+    pixDisc(c, 16, 17, 4, '#02010a'); pixDisc(c, 16, 17, 2, '#000');
+    sym(c, W, '#ffd25a', 7, 4, 2, 5); sym(c, W, '#ffd25a', 3, 12, 2, 4); px(c, '#ffd25a', 15, 2, 2, 4);
+    sym(c, W, '#fff6c0', 10, 11, 2, 2); sym(c, W, '#fff6c0', 12, 24, 1, 1);
+    sym(c, W, '#2a1a05', 8, 28, 4, 3);
   });
 
   /* ---------------- spell visuals ---------------- */

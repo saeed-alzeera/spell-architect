@@ -6,7 +6,7 @@ import {
   RUNES, RUNE_BY_ID, ELEMENTS, FORMS, KIND_COLOR, KIND_LABEL, runeColor, EVOLVE_COST, EVOLVED_OF, BASE_CORE_OF, ULTIMATES, MERGEABLE, mergeResult, tierUpResult, triggerLevel, type RuneKind, type Element,
 } from '../data/runes';
 import {
-  checkAttach, checkTransfer, findNode, newNode, spellCost, subtreeRunes, estimate, walk, type SpellNode,
+  checkAttach, checkTransfer, findNode, newNode, spellCost, subtreeRunes, walk, type SpellNode,
 } from '../core/spell';
 import { audio } from '../core/audio';
 import type { Run } from '../game/run';
@@ -426,12 +426,9 @@ class Editor {
         return `<div class="lane empty ${i === this.slot ? 'on' : ''}" data-lane="${i}" style="--c:${css}"><div class="emptyroot ${this.sel && RUNE_BY_ID[this.sel].kind === 'form' ? 'ok' : ''}" title="Empty slot ${i + 1}: pick a Form, then click here"><span class="eri">${icon('spell', 16)}</span><b>${i + 1}</b><span class="ep">${icon('plus', 12)}${kg('form')}</span></div></div>`;
       }
       const cost = spellCost(s.def);
-      const est = s.c.valid && s.c.root ? estimate(s.c.root, s.mut) : null;
-      const dps = est ? est.dps * pm.dmgMul / pm.cdMul : 0;
-      const stat = est ? `<span class="lst" title="Est. DPS ${dps.toFixed(0)} · ${(est.dmgCast * pm.dmgMul).toFixed(0)} damage per cast · ${(est.cd * pm.cdMul).toFixed(2)}s cooldown">${icon('dps', 10)}${dps.toFixed(0)}</span>` : '';
       const warn = s.c.warnings.length ? `<span class="lw" title="${s.c.warnings.join(' ').replace(/"/g, '&quot;')}">${icon('alert', 12)}</span>` : '';
       return `<div class="lane ${i === this.slot ? 'on' : ''}" data-lane="${i}" style="--c:${css}">
-        <div class="lanehd"><span>${ico}</span><b>${i + 1}. ${s.c.name}</b>${warn}${stat}<i class="mcap ${cost >= s.def.capacity ? 'full' : ''}"><u style="width:${Math.min(100, s.def.capacity ? cost / s.def.capacity * 100 : 0)}%"></u></i><small>${cost}/${s.def.capacity}</small></div>${this.formCard(s, s.def.root, 'arcane', true)}</div>`;
+        <div class="lanehd"><span>${ico}</span><b>${i + 1}. ${s.c.name}</b>${warn}<i class="mcap ${cost >= s.def.capacity ? 'full' : ''}"><u style="width:${Math.min(100, s.def.capacity ? cost / s.def.capacity * 100 : 0)}%"></u></i><small>${cost}/${s.def.capacity}</small></div>${this.formCard(s, s.def.root, 'arcane', true)}</div>`;
     };
     const graph = `<div class="lanes ${this.view}">${run.spells.map((s, i) => [s, i] as const).filter(([, i]) => this.view === 'all' || i === this.slot).map(([s, i]) => lane(s, i)).join('')}</div>`;
 

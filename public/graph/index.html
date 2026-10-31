@@ -105,7 +105,7 @@ const TREE = {
   /* ============================== SPELLS ============================== */
   { id: 'spells', label: 'Spells', sub: 'build system', file: 'src/core/spell.ts, src/data/runes.ts',
     desc: 'Runes wired Core → Form → Behaviors / Modifiers / Triggers. checkAttach() is the single source of attachment rules; the compiler produces the CompiledSpell used by casting.',
-    inputs: ['Runes (shop, chests, caches)', 'Capacity and slot upgrades'], outputs: ['Compiled spells → Damage', 'DPS estimate → editor'],
+    inputs: ['Runes (shop, chests, caches)', 'Capacity and slot upgrades'], outputs: ['Compiled spells → Damage'],
     c: [
       { id: 'cores', label: 'Cores', sub: '6 + Arcane', desc: 'Socketed into a Form to give it an element (damage multiplier and cooldown). No Core = Arcane 1.0×, never resisted. Six copies of one Core forge its evolved version.', c: [
         RU('c_fire', 'Fire', 'common', 'cost 2 · 1.3×', 'Burning and explosive damage. Burning enemies take damage over time, spread fire to neighbours and ignite poison clouds. Projectiles explode on impact.'),
@@ -164,10 +164,7 @@ const TREE = {
         issue: { sev: 'warn', text: 'Players used 1.75 of 3 slots on average; per-spell capacity and per-spell mutations reward one big spell.' }, c: [
         L('capCost', 'Capacity', '12 per spell', 'Sum of rune costs in a spell may not exceed its capacity. Gambler\'s Dice adds +1 per Trigger.'),
         L('slots', 'Spell slots', '3 → 5', 'Extra slots cost 18 / 34 / 60 coins.'),
-        L('ownCap', 'Ownership caps', 'core 8 · form 4 · other 5', 'You may not hold more than this many copies of one rune.'),
       ] },
-      { id: 'est', label: 'DPS estimate', sub: 'editor', desc: 'Shown in each spell header. Computed with defaultMut() at compile time.',
-        issue: { sev: 'high', text: 'Ignores relics, mutations, player stats, earlyPower, crits and reactions, so most multipliers are invisible at decision time.' } },
     ] },
 
   /* ============================== DAMAGE ============================== */
@@ -175,7 +172,7 @@ const TREE = {
     desc: 'dealDamage(): resistances → relic multipliers → status bonuses → armor → crit → kill. Every hit can queue trigger events.',
     inputs: ['Compiled spells', 'Player stats (dmgMul, cdMul, crit)', 'Relic and mutation multipliers', 'Enemies from the director'], outputs: ['Kills (XP, coins, drops)', 'Per-spell stats → Mutations'],
     c: [
-      { id: 'elements', label: 'Elements', sub: '6 + Arcane', desc: 'Each element has a damage multiplier, cooldown factor and set of statuses. Names of each Form change per element (Fireball, Frost Ray, Tesla Mine…).', c: [
+      { id: 'elements', label: 'Elements', sub: '6 + Arcane (+ Necromancy planned)', desc: 'Each element has a damage multiplier, cooldown factor and set of statuses. Names of each Form change per element (Fireball, Frost Ray, Tesla Mine…).', c: [
         L('elFire', 'Fire', 'burn', 'Burns for damage over time, spreads to neighbours, ignites poison clouds. Dowsed by Water.'),
         L('elIce', 'Ice', 'chill → freeze', 'Chills and slows. Three chills freeze; wet enemies freeze at once. Frozen enemies take +25% damage.'),
         L('elLightning', 'Lightning', 'arcs, crits', 'Fast, crit-prone, arcs to nearby enemies. Devastating on wet foes.'),
@@ -183,17 +180,18 @@ const TREE = {
         L('elWater', 'Water', 'wet, puddles', 'Soaks enemies and leaves puddles that slow and conduct electricity.'),
         L('elGravity', 'Gravity', 'pull, collapse', 'Pulls enemies together; wells collapse for extra damage when they end.'),
         L('elArcane', 'Arcane', 'none', 'No Core: raw magic, no status, never resisted.'),
+        L('elNecro', 'Necromancy', 'planned', 'Placeholder, intentionally empty: not in the game yet. Details to be filled in by the designer. Not in code, so adding it later means a new Element, a Core rune, statuses, reactions and boss resistances.'),
       ] },
-      { id: 'status', label: 'Statuses', sub: '7', desc: 'Timed effects on an enemy, applied by elements.', c: [
+      { id: 'status', label: 'Statuses', sub: '6', desc: 'Timed effects on an enemy, applied by elements.', c: [
         L('sBurn', 'Burning', '3.2 s', 'Damage over time; spreads fire to adjacent enemies; ends when the enemy gets wet.'),
         L('sChill', 'Chilled', '3 stacks · 3 s', '−18% speed per stack. Three stacks (bosses: two) freeze.'),
         L('sFreeze', 'Frozen', 'immobile', 'Cannot move or act; +25% damage taken. Grants freeze immunity afterwards. Bosses cannot be frozen.'),
         L('sPoison', 'Poisoned', '4 stacks · 3.5 s', 'Stacking damage over time that ignores armor. Spreads to up to 5 neighbours on death. Resin Vial raises the cap by 2.'),
         L('sWet', 'Wet', '5.5 s', 'Freezes faster, +50% lightning damage, conducts arcs. Extinguishes burning.'),
         L('sPulled', 'Pulled', 'gravity', 'Dragged toward a well. Counted for the Collapsing Star mutation.'),
-        L('sBuff', 'Empowered', '5 s', 'Shaman buff: +30% speed.'),
       ] },
-      { id: 'react', label: 'Reactions', sub: '11', desc: 'Emerge from simple rules in combat.ts. Damage is split evenly across both elements, so an enemy resisting one still takes the other.', c: [
+      { id: 'react', label: 'Reactions', sub: '11', desc: 'Emerge from simple rules in combat.ts. Damage is split evenly across both elements, so an enemy resisting one still takes the other.',
+        issue: { sev: 'warn', text: 'Designer note: the reactions feel basic and need a rework. No changes made yet.' }, c: [
         L('rElectrify', 'Electrified Puddle', 'lightning + water', 'Lightning hitting a puddle shocks everything inside every 0.4 s for ~4 s, and nearby puddles too.'),
         L('rConduct', 'Conduction', 'lightning + wet enemy', '+50% lightning damage on a wet enemy, arcs to 2 other wet enemies.'),
         L('rGas', 'Gas Explosion', 'fire + poison cloud', 'The cloud detonates for fire + poison damage and sets enemies alight. Chains to nearby clouds.'),
@@ -206,8 +204,7 @@ const TREE = {
         L('rPlague', 'Plague', 'poison', 'Infected enemies spread poison to up to 5 enemies when they die.'),
         L('rCollapse', 'Gravity Collapse', 'gravity', 'A gravity well implodes when it ends: bonus damage per enemy gathered.'),
       ] },
-      { id: 'crit', label: 'Crits', sub: '5% · ×1.8', desc: 'Base 5% chance, ×1.8 damage. Lightning +12%, Overcharge +20%, Keen Eye +5%, Keen Edge +3%, Brutal Strikes +30% damage.',
-        issue: { sev: 'high', text: 'Shop stops crit at 60% but the Keen Eye level-up (rewards.ts:36) has no cap.' } },
+      { id: 'crit', label: 'Crits', sub: '5% · ×1.8', desc: 'Base 5% chance, ×1.8 damage. Lightning +12%, Overcharge +20%, Keen Eye +5%, Keen Edge +3%, Brutal Strikes +30% damage. Deliberately uncapped: artificial limits feel bad to a player who has built toward them.' },
       { id: 'cd', label: 'Cooldowns', desc: 'Form × element × 0.8^ReduceCooldown × mutation × player cdMul × relic.',
         issue: { sev: 'high', text: 'No minimum cooldown (casting.ts:345). Shop Haste stops at 0.45 but Quickened Mind and Ascension level-ups have no floor.' } },
       { id: 'stack', label: 'Multiplier stack', sub: 'multiplicative', desc: 'Everything below multiplies together.',
@@ -225,45 +222,54 @@ const TREE = {
       { id: 'res', label: 'Resistances', sub: 'bosses only', desc: 'Only bosses resist or are weak to an element (0 = immune, <1 resist, >1 weak). Arcane is never resisted. Shown in the round briefing; Null Lens converts blocked damage to 30% Arcane.' },
 
       /* ---- enemies live under damage: they are what damage is dealt to ---- */
-      { id: 'enemies', label: 'Enemies', sub: '6 + elites + 4 bosses', file: 'src/game/enemies.ts, bosses.ts',
+      { id: 'enemies', label: 'Enemies', sub: '5 + elites + 12 bosses', file: 'src/game/enemies.ts, bosses.ts',
         desc: 'What damage is dealt to. HP and damage scale with the director clock (see Run); armor grows with time. Each enemy hunts the nearest living player.',
         outputs: ['Contact and projectile damage → Health', 'Kills → XP, coins, hearts, chests'], c: [
-        { id: 'arch', label: 'Archetypes', sub: '6', desc: 'Base stats before time scaling. Swarmers + grunts were 78% of damage taken.', c: [
+        { id: 'arch', label: 'Archetypes', sub: '5', desc: 'Base stats before time scaling. Swarmers + grunts were 78% of damage taken.', c: [
           { id: 'grunt', label: 'Grunt', sub: '14 hp · spd 125 · dmg 9', desc: 'Walks straight at you along the flow field. Always spawns. 20% coin drop, 1 XP.', c: [
             L('sprinter', 'Sprinter', '14% of grunts', 'Speed ×1.7, HP ×0.65, slightly smaller.'),
-            L('eGrunt', 'Elite grunt', 'ground slam', 'Every 5.5 s inside 260 px, telegraphs a 115 px circle for 0.85 s then slams for 1.4× damage.'),
           ] },
           { id: 'swarmer', label: 'Swarmer', sub: '6 hp · spd 235 · dmg 3.4', desc: 'Fast and fragile; weaves side to side. Spawns in packs of 3+ (more later). 10% coin drop, 0.6 XP. 78% of damage taken together with grunts.' },
           { id: 'archer', label: 'Archer', sub: '16 hp · spd 105 · dmg 10', desc: 'Appears from ~round 2. Keeps 200–280 px away and strafes; a 0.6 s wind-up, then a bullet at 230 px/s every 2.6–3.6 s. 30% coin drop, 2 XP.', c: [
-            L('eArcher', 'Elite archer', 'triple shot', 'Fires a three-bullet spread.'),
           ] },
-          { id: 'charger', label: 'Charger', sub: '36 hp · spd 140 · dmg 15', desc: 'Appears from ~round 4. Telegraphed 0.75 s wind-up, then dashes at 820 px/s for 0.55 s. 30% coin drop, 2.5 XP. Mines are strong against it.', c: [
-            L('eCharger', 'Elite charger', 'double dash', 'Lines up a second dash immediately after the first.'),
-          ] },
+          { id: 'charger', label: 'Charger', sub: '36 hp · spd 140 · dmg 15', desc: 'Appears from ~round 4. Telegraphed 0.75 s wind-up, then dashes at 820 px/s for 0.55 s. 30% coin drop, 2.5 XP. Mines are strong against it.' },
           { id: 'armored', label: 'Armored', sub: '110 hp · spd 85 · armor 5', desc: 'Appears from ~round 7. Slow tank; armor grows with time (poison ignores it). 50% coin drop, 4 XP.' },
-          { id: 'shaman', label: 'Shaman', sub: '30 hp · spd 115 · dmg 6', desc: 'Appears from ~round 7. Stays 240–340 px away; every 4.5 s pulses a 150 px ring that gives nearby enemies +30% speed for 5 s. 35% coin drop, 3 XP.' },
         ] },
-        { id: 'elites', label: 'Elites', sub: 'from round 4', desc: 'Any non-boss archetype with ×6 HP and XP, ×1.3 damage and radius, ×1.4 scale. Spawn at 55% of a round from round 4 (count rises with rounds). Pool widens with time. Drops: 3 coins always, 45% heart, 30% cache (round 2+), 12% relic (round 4+).' },
-        { id: 'bosses', label: 'Bosses', sub: 'r5 / 10 / 15 / 20', desc: 'Telegraphed multi-pattern attacks. Boss HP is scaled by the director clock^0.75 and by player count. Attacks come in phases (the Architect has three).',
-          issue: { sev: 'warn', text: 'No normal-mode run has reached a boss. Rounds 5–20 are unvalidated.' }, c: [
+        { id: 'elites', label: 'Elites', sub: 'from round 4', desc: 'Any non-boss archetype with ×6 HP and XP, ×1.3 damage and radius, ×1.4 scale. Spawn at 55% of a round from round 4 (count rises with rounds). Pool widens with time. Drops: 3 coins always, 45% heart, 30% cache (round 2+), 12% relic (round 4+). Which archetypes appear depends on the clock: see the pool below.', c: [
+          L('elPool1', 'Early pool', 'clock < 200', 'Grunt or charger.'),
+          L('elPool2', 'Mid pool', 'clock 200–400', 'Grunt, charger, armored or archer.'),
+          L('elPool3', 'Late pool', 'clock ≥ 400', 'Charger, armored, archer or grunt, each equally likely.'),
+          L('elGrunt', 'Elite grunt', 'ground slam', 'Every 5.5 s within 260 px: a telegraphed 115 px circle that hurts if you stay in it.'),
+          L('elCharger', 'Elite charger', 'double dash', 'Lines up a second dash immediately after the first.'),
+          L('elArcher', 'Elite archer', 'triple shot', 'Fires three arrows in a fan (−0.22, 0, +0.22 rad) instead of one.'),
+          L('elArmored', 'Elite armored', 'stats only', 'No extra ability: just the ×6 HP, ×1.3 damage and radius, ×1.4 scale of every elite. Slowed and frozen less than normal.'),
+        ] },
+        { id: 'bosses', label: 'Bosses', sub: 'r5 / 10 / 15 / 20 · 3 each', desc: 'Each boss round has three candidate bosses; the run seed picks one (the same pick on every machine in co-op), shown in the round briefing. Telegraphed multi-pattern attacks. Boss HP is scaled by the director clock^0.75 and by player count. Attacks come in phases (the Architect has three).',
+          issue: { sev: 'warn', text: 'No normal-mode run has reached a boss. Rounds 5–20 are unvalidated, and the eight newer bosses (two extra per round) are first drafts: stats, resistances and attack mixes need playtesting.' }, c: [
           { id: 'boss0', label: 'Stone Warden', sub: 'round 5 · 1800 hp', desc: 'Armor 2, dmg 16, 80 XP. Resists Fire (×0.4), weak to Water (×1.3). Summons grunts.', c: [
             L('b0ring', 'Ring', '', 'Telegraphed ring of bullets (16 + 6 per phase); a second ring in later phases.'),
             L('b0slam', 'Slam', '', '3 + phase telegraphed circles (70 px) on and around you, 1.3× damage.'),
             L('b0charge', 'Charge', '', 'Telegraphed line, dashes at 620 px/s for 0.75 s.'),
             L('b0summon', 'Summon', '', 'Spawns 5 + 2 per phase grunts around itself.'),
           ] },
+          { id: 'bossCinder', label: 'Cinder Golem', sub: 'round 5 · 1650 hp', desc: 'Armor 2, dmg 17, speed 54, 80 XP. Immune to Fire, weak to Water (×1.3) and Ice (×1.25). Ring, Charge, Spiral, Summon (grunts). Faster and more aggressive than the Warden.' },
+          { id: 'bossFrost', label: 'Frost Sentinel', sub: 'round 5 · 1950 hp', desc: 'Armor 2, dmg 15, speed 40, 80 XP. Resists Ice (×0.4) and Gravity (×0.5), weak to Lightning (×1.3). Aimed volley, Slam, Ring, Beam lines, no summons.' },
           { id: 'boss1', label: 'Plague Matron', sub: 'round 10 · 3600 hp', desc: 'Armor 4, dmg 18, 140 XP. Immune to Poison, resists Water (×0.5), weak to Fire (×1.3).', c: [
             L('b1aimed', 'Aimed volley', '', 'Three volleys of 5 + 2 per phase bullets fanned at you.'),
             L('b1pools', 'Poison pools', '', '3 + phase telegraphed 75 px pools that linger 5 s.'),
             L('b1summon', 'Summon', '', 'Spawns swarmers (5 + 2 per phase).'),
             L('b1spiral', 'Spiral', '', 'Spinning bullet arms (2 + phase) for ~3 s.'),
           ] },
+          { id: 'bossTide', label: 'Tide Oracle', sub: 'round 10 · 3300 hp', desc: 'Armor 4, dmg 17, 140 XP. Immune to Water, resists Gravity (×0.5), weak to Lightning and Poison (×1.3). Aimed volley, Pools (blue, damaging), Spiral, Ring, no summons.' },
+          { id: 'bossPyre', label: 'Pyre Warlock', sub: 'round 10 · 3900 hp', desc: 'Armor 4, dmg 19, 140 XP. Immune to Fire, resists Poison (×0.5), weak to Water (×1.3) and Ice (×1.25). Aimed volley, Spiral, Slam, Summon (archers).' },
           { id: 'boss2', label: 'Storm Colossus', sub: 'round 15 · 6000 hp', desc: 'Armor 6, dmg 20, 220 XP. Immune to Lightning, resists Ice (×0.5), weak to Gravity (×1.3).', c: [
             L('b2lines', 'Beam lines', '', '3 + phase telegraphed beams 46 px wide, 1.4× damage.'),
             L('b2spiral', 'Spiral', '', 'Spinning bullet arms for ~3 s.'),
             L('b2ring', 'Ring', '', 'Telegraphed ring of bullets.'),
             L('b2charge', 'Charge', '', 'Telegraphed line, dashes at 620 px/s.'),
           ] },
+          { id: 'bossGlacier', label: 'Glacier Titan', sub: 'round 15 · 6600 hp', desc: 'Armor 6, dmg 19, speed 44, 220 XP. Immune to Ice, resists Lightning (×0.5), weak to Fire (×1.3). Beam lines, Slam, Ring, Summon (armored).' },
+          { id: 'bossQuake', label: 'Quake Colossus', sub: 'round 15 · 5600 hp', desc: 'Armor 6, dmg 22, speed 52, 220 XP. Immune to Gravity, resists Fire (×0.5), weak to Lightning (×1.3). Slam, Charge, Pull, Beam lines.' },
           { id: 'boss3', label: 'The Void Architect', sub: 'round 20 · 12000 hp', desc: 'Final boss. Armor 8, dmg 24, 600 XP. Immune to Gravity, resists Ice (×0.3) and Poison (×0.5), weak to Fire (×1.25). Three phases (66% / 33%).', c: [
             L('b3ring', 'Ring', '', 'Telegraphed ring; always follows with a second ring.'),
             L('b3spiral', 'Spiral', '', 'Spinning bullet arms.'),
@@ -273,6 +279,8 @@ const TREE = {
             L('b3summon', 'Summon', '', 'Spawns a ring of armored enemies.'),
             L('b3aimed', 'Aimed volley', '', 'Fan of bullets at you.'),
           ] },
+          { id: 'bossHollow', label: 'The Hollow Regent', sub: 'round 20 · 11000 hp', desc: 'Final boss, three phases. Armor 8, dmg 25, speed 48, 600 XP. Immune to Poison, resists Fire (×0.5), weak to Water (×1.3) and Lightning (×1.25). Ring, Aimed volley, Pools, Summon (swarmers), Spiral, Charge.' },
+          { id: 'bossStar', label: 'The Star Eater', sub: 'round 20 · 13000 hp', desc: 'Final boss, three phases. Armor 8, dmg 23, speed 42, 600 XP. Immune to Fire, resists Gravity (×0.3), weak to Ice (×1.3) and Poison (×1.25). Pull, Beam lines, Spiral, Slam, Ring, Summon (armored).' },
         ] },
         { id: 'pieces', label: 'Set pieces', sub: '3', desc: 'One-off events at fixed fractions of a round; not in boss rounds.', c: [
           L('swarmRing', 'Swarm ring', 'even rounds ≥ 4 · 15%', 'A ring of swarmers (8 + 2 per round, up to 44) closes in from 380 px around you.'),
@@ -304,7 +312,7 @@ const TREE = {
         L('mix1', 'Early mix', 't < 60', 'Grunts and swarmers.'),
         L('mix2', 'Add archers', 't ≥ 60', 'Grunt 6, swarmer 3, archer 2.'),
         L('mix3', 'Add chargers', 't ≥ 150', 'Chargers join.'),
-        L('mix4', 'Add armored + shamans', 't ≥ 300', 'Late mix weights armored and shamans more.'),
+        L('mix4', 'Add armored', 't ≥ 300', 'Late mix weights armored more.'),
       ] },
     ] },
 
@@ -359,15 +367,15 @@ const TREE = {
 
   /* ============================== ECONOMY ============================== */
   { id: 'econ', label: 'Economy', sub: 'coins', file: 'src/game/shop.ts, rewards.ts',
-    desc: 'Coins drop from kills (10–50% by type, elites 3), +3+round per cleared round, +8+2k per boss. Spent in the shop between rounds.',
+    desc: 'Coins drop from kills (10–50% by type, elites 3), +3+round per cleared round, +8+2k per boss (k = boss tier). Spent in the shop between rounds.',
     inputs: ['Kills', 'Round and boss clears', 'Selling', 'Economy relics', 'Golden Idol'], outputs: ['Runes', 'Relics', 'Upgrades', 'Rerolls'],
     c: [
       { id: 'coins', label: 'Coins', desc: 'Income grows with spawn rate (~20× r1→r20); rune prices only +5% per round.',
         issue: { sev: 'warn', text: 'Late gold likely flows into uncapped Spell Power. Unverified.' }, c: [
-        L('coinKill', 'Kill drops', '10–50%', 'Grunt 20%, swarmer 10%, archer 30%, charger 30%, shaman 35%, armored 50%. Elites always drop 3.'),
+        L('coinKill', 'Kill drops', '10–50%', 'Grunt 20%, swarmer 10%, archer 30%, charger 30%, armored 50%. Elites always drop 3.'),
         L('coinRound', 'Round clear', '3 + round', 'Paid when a round is cleared.'),
-        L('coinBoss', 'Boss clear', '8 + 2k', 'Paid for each boss.'),
-        L('coinMods', 'Coin modifiers', 'Lodestone, Purse, Idol', 'Lodestone +20%, Hungry Purse ×1.5, Golden Idol 50% double, Lucky Penny, Resin Vial, Ledger.'),
+        L('coinBoss', 'Boss clear', '8 + 2k', 'Paid for each boss; k is the boss tier (0 to 3 for rounds 5 to 20).'),
+        L('coinMods', 'Coin modifiers', 'Lodestone, Purse, Idol', 'Lodestone +20%, Hungry Purse ×1.5, Golden Idol +50% on all coins, Lucky Penny, Resin Vial, Ledger.'),
       ] },
       { id: 'shop', label: 'Shop', sub: '8 cards', desc: 'One shelf: 4 runes (slot 0 always a Core or Form) + 1 relic + 3 upgrades. Rune price ×1.05 per round, ×1.35 per owned copy. Rerolling replaces the whole shelf and each reroll costs more.', c: [
         L('shRune', 'Rune offers', '4', 'Base price: core 4, form 5, others 3, times a rarity multiplier (1 / 1.5 / 2.2 / 3.4 / 5).'),
@@ -375,13 +383,13 @@ const TREE = {
         L('shReroll', 'Reroll', 'cost 1, 2, 3…', 'Bargain Bell −1, Hungry Purse ×2.'),
       ] },
       { id: 'upg', label: 'Upgrades', sub: '7', desc: 'Permanent purchases, three per shelf. Prices rise with every repeat.',
-        issue: { sev: 'warn', text: 'shop.ts:2 says "Nothing has a purchase cap"; README says capped; code soft-caps 4 of 7.' }, c: [
+        issue: { sev: 'warn', text: 'shop.ts:2 says "Nothing has a purchase cap"; README says capped; code soft-caps 3 of 7 (slots, Haste, Vitality).' }, c: [
         L('uCap', 'Capacity +2', '5 × 1.4ⁿ', "Raise one spell's capacity by 2."),
         L('uSlot', 'Spell Slot', '18 / 34 / 60', 'Unlock another slot (max 5).'),
         L('uPower', 'Spell Power +4%', '12 × 1.65ⁿ', 'All spells deal 4% more.'),
         L('uHaste', 'Haste −4%', '12 × 1.65ⁿ', 'Cooldowns; stops at 0.45.'),
         L('uVit', 'Vitality +10 HP', '6 × 1.35ⁿ', 'Max health; stops at 400.'),
-        L('uCrit', 'Keen Edge +3%', '10 × 1.6ⁿ', 'Crit chance; stops at 60%.'),
+        L('uCrit', 'Keen Edge +3%', '10 × 1.6ⁿ', 'Crit chance; no cap.'),
         L('uHeal', 'Healing Draught', '(8 + 0.8r) × 1.25ⁿ', 'Restore 20% of max health.'),
       ] },
       { id: 'sell', label: 'Selling', desc: 'Runes sell for half base price; relics for half. No arbitrage.' },
@@ -469,8 +477,7 @@ const TREE = {
     inputs: ['Current HP'], outputs: ['Damage / coins / trigger rolls'],
     c: [
       L('fall', 'Rite of the Fall', '+20% damage', 'Fall through the crumbling floor once in each of 3 rounds.'),
-      L('gold', 'Golden Idol', 'coins may double', 'Spend 50% of each round in the drifting gold zone; then each coin has a 50% chance to double.',
-        { issue: { sev: 'warn', text: 'Co-op: coins have no owner, so doubled coins go to whoever picks them up.' } }),
+      L('gold', 'Golden Idol', 'coins +50%', 'Spend 50% of each round in the drifting gold zone; then every coin you earn (kill drops, round and boss bonuses) is worth 50% more. Reworked from a random double on kill drops, which coins going straight to the purse made nearly invisible.'),
       L('vow', 'Vow of Silence', 'triggers roll twice', 'Triggers are silenced for 3 rounds (only offered with 2+ triggered spells); then every Trigger rolls twice.',
         { issue: { sev: 'warn', text: 'Two rolls on a 90% cap give 99%, so the documented cap no longer holds.' } }),
     ] },
@@ -529,11 +536,10 @@ const FLOWS = [
   ['floor', 'fall', 'fall events', 'F'],
   ['hRitual', 'rituals', '50% HP cost', 'F'],
   ['fall', 'xPlayer', '+20% damage', 'R'],
-  ['gold', 'coinMods', 'doubled coins', 'R'],
+  ['gold', 'coinMods', '+50% coins', 'R'],
   ['vow', 'trig', 'double rolls', 'R'],
   ['res', 'bosses', 'resistances', 'F'],
   ['stack', 'clock', 'hidden by raised difficulty', 'B'],
-  ['est', 'spells', 'what the player sees', 'F'],
   ['elements', 'cores', 'one Core per element', 'F'],
 ];
 

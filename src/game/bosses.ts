@@ -7,12 +7,26 @@ import { audio } from '../core/audio';
 
 import { BOSS_RES } from './rounds';
 
-interface BDef { name: string; tex: string; hp: number; r: number; sc: number; speed: number; dmg: number; color: number; attacks: string[]; xp: number }
+type Minion = 'grunt' | 'swarmer' | 'armored' | 'archer';
+/** `tier` 0..3 is the boss round (5/10/15/20); three bosses share each tier and the run seed picks one. */
+interface BDef { name: string; tier: number; minion: Minion; tex: string; hp: number; r: number; sc: number; speed: number; dmg: number; color: number; attacks: string[]; xp: number }
 export const BOSSES: BDef[] = [
-  { name: 'Stone Warden', tex: 'boss0', hp: 1800, r: 34, sc: 4.2, speed: 46, dmg: 16, color: 0xff8a3a, attacks: ['ring', 'slam', 'charge', 'summon'], xp: 80 },
-  { name: 'Plague Matron', tex: 'boss1', hp: 3600, r: 36, sc: 4.2, speed: 42, dmg: 18, color: 0x7dff4a, attacks: ['aimed', 'pools', 'summon', 'spiral'], xp: 140 },
-  { name: 'Storm Colossus', tex: 'boss2', hp: 6000, r: 38, sc: 4.4, speed: 50, dmg: 20, color: 0xfff35e, attacks: ['lines', 'spiral', 'ring', 'charge'], xp: 220 },
-  { name: 'The Void Architect', tex: 'boss3', hp: 12000, r: 40, sc: 4.6, speed: 44, dmg: 24, color: 0xc26bff, attacks: ['ring', 'spiral', 'slam', 'lines', 'pull', 'summon', 'aimed'], xp: 600 },
+  // tier 0 · round 5
+  { name: 'Stone Warden', tier: 0, minion: 'grunt', tex: 'boss0', hp: 1800, r: 34, sc: 4.2, speed: 46, dmg: 16, color: 0xff8a3a, attacks: ['ring', 'slam', 'charge', 'summon'], xp: 80 },
+  { name: 'Cinder Golem', tier: 0, minion: 'grunt', tex: 'boss4', hp: 1650, r: 34, sc: 4.2, speed: 54, dmg: 17, color: 0xff5a1a, attacks: ['ring', 'charge', 'spiral', 'summon'], xp: 80 },
+  { name: 'Frost Sentinel', tier: 0, minion: 'grunt', tex: 'boss5', hp: 1950, r: 34, sc: 4.2, speed: 40, dmg: 15, color: 0x66ddff, attacks: ['aimed', 'slam', 'ring', 'lines'], xp: 80 },
+  // tier 1 · round 10
+  { name: 'Plague Matron', tier: 1, minion: 'swarmer', tex: 'boss1', hp: 3600, r: 36, sc: 4.2, speed: 42, dmg: 18, color: 0x7dff4a, attacks: ['aimed', 'pools', 'summon', 'spiral'], xp: 140 },
+  { name: 'Tide Oracle', tier: 1, minion: 'swarmer', tex: 'boss6', hp: 3300, r: 36, sc: 4.2, speed: 44, dmg: 17, color: 0x3d8bff, attacks: ['aimed', 'pools', 'spiral', 'ring'], xp: 140 },
+  { name: 'Pyre Warlock', tier: 1, minion: 'archer', tex: 'boss7', hp: 3900, r: 36, sc: 4.2, speed: 40, dmg: 19, color: 0xff7a1a, attacks: ['aimed', 'spiral', 'slam', 'summon'], xp: 140 },
+  // tier 2 · round 15
+  { name: 'Storm Colossus', tier: 2, minion: 'grunt', tex: 'boss2', hp: 6000, r: 38, sc: 4.4, speed: 50, dmg: 20, color: 0xfff35e, attacks: ['lines', 'spiral', 'ring', 'charge'], xp: 220 },
+  { name: 'Glacier Titan', tier: 2, minion: 'armored', tex: 'boss8', hp: 6600, r: 38, sc: 4.4, speed: 44, dmg: 19, color: 0x9fe8ff, attacks: ['lines', 'slam', 'ring', 'summon'], xp: 220 },
+  { name: 'Quake Colossus', tier: 2, minion: 'grunt', tex: 'boss9', hp: 5600, r: 38, sc: 4.4, speed: 52, dmg: 22, color: 0xc2a36b, attacks: ['slam', 'charge', 'pull', 'lines'], xp: 220 },
+  // tier 3 · round 20 (final)
+  { name: 'The Void Architect', tier: 3, minion: 'armored', tex: 'boss3', hp: 12000, r: 40, sc: 4.6, speed: 44, dmg: 24, color: 0xc26bff, attacks: ['ring', 'spiral', 'slam', 'lines', 'pull', 'summon', 'aimed'], xp: 600 },
+  { name: 'The Hollow Regent', tier: 3, minion: 'swarmer', tex: 'boss10', hp: 11000, r: 40, sc: 4.6, speed: 48, dmg: 25, color: 0x7affc8, attacks: ['ring', 'aimed', 'pools', 'summon', 'spiral', 'charge'], xp: 600 },
+  { name: 'The Star Eater', tier: 3, minion: 'armored', tex: 'boss11', hp: 13000, r: 40, sc: 4.6, speed: 42, dmg: 23, color: 0xffd25a, attacks: ['pull', 'lines', 'spiral', 'slam', 'ring', 'summon'], xp: 600 },
 ];
 export const BOSS_NAMES = BOSSES.map((b) => b.name);
 
@@ -31,7 +45,7 @@ export function spawnBoss(run: Run, kind: number) {
   e.aff = 'neutral'; e.res = { ...BOSS_RES[kind] };
   e.maxHp = e.hp = d.hp * Math.pow(hpMul(run.dtime), 0.75) * (run.quick ? 0.8 : 1) * playerScale(run); // more players, tougher boss
   e.dmg = d.dmg * (1 + 0.25 * ramp(run.dtime)) * (1 + run.dtime / 60 * 0.05);
-  e.xp = d.xp; e.armor = 2 + kind * 2; e.spawnT = 0.5;
+  e.xp = d.xp; e.armor = 2 + d.tier * 2; e.spawnT = 0.5;
   e.boss = {
     kind, name: d.name, phase: 0, cd: 2.2, atk: '', atkT: 0, dash: 0, dx: 0, dy: 0, spiral: 0, spiralAng: 0, pull: 0, last: '', enraged: false,
   };
@@ -48,7 +62,7 @@ export function updateBoss(run: Run, e: Enemy, dt: number, mul: number, dist: nu
   const d = BOSSES[b.kind];
   const p = run.player;
   const frac = e.hp / e.maxHp;
-  const phase = b.kind === 3 ? (frac > 0.66 ? 0 : frac > 0.33 ? 1 : 2) : frac > 0.5 ? 0 : 1;
+  const phase = d.tier === 3 ? (frac > 0.66 ? 0 : frac > 0.33 ? 1 : 2) : frac > 0.5 ? 0 : 1;
   if (phase !== b.phase) {
     b.phase = phase;
     run.fx.shake(7); run.fx.ring(e.x, e.y, d.color, 20, 280, 0.6); audio.play('boss');
@@ -59,7 +73,7 @@ export function updateBoss(run: Run, e: Enemy, dt: number, mul: number, dist: nu
     b.dash -= dt;
     e.x += b.dx * 620 * dt; e.y += b.dy * 620 * dt;
     if (Math.random() < 0.8) run.fx.spark(e.x, e.y, 0, 0, d.color, 0.4, 1.8);
-    if (b.dash <= 0 && b.kind === 3) ring(run, e, 12 + phase * 4, 190, Math.random());
+    if (b.dash <= 0 && d.tier === 3) ring(run, e, 12 + phase * 4, 190, Math.random());
     if (e.x < 60 || e.x > ARENA - 60 || e.y < 60 || e.y > ARENA - 60) b.dash = 0;
   } else if (b.atkT > 0) {
     b.atkT -= dt;
@@ -94,7 +108,7 @@ export function updateBoss(run: Run, e: Enemy, dt: number, mul: number, dist: nu
     const atk = pool[(Math.random() * pool.length) | 0];
     b.last = atk;
     startAttack(run, e, atk, phase);
-    b.cd = Math.max(1.4, 3.5 - phase * 0.7 - (b.kind === 3 ? 0.4 : 0));
+    b.cd = Math.max(1.4, 3.5 - phase * 0.7 - (d.tier === 3 ? 0.4 : 0));
   }
 }
 
@@ -114,7 +128,7 @@ function startAttack(run: Run, e: Enemy, atk: string, ph: number) {
       b.atkT = 1.0;
       run.addTelegraph({ shape: 'ring', x: e.x, y: e.y, r: 90, dur: 0.8, color: d.color, follow: e, onDone: () => {
         ring(run, e, 16 + ph * 6, 200, Math.random());
-        if (ph > 0 || b.kind === 3) run.later(0.45, () => { if (!e.dead) ring(run, e, 16 + ph * 6, 170, Math.random()); });
+        if (ph > 0 || d.tier === 3) run.later(0.45, () => { if (!e.dead) ring(run, e, 16 + ph * 6, 170, Math.random()); });
       } });
       break;
     }
@@ -157,8 +171,8 @@ function startAttack(run: Run, e: Enemy, atk: string, ph: number) {
         const ty = k === 0 ? p.y : p.y + (Math.random() - 0.5) * 360;
         run.later(k * 0.2, () => {
           if (e.dead) return;
-          run.addTelegraph({ shape: 'circle', x: tx, y: ty, r: 75, dur: 1.2, color: 0x7dff4a, follow: null, onDone: () => {
-            run.fx.burst(tx, ty, 0x7dff4a, 12, 160, 0.6, 1.4);
+          run.addTelegraph({ shape: 'circle', x: tx, y: ty, r: 75, dur: 1.2, color: d.color, follow: null, onDone: () => {
+            run.fx.burst(tx, ty, d.color, 12, 160, 0.6, 1.4);
             run.addZone(tx, ty, 75, 5, e.dmg * 0.4);
           } });
         });
@@ -175,7 +189,7 @@ function startAttack(run: Run, e: Enemy, atk: string, ph: number) {
     }
     case 'lines': {
       b.atkT = 1.4;
-      const n = 3 + ph + (b.kind === 3 ? 1 : 0);
+      const n = 3 + ph + (d.tier === 3 ? 1 : 0);
       const a0 = Math.atan2(p.y - e.y, p.x - e.x);
       for (let i = 0; i < n; i++) {
         const a = a0 + (i - (n - 1) / 2) * (0.5 + Math.random() * 0.12);
@@ -208,8 +222,8 @@ function startAttack(run: Run, e: Enemy, atk: string, ph: number) {
       b.atkT = 1.2;
       run.addTelegraph({ shape: 'ring', x: e.x, y: e.y, r: 100, dur: 0.8, color: d.color, follow: e, onDone: () => {
         const n = 5 + ph * 2;
-        const type = b.kind === 1 ? 'swarmer' : b.kind === 3 ? 'armored' : 'grunt';
-        const cnt = type === 'armored' ? Math.ceil(n / 3) : n;
+        const type = d.minion;
+        const cnt = type === 'armored' ? Math.ceil(n / 3) : type === 'archer' ? Math.ceil(n / 2) : n;
         for (let i = 0; i < cnt; i++) {
           const a = (i / cnt) * 6.28;
           spawnEnemy(run, type, e.x + Math.cos(a) * 80, e.y + Math.sin(a) * 80);

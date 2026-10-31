@@ -8,6 +8,7 @@ import { audio } from '../core/audio';
 import { Fx } from './fx';
 import type { ActiveSpell, EBullet, Enemy, GameEvent, Img, Pickup, Player, SEnt, Src, Telegraph, Zone, EventType } from './types';
 import { updateDirector, updateEnemies, openRound } from './enemies';
+import { BOSSES } from './bosses';
 import { planFor, roundLen, isBossRound, FINAL_ROUND, ROUND_DIFF, type Plan } from './rounds';
 import { castUltimate, ULT_COOLDOWN } from './ultimates';
 import { newShop, refreshPrices, type Shop } from './shop';
@@ -16,7 +17,7 @@ import { saveRunRecord, installId, versionStamp, type RunRecord, type RoundRec }
 import { ruleMods } from '../core/spell';
 import { generateRewards } from './rewards';
 import { drawTelegraph } from './draw';
-import { drawGoldZone, ritualEvent, ritualRoundEnd, ritualRoundStart, ritualTick, type ActiveRitual } from './rituals';
+import { drawGoldZone, goldMul, ritualEvent, ritualRoundEnd, ritualRoundStart, ritualTick, type ActiveRitual } from './rituals';
 import { updateCasting, updateEnts, processEvents } from './casting';
 
 import { Arena, ARENA, tileCx, tileCy } from './arena';
@@ -149,7 +150,7 @@ export class Run {
   roundElapsed = 0;
   phase: 'prep' | 'fight' | 'clearing' | 'sandbox' = 'prep';
   clearT = 0;
-  plan: Plan = planFor(1);
+  plan: Plan = planFor(1, this.seed);
   pieces = new Set<string>();
   sandbox = false;
   god = false;
@@ -215,7 +216,7 @@ export class Run {
     for (const r of [f2, b, m]) if (r) this.addRune(r.id, 1);
     this.shop = newShop(this);
     if (this.sandbox) {
-      this.phase = 'sandbox'; this.god = true; this.round = 8; this.plan = planFor(8); this.dtime = 150;
+      this.phase = 'sandbox'; this.god = true; this.round = 8; this.plan = planFor(8, this.seed); this.dtime = 150;
       this.addSlot(); this.addSlot();
       this.addCapacity(40);
       for (const r of RUNES) this.inv[r.id] = r.evolved ? 3 : r.kind === 'form' ? 4 : 6;
@@ -545,7 +546,7 @@ export class Run {
   /** Coins go straight into the nearest player's purse; no pickup sprite, to keep the arena uncluttered. */
   dropCoin(x: number, y: number, v: number) {
     const pr = this.nearestPlayer(x, y) ?? this.world;
-    pr.coins += v * pr.mods.coinMul;
+    pr.coins += v * pr.mods.coinMul * goldMul(pr);
   }
   /** `small`: an elite's chest (a choice of three runes) rather than the boss's big cache. */
   dropPickup(type: 'heal' | 'cache', x: number, y: number, small = false) {
@@ -640,7 +641,7 @@ export class Run {
     if (this !== this.world) { this.world.onBossDeath(e); return; }
     this.boss = null;
     this.bossesKilled++;
-    const kind = e.boss!.kind;
+    const kind = BOSSES[e.boss!.kind].tier;
     for (const b of this.bullets) b.dead = true;
     for (const t of this.tels) t.dead = true;
     this.fx.shake(12);
@@ -662,7 +663,7 @@ export class Run {
           if (opts.length) pr.pushPending({ type: 'relic', options: opts.map((r) => r.id) });
         }
       }
-      for (const pr of this.players) pr.addCoins(8 + 2 * kind);
+      for (const pr of this.players) pr.addCoins((8 + 2 * kind) * goldMul(pr));
       if (!this.sandbox) this.later(1.8, () => this.endRound());
     } else if (!this.sandbox) {
       this.victoryT = 2.4;
@@ -881,7 +882,7 @@ export class Run {
     this.roundElapsed = 0;
     this.pieces.clear();
     this.spawnAcc = 0;
-    this.plan = planFor(this.round);
+    this.plan = planFor(this.round, this.seed);
     // everyone starts clustered at the centre; players who went down last round are back on their feet
     this.players.forEach((pr, i) => {
       const p = pr.player, a = (i / Math.max(1, this.players.length)) * 6.2832;
@@ -924,7 +925,7 @@ export class Run {
     this.clearT = 1.5;
     this.pushRoundRecord();
     for (const pr of this.players) ritualRoundEnd(pr);
-    for (const pr of this.players) pr.addCoins(3 + this.round);
+    for (const pr of this.players) pr.addCoins((3 + this.round) * goldMul(pr));
     for (const e of this.enemies) {
       if (e.dead) continue;
       this.fx.burst(e.x, e.y, 0xffe08a, 4, 120, 0.5, 1);
@@ -944,7 +945,7 @@ export class Run {
     this.compact();
     if (this.round >= FINAL_ROUND) { this.finish(true); return; }
     this.round++;
-    this.plan = planFor(this.round);
+    this.plan = planFor(this.round, this.seed);
     this.phase = 'prep';
     this.frozen = true;
     this.arena.reset();

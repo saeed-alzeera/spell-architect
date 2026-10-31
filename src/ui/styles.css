@@ -526,7 +526,6 @@ button.ready, .itabs button.ready { border-color: var(--gold) !important; color:
 .shoppane .forge .addchip { margin: 0; }
 .shoppane .mchips { margin: 0; }
 .fres { font-size: 7px; line-height: 1.6; color: #cfe8ff; } .fres .bad { color: #ff9aa8; } .fres b { font-weight: normal; color: var(--gold); }
-.lst { display: inline-flex; align-items: center; gap: 3px; font-size: 7px; color: var(--gold); background: #0a0720; border: 2px solid var(--edge2); padding: 1px 4px; cursor: help; }
 .lw { display: inline-flex; color: #ffc26a; cursor: help; }
 
 /* completed rituals: a seal under the HUD rituals, a glow on the prep screen */

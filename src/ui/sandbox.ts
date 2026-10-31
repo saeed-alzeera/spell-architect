@@ -1,6 +1,6 @@
 // Sandbox control panel: spawn any enemy, toggle god/dummy mode, open the editor anytime.
 import { spawnEnemy, EDEFS } from '../game/enemies';
-import { spawnBoss } from '../game/bosses';
+import { BOSSES, spawnBoss } from '../game/bosses';
 import { RELICS } from '../game/relics';
 import { audio } from '../core/audio';
 import type { Run } from '../game/run';
@@ -18,7 +18,7 @@ export function buildSandboxPanel(ui: UI, run: Run): HTMLElement {
       <small>ENEMY</small><div class="sgrp" data-g="type">${types.map((t) => `<button data-v="${t}" class="${t === type ? 'on' : ''}">${t}</button>`).join('')}</div>
       <small>COUNT</small><div class="sgrp" data-g="count">${[1, 5, 15, 40].map((c) => `<button data-v="${c}" class="${c === count ? 'on' : ''}">${c}</button>`).join('')}</div>
       <div class="sgrp"><button data-a="elite" data-t="1">ELITE: off</button><button data-a="spawn" class="go">SPAWN</button></div>
-      <small>BOSSES</small><div class="sgrp">${[0, 1, 2, 3].map((k) => `<button data-a="boss" data-v="${k}">B${k + 1}</button>`).join('')}</div>
+      <small>BOSSES</small><div class="sgrp">${BOSSES.map((b, k) => `<button data-a="boss" data-v="${k}" title="${b.name}">B${k + 1}</button>`).join('')}</div>
       <small>TOOLS</small>
       <div class="sgrp"><button data-a="god" class="on">GOD: on</button><button data-a="dummy">DUMMIES: off</button></div>
       <div class="sgrp"><button data-a="clear">CLEAR</button><button data-a="ult">RESET ULTS</button><button data-a="editor">EDITOR (E)</button><button data-a="relics">ALL RELICS</button></div>

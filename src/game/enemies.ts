@@ -15,7 +15,6 @@ export const EDEFS: Record<Exclude<EType, 'boss'>, EDef> = {
   archer: { tex: 'archer', hp: 16, speed: 105, r: 10, dmg: 10, xp: 2, armor: 0, sc: 2.6 },
   charger: { tex: 'charger', hp: 36, speed: 140, r: 13, dmg: 15, xp: 2.5, armor: 0, sc: 3 },
   armored: { tex: 'armored', hp: 110, speed: 85, r: 15, dmg: 14, armor: 5, xp: 4, sc: 3.2 },
-  shaman: { tex: 'shaman', hp: 30, speed: 115, r: 10, dmg: 6, xp: 3, armor: 0, sc: 2.6 },
 };
 
 /** Difficulty levers (raised: builds were trivially strong). HP and damage scale with the director clock; COUNT scales spawns. */
@@ -54,7 +53,7 @@ export function spawnEnemy(run: Run, type: Exclude<EType, 'boss'>, x: number, y:
     spr: run.img(d.tex, 5), shadow: run.img('shadow', 4).setScale(sc * 0.9).setAlpha(0.8),
     flash: 0, face: 1, wob: Math.random() * 6, wet: 0, burn: 0, burnDps: 0, burnSrc: null, chill: 0, chillT: 0,
     freeze: 0, freezeImm: 0, poison: 0, poisonT: 0, poisonDps: 0, poisonSrc: null, tickT: 0, burnT: 0, dotAcc: 0, dotShow: 0,
-    slowT: 0, slowMul: 1, buff: 0, capT: 0, pulled: 0, tint: -1, conductCd: 0,
+    slowT: 0, slowMul: 1, capT: 0, pulled: 0, tint: -1, conductCd: 0,
     atk: 1 + Math.random() * 2, st: 0, stT: 0, dx: 0, dy: 0, contact: 0, spawnT: 0.3, dashes: 0, dead: false, boss: null,
     aff: 'neutral', res: {}, badge: null, resTxt: 0, hitOnce: false,
   };
@@ -78,8 +77,8 @@ function weights(t: number): W {
   if (t < 60) return [['grunt', 8], ['swarmer', 2]];
   if (t < 150) return [['grunt', 6], ['swarmer', 3], ['archer', 2]];
   if (t < 300) return [['grunt', 5], ['swarmer', 3], ['archer', 2], ['charger', 2]];
-  if (t < 480) return [['grunt', 4], ['swarmer', 3], ['archer', 2], ['charger', 2], ['armored', 2], ['shaman', 1]];
-  return [['grunt', 3], ['swarmer', 3], ['archer', 2], ['charger', 2], ['armored', 3], ['shaman', 2]];
+  if (t < 480) return [['grunt', 4], ['swarmer', 3], ['archer', 2], ['charger', 2], ['armored', 2]];
+  return [['grunt', 3], ['swarmer', 3], ['archer', 2], ['charger', 2], ['armored', 3]];
 }
 function pick(w: W): Exclude<EType, 'boss'> {
   let tot = 0; for (const x of w) tot += x[1];
@@ -101,7 +100,7 @@ function spawnWave(run: Run, t: number) {
 
 function spawnElite(run: Run) {
   const t = run.dtime;
-  const pool: Exclude<EType, 'boss'>[] = t < 200 ? ['grunt', 'charger'] : t < 400 ? ['grunt', 'charger', 'armored', 'archer'] : ['charger', 'armored', 'archer', 'shaman', 'grunt'];
+  const pool: Exclude<EType, 'boss'>[] = t < 200 ? ['grunt', 'charger'] : t < 400 ? ['grunt', 'charger', 'armored', 'archer'] : ['charger', 'armored', 'archer', 'grunt'];
   const type = pool[(Math.random() * pool.length) | 0];
   const [x, y] = spawnPoint(run);
   const e = spawnEnemy(run, type, x, y, true);
@@ -113,7 +112,7 @@ function spawnElite(run: Run) {
 export function openRound(run: Run) {
   const r = run.round;
   if (isBossRound(r)) {
-    spawnBoss(run, bossKind(r));
+    spawnBoss(run, bossKind(r, run.seed));
     for (let i = 0; i < Math.round(6 * countScale(run.dtime) * earlyDensity(run.dtime) * playerScale(run)); i++) { const [x, y] = spawnPoint(run); spawnEnemy(run, 'grunt', x, y); }
     return;
   }
@@ -178,7 +177,6 @@ export function updateEnemies(world: Run, dt: number) {
     else {
       mul = 1 - 0.18 * e.chill;
       if (e.slowT > 0) mul *= e.slowMul;
-      if (e.buff > 0) mul *= 1.3;
     }
     // each enemy hunts the nearest living player; `run` is that player's context for everything below
     const run = world.nearestPlayer(e.x, e.y) ?? world;
@@ -332,25 +330,6 @@ function aiFor(run: Run, e: Enemy, dt: number, mul: number, dist: number, nx: nu
     }
     case 'armored': {
       step(e, gx, gy, sp, dt);
-      break;
-    }
-    case 'shaman': {
-      e.atk -= dt;
-      if (dist < 240) step(e, e.x - nx * 100, e.y - ny * 100, sp, dt);
-      else if (dist > 340) step(e, gx, gy, sp, dt);
-      else { e.x += -ny * sp * 0.4 * dt; e.y += nx * sp * 0.4 * dt; }
-      e.face = nx > 0 ? 1 : -1;
-      if (e.atk <= 0 && e.st === 0) {
-        e.st = 1;
-        const R = 150;
-        run.addTelegraph({ shape: 'ring', x: e.x, y: e.y, r: R, dur: 0.7, color: 0xffd25a, follow: e, onDone: () => {
-          e.st = 0; e.atk = 4.5;
-          run.fx.ring(e.x, e.y, 0xffd25a, 20, R, 0.4);
-          for (const n of run.query(e.x, e.y, R)) if (n !== e) n.buff = 5;
-          e.buff = 5;
-          audio.play('pick');
-        } });
-      }
       break;
     }
   }

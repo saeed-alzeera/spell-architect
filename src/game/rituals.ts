@@ -13,9 +13,9 @@ import { roundLen } from './rounds';
 
 export const RITUAL_ROUNDS = 3;
 export const POWER_REWARD = 0.2;
-/** Golden Idol: the share of a round to spend in the zone, and the chance a coin is doubled. */
+/** Golden Idol: the share of a round to spend in the zone, and the bonus on every coin earned once it is fulfilled. */
 export const ZONE_NEED = 0.5;
-export const GOLD_DOUBLE = 0.5;
+export const GOLD_BONUS = 0.5;
 /** Vow of Silence: it is only offered once this many of your spells carry a Trigger. */
 export const SILENCE_SPELLS = 2;
 
@@ -25,7 +25,7 @@ export interface ActiveRitual { def: RitualDef; startRound: number; roundsDone: 
 
 export const RITUALS: RitualDef[] = [
   { id: 'fall', name: 'Rite of the Fall', icon: '🕳️', rounds: RITUAL_ROUNDS, challenge: 'Fall through the crumbling floor at least once in each round', reward: `+${Math.round(POWER_REWARD * 100)}% damage for the rest of the run` },
-  { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about half of the arena, whole floor tiles that light up and go dark as it drifts)`, reward: `each coin an enemy drops has a ${Math.round(GOLD_DOUBLE * 100)}% chance to be doubled, for the rest of the run` },
+  { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about half of the arena, whole floor tiles that light up and go dark as it drifts)`, reward: `every coin you earn (kill drops, round and boss bonuses) is worth ${Math.round(GOLD_BONUS * 100)}% more, for the rest of the run` },
   { id: 'silence', name: 'Vow of Silence', icon: '🤐', rounds: RITUAL_ROUNDS, challenge: `Triggers do not work at all for ${RITUAL_ROUNDS} rounds (only offered while ${SILENCE_SPELLS} or more of your spells have a Trigger)`, reward: 'every Trigger gets 2 rolls instead of 1, for the rest of the run' },
 ];
 
@@ -120,9 +120,9 @@ export function drawGoldZone(g: Phaser.GameObjects.Graphics, run: Run, time: num
   }
 }
 
-/** The Golden Idol's reward: how many coins a drop is worth (rolled per drop). */
+/** The Golden Idol's reward: the multiplier on every coin this player earns. */
 export function goldMul(run: Run): number {
-  return run.rituals.some((r) => r.state === 'fulfilled' && r.def.id === 'gold') && Math.random() < GOLD_DOUBLE ? 2 : 1;
+  return run.rituals.some((r) => r.state === 'fulfilled' && r.def.id === 'gold') ? 1 + GOLD_BONUS : 1;
 }
 
 /** Has this round's challenge been met (so far)? */
