@@ -16,6 +16,7 @@ import { showRelicPick, relicBar } from './relics';
 import { RELIC_BY_ID, relicColor } from '../game/relics';
 import { EVOLVE_COST } from '../data/runes';
 import { describeRes, FINAL_ROUND, roundLen, isBossRound } from '../game/rounds';
+import { BOSSES } from '../game/bosses';
 import { ULT_COOLDOWN } from '../game/ultimates';
 import { ULTIMATES } from '../data/runes';
 import { MUT_TRACKS } from '../data/mutations';
@@ -355,9 +356,8 @@ class UI {
     let bossHtml = '';
     if (boss !== null && plan.bossRes) {
       const d = describeRes(plan.bossRes);
-      const names = ['Stone Warden', 'Plague Matron', 'Storm Colossus', 'The Void Architect'];
-      bossHtml = `<div class="bossprev"><canvas width="96" height="96" data-boss="${boss}"></canvas><div>
-        <h3>BOSS: ${names[boss].toUpperCase()}</h3>
+      bossHtml = `<div class="bossprev"><canvas width="96" height="96" data-boss="${BOSSES[boss].tex}"></canvas><div>
+        <h3>BOSS: ${BOSSES[boss].name.toUpperCase()}</h3>
         ${d.immune.length ? `<p class="bi">Immune: ${elChips(d.immune)}</p>` : ''}
         ${d.resist.length ? `<p>Resists: ${elChips(d.resist)}</p>` : ''}
         ${d.weak.length ? `<p>Weak to: ${elChips(d.weak)}</p>` : ''}</div></div>`;
@@ -384,7 +384,7 @@ class UI {
     const unready = () => { const g = run.coop as unknown as { ready?: boolean; setReady?(on: boolean): void } | null; if (g?.ready) { g.setReady!(false); const rb = n.querySelector('[data-a=ready]'); if (rb) rb.textContent = 'Ready'; } };
     n.querySelectorAll<HTMLCanvasElement>('canvas[data-boss]').forEach((cv) => {
       try {
-        const img = this.game.textures.get(`boss${cv.dataset.boss}`).getSourceImage() as CanvasImageSource;
+        const img = this.game.textures.get(cv.dataset.boss!).getSourceImage() as CanvasImageSource;
         const c = cv.getContext('2d')!; c.imageSmoothingEnabled = false; c.drawImage(img, 0, 0, 96, 96);
       } catch { /* texture not ready */ }
     });

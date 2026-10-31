@@ -355,7 +355,7 @@ export class GuestSession implements CoopLink {
     this.hostName = opts.welcome?.host ?? 'Host';
     run.coop = this;
     run.pname = opts.name;
-    if (opts.welcome) { run.seed = opts.welcome.seed; run.round = opts.welcome.round; run.plan = planFor(run.round); }
+    if (opts.welcome) { run.seed = opts.welcome.seed; run.round = opts.welcome.round; run.plan = planFor(run.round, run.seed); }
     this.replica = new Replica(run, scene, this.names, () => this.pid);
     this.replica.onMe = (m) => this.onMe(m);
     net.h = {
@@ -426,7 +426,7 @@ export class GuestSession implements CoopLink {
     switch (m.t) {
       case 'welcome':
         this.pid = Number(m.pid); this.hostName = String(m.host ?? 'Host');
-        if (!m.rejoin) { this.run.seed = Number(m.seed); this.run.round = Number(m.round); this.run.plan = planFor(this.run.round); }
+        if (!m.rejoin) { this.run.seed = Number(m.seed); this.run.round = Number(m.round); this.run.plan = planFor(this.run.round, this.run.seed); }
         break;
       case 'reject': this.terminal(String(m.reason ?? 'The host refused the connection.')); break;
       case 'bye': this.terminal('The host ended the game.'); break;
@@ -469,7 +469,7 @@ export class GuestSession implements CoopLink {
     const run = this.run;
     this.ready = false;
     this.started = true;
-    run.round = round; run.plan = planFor(round);
+    run.round = round; run.plan = planFor(round, run.seed);
     run.phase = 'fight'; run.frozen = false;
     if (!rejoin || !this.inFight) this.coinBase = run.coins;
     this.inFight = true;
@@ -500,7 +500,7 @@ export class GuestSession implements CoopLink {
     run.coins = this.coinBase + r.coins;
     this.myKills += r.kills; this.myDamage += r.damage; run.kills = this.myKills; run.totalDamage = this.myDamage;
     run.boosts.push(...r.boosts);
-    run.round = m.round; run.plan = planFor(m.round);
+    run.round = m.round; run.plan = planFor(m.round, run.seed);
     run.phase = 'prep'; run.frozen = true;
     run.shop = newShop(run); run.shopOpened = false;
     this.ready = false;

@@ -25,7 +25,7 @@ const SCEN = process.env.SCEN ? JSON.parse(process.env.SCEN) : [[0, 0, 0], [3, 5
       while (r.spells.length < 5) r.addSlot();
       const combos = [['f_orb', 'c_fire'], ['f_beam', 'c_ice'], ['f_nova', 'c_lightning'], ['f_aura', 'c_poison'], ['f_meteor', 'c_gravity']];
       r.spells.forEach((sp, i) => { sp.def.capacity = 40; const root = S.newNode(combos[i][0]); root.children.push(S.newNode(combos[i][1])); sp.def.root = root; sp.c = S.compileSpell(sp.def); r.recomputeMut(sp); sp.cd = 0; });
-      const T = ['grunt', 'swarmer', 'archer', 'charger', 'armored', 'shaman'];
+      const T = ['grunt', 'swarmer', 'archer', 'charger', 'armored'];
       window.__swarm = setInterval(() => { let n = 0; for (const e of r.enemies) if (!e.dead) n++; for (let i = n; i < 120; i++) { const a = Math.random() * 6.28; S.spawnEnemy(r, T[i % 6], r.player.x + Math.cos(a) * 330, r.player.y + Math.sin(a) * 330); } for (const p of r.players) p.player.hp = Math.max(p.player.hp, 40); }, 300);
     });
     await B.bringToFront();

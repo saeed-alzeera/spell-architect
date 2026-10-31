@@ -53,7 +53,7 @@ Rules (enforced by `checkAttach()` in `src/core/spell.ts`, which also produces t
 * Every rune costs **Spell Capacity**; each slot has its own capacity (12 to start, raised in the shop).
 * Safety against runaway loops: trigger nesting is limited (3 deep), runtime event depth is capped (4), and there are global entity and per-frame spawn budgets, per-source trigger cooldowns and an event-queue cap.
 
-The editor shows every slot side by side as nested cards (Form → Core socket, augment chips, trigger blocks → launched Forms), with each spell's estimated DPS and any warnings in its header. Drag runes between spells, or click a rune and then a glowing card. The right-hand pane holds the **shop** (buy / sell) and the **forge**, so building and buying happen on one screen; the layers button opens the full spell overview.
+The editor shows every slot side by side as nested cards (Form → Core socket, augment chips, trigger blocks → launched Forms), with any warnings in each spell's header. Drag runes between spells, or click a rune and then a glowing card. The right-hand pane holds the **shop** (buy / sell) and the **forge**, so building and buying happen on one screen; the layers button opens the full spell overview.
 
 ### Elemental interactions (systemic, not scripted upgrades)
 
@@ -74,7 +74,7 @@ Each spell tracks its own performance (burning kills, chain jumps, enemies captu
 
 ### Rounds
 
-A run is **20 rounds**. Each normal round is a 45 s survival timer (12 s in accelerated mode); **every 5th round is a boss** (Stone Warden, Plague Matron, Storm Colossus, Void Architect) and ends when the boss falls. Between rounds the field is swept, rewards are chosen, and you get a **briefing** (boss resistances) before you edit your spells and start the next round. Level-ups apply a random stat boost **instantly**, mid-round, with a floating label; between rounds you get the shop.
+A run is **20 rounds**. Each normal round is a 45 s survival timer (12 s in accelerated mode); **every 5th round is a boss**, one of three per tier picked from the run seed (round 5: Stone Warden, Cinder Golem, Frost Sentinel; round 10: Plague Matron, Tide Oracle, Pyre Warlock; round 15: Storm Colossus, Glacier Titan, Quake Colossus; round 20: The Void Architect, The Hollow Regent, The Star Eater) and ends when the boss falls. Between rounds the field is swept, rewards are chosen, and you get a **briefing** (boss resistances) before you edit your spells and start the next round. Level-ups apply a random stat boost **instantly**, mid-round, with a floating label; between rounds you get the shop.
 
 ### Elements, boss resistances and Arcane
 

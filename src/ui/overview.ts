@@ -2,24 +2,18 @@
 import { ELEMENTS, FORMS, type Element } from '../data/runes';
 import { REACTIONS } from '../data/reactions';
 import { MUT_OPTION_BY_ID } from '../data/mutations';
-import { estimate } from '../core/spell';
 import { RELIC_BY_ID } from '../game/relics';
 import type { Run } from '../game/run';
 import type { UI } from './ui';
 
 export function overviewHtml(run: Run): string {
-  const pm = run.player;
   const loadEls = new Set<Element>();
   for (const s of run.spells) if (s.c.valid) for (const e of s.c.elements) if (e !== 'arcane') loadEls.add(e);
-  let totalDps = 0;
   const cards = run.spells.map((sp, i) => {
     const c = sp.c;
     if (!c.valid || !c.root) {
       return `<div class="ovcard empty"><div class="ovh"><b>${i + 1}. Empty slot</b><em>${sp.def.capacity} capacity</em></div><p class="muted">Nothing equipped. Open the Spell Editor between rounds to build something.</p></div>`;
     }
-    const est = estimate(c.root, sp.mut);
-    const dps = est.dps * pm.dmgMul / pm.cdMul;
-    totalDps += dps;
     const R = c.root;
     const css = ELEMENTS[R.element].css;
     const elems = c.elements.map((e) => `<span class="elchip" style="--c:${ELEMENTS[e].css}">${ELEMENTS[e].icon} ${ELEMENTS[e].name}</span>`).join('');
@@ -29,7 +23,7 @@ export function overviewHtml(run: Run): string {
       <div class="ovh"><span class="ovi">${ELEMENTS[R.element].icon}${FORMS[R.form].icon}</span><b>${i + 1}. ${c.name}</b>${R.evolved ? '<span class="elchip" style="--c:#ffd25a">EVOLVED</span>' : ''}</div>
       <div class="elrow">${elems}</div>
       <p class="story">${c.story}</p>
-      <div class="ovstats"><div><b>${(est.dmgCast * pm.dmgMul).toFixed(0)}</b><span>Dmg / cast</span></div><div><b>${(est.cd * pm.cdMul).toFixed(2)}s</b><span>Cooldown</span></div><div><b>${dps.toFixed(0)}</b><span>Est. DPS</span></div><div><b>${c.runeCount}</b><span>Runes</span></div></div>
+      <div class="ovstats"><div><b>${c.runeCount}</b><span>Runes</span></div></div>
       <div class="capbar ${pct >= 100 ? 'full' : ''}"><div style="width:${pct}%"></div><span>CAPACITY ${c.cost}/${sp.def.capacity}</span></div>
       ${muts ? `<div>${muts}</div>` : ''}
       ${c.warnings.length ? `<div class="warns">${c.warnings.map((w) => `<div>⚠ ${w}</div>`).join('')}</div>` : ''}
@@ -39,7 +33,6 @@ export function overviewHtml(run: Run): string {
   const relics = run.equipped.map((id) => `<span class="mutchip">${RELIC_BY_ID[id].icon} ${RELIC_BY_ID[id].name}</span>`).join('');
   return `<div class="ovw">
     <div class="ovsum">
-      <div><b>${Math.round(totalDps)}</b><span>Total est. DPS</span></div>
       <div><b>${loadEls.size}</b><span>Elements</span></div>
       <div><b>${reacts.length}</b><span>Reactions ready</span></div>
       <div><b>${run.spells.filter((s) => s.c.valid).length}/${run.spells.length}</b><span>Slots used</span></div>

@@ -1,6 +1,6 @@
 // Stats panel: your current numbers and where each bonus came from (shop upgrades, rituals, level-ups and relics).
 // Opened from the pause menu and the round-prep screen.
-import { POWER_REWARD, GOLD_DOUBLE } from '../game/rituals';
+import { POWER_REWARD, GOLD_BONUS } from '../game/rituals';
 import type { Run } from '../game/run';
 import type { UI } from './ui';
 
@@ -43,7 +43,7 @@ export function statRows(run: Run): Row[] {
   const m = run.mods;
   if (m.coinMul !== 1 || m.priceMul !== 1 || gold) {
     rows.push({ icon: '◈', label: 'Coins & prices', value: `${pct(m.coinMul - 1)} coins`, from: [
-      m.priceMul !== 1 ? `Shop prices: ${pct(m.priceMul - 1)}` : '', gold ? `Golden Idol: ${Math.round(GOLD_DOUBLE * 100)}% of drops doubled` : '', 'From relics' ] });
+      m.priceMul !== 1 ? `Shop prices: ${pct(m.priceMul - 1)}` : '', gold ? `Golden Idol: all coins +${Math.round(GOLD_BONUS * 100)}%` : '', 'From relics' ] });
   }
   return rows.map((r) => ({ ...r, from: r.from.filter(Boolean) }));
 }

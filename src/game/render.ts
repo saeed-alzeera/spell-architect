@@ -11,14 +11,13 @@ export const attuneTint = (a: string): number => {
 
 export interface EnemyLook { id: number; x: number; y: number; sc: number; r: number; face: number; spawnT: number }
 
-/** The tint key of an enemy's current status: 0 none, 1 hit flash, 2 frozen, 3 burning, 4 poisoned, 5 wet, 6 buffed, 7 elite, 8 attuned. */
-export function tintKey(e: { flash: number; freeze: number; burn: number; poison: number; wet: number; buff: number; aff: string; elite: boolean }): number {
+/** The tint key of an enemy's current status: 0 none, 1 hit flash, 2 frozen, 3 burning, 4 poisoned, 5 wet, 6 unused, 7 elite, 8 attuned. */
+export function tintKey(e: { flash: number; freeze: number; burn: number; poison: number; wet: number; aff: string; elite: boolean }): number {
   if (e.flash > 0) return 1;
   if (e.freeze > 0) return 2;
   if (e.burn > 0) return 3;
   if (e.poison > 0) return 4;
   if (e.wet > 0) return 5;
-  if (e.buff > 0) return 6;
   if (e.aff !== 'neutral') return 8;
   if (e.elite) return 7;
   return 0;

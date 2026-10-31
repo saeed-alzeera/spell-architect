@@ -6,7 +6,7 @@ import {
   ELEMENTS, FORMS, RUNE_BY_ID, KIND_LABEL,
   type Element, type FormId, type TriggerType,
 } from '../data/runes';
-import { defaultMut, type Mut } from '../data/mutations';
+import { type Mut } from '../data/mutations';
 
 export interface SpellNode { id: number; rune: string; children: SpellNode[] }
 export interface SpellDef { uid: number; root: SpellNode | null; capacity: number }
@@ -131,7 +131,6 @@ export interface CForm {
   evolved: boolean;
 }
 
-export interface Estimate { dmgCast: number; cd: number; dps: number; props: string[] }
 export interface CompiledSpell {
   valid: boolean;
   root: CForm | null;
@@ -143,7 +142,6 @@ export interface CompiledSpell {
   elements: Element[];
   signature: string;
   runeCount: number;
-  est: Estimate;
 }
 
 function compileForm(node: SpellNode, inherit: Element, depth: number, warnings: string[]): CForm {
@@ -177,7 +175,7 @@ export function compileSpell(def: SpellDef): CompiledSpell {
   const cost = spellCost(def);
   const base: CompiledSpell = {
     valid: false, root: null, name: 'Empty Slot', story: '', cost, capacity: def.capacity, warnings,
-    elements: [], signature: '', runeCount: 0, est: { dmgCast: 0, cd: 0, dps: 0, props: [] },
+    elements: [], signature: '', runeCount: 0,
   };
   if (!def.root) return base;
   const root = compileForm(def.root, 'arcane', 0, warnings);
@@ -191,7 +189,6 @@ export function compileSpell(def: SpellDef): CompiledSpell {
     signature: signatureOf(def.root, 'Arcane'), name: nameSpell(root),
   };
   c.story = storyOf(root);
-  c.est = estimate(root, defaultMut());
   return c;
 }
 
@@ -224,47 +221,6 @@ export function baseDamage(f: CForm, mut: Mut): number {
 }
 
 export function copiesOf(f: CForm, mut: Mut): number { return 1 + f.m.dup + mut.dup; }
-
-const TRIG_RATE: Record<TriggerType, number> = { hit: 1, kill: 0.4, expiry: 1, crit: 0.25 };
-
-function singleTargetDamage(f: CForm, mut: Mut): number {
-  const d = baseDamage(f, mut);
-  const life = lifeOf(f);
-  const tickScale = 1 + 0.4 * f.m.acc;
-  let per = d;
-  switch (f.form) {
-    case 'beam': per = d * (life / (0.1 / tickScale)) * 0.8; break;
-    case 'orb': per = d * (2 + f.m.dup + mut.dup) * (life / 0.45) * 0.35; break;
-    case 'aura': per = d * (life / (0.5 / tickScale)); break;
-    case 'projectile':
-      if (f.b.split) per += d * 0.55 * 1.5;
-      if (f.b.chain) per += d * 0.7 * 1.5;
-      break;
-    case 'mine': case 'meteor': case 'nova': if (f.b.chain) per += d * 0.7 * 1.5; break;
-  }
-  if (f.form !== 'orb') per *= copiesOf(f, mut);
-  return per;
-}
-
-function totalDamage(f: CForm, mut: Mut): number {
-  let t = singleTargetDamage(f, mut);
-  for (const tr of f.triggers) for (const c of tr.children) t += totalDamage(c, mut) * TRIG_RATE[tr.type] * tr.chance;
-  return t;
-}
-
-export function estimate(root: CForm, mut: Mut): Estimate {
-  const cd = spellCooldown(root, mut);
-  const persistent = root.form === 'orb' || root.form === 'aura' || (root.form === 'projectile' && root.b.orbit);
-  const cycle = persistent ? lifeOf(root) + cd : cd;
-  const dmgCast = totalDamage(root, mut);
-  const p: string[] = [];
-  if (root.b.pierce) p.push('Pierce 3');
-  if (root.b.chain) p.push('Chain 3');
-  if (root.b.bounce) p.push('Bounce 3');
-  if (root.b.split) p.push('Split ×3');
-  if (copiesOf(root, mut) > 1) p.push(`${copiesOf(root, mut)} copies`);
-  return { dmgCast, cd, dps: dmgCast / cycle, props: p };
-}
 
 /* --------------------------- Naming & description --------------------------- */
 
