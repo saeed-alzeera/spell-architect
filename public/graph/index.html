@@ -105,7 +105,7 @@ const TREE = {
   /* ============================== SPELLS ============================== */
   { id: 'spells', label: 'Spells', sub: 'build system', file: 'src/core/spell.ts, src/data/runes.ts',
     desc: 'Runes wired Core → Form → Behaviors / Modifiers / Triggers. checkAttach() is the single source of attachment rules; the compiler produces the CompiledSpell used by casting.',
-    inputs: ['Runes (shop, chests, caches)', 'Capacity and slot upgrades'], outputs: ['Compiled spells → Damage', 'DPS estimate → editor'],
+    inputs: ['Runes (shop, chests, caches)', 'Capacity and slot upgrades'], outputs: ['Compiled spells → Damage'],
     c: [
       { id: 'cores', label: 'Cores', sub: '6 + Arcane', desc: 'Socketed into a Form to give it an element (damage multiplier and cooldown). No Core = Arcane 1.0×, never resisted. Six copies of one Core forge its evolved version.', c: [
         RU('c_fire', 'Fire', 'common', 'cost 2 · 1.3×', 'Burning and explosive damage. Burning enemies take damage over time, spread fire to neighbours and ignite poison clouds. Projectiles explode on impact.'),
@@ -222,17 +222,15 @@ const TREE = {
       { id: 'res', label: 'Resistances', sub: 'bosses only', desc: 'Only bosses resist or are weak to an element (0 = immune, <1 resist, >1 weak). Arcane is never resisted. Shown in the round briefing; Null Lens converts blocked damage to 30% Arcane.' },
 
       /* ---- enemies live under damage: they are what damage is dealt to ---- */
-      { id: 'enemies', label: 'Enemies', sub: '6 + elites + 4 bosses', file: 'src/game/enemies.ts, bosses.ts',
+      { id: 'enemies', label: 'Enemies', sub: '5 + elites + 12 bosses', file: 'src/game/enemies.ts, bosses.ts',
         desc: 'What damage is dealt to. HP and damage scale with the director clock (see Run); armor grows with time. Each enemy hunts the nearest living player.',
         outputs: ['Contact and projectile damage → Health', 'Kills → XP, coins, hearts, chests'], c: [
-        { id: 'arch', label: 'Archetypes', sub: '6', desc: 'Base stats before time scaling. Swarmers + grunts were 78% of damage taken.', c: [
+        { id: 'arch', label: 'Archetypes', sub: '5', desc: 'Base stats before time scaling. Swarmers + grunts were 78% of damage taken.', c: [
           { id: 'grunt', label: 'Grunt', sub: '14 hp · spd 125 · dmg 9', desc: 'Walks straight at you along the flow field. Always spawns. 20% coin drop, 1 XP.', c: [
             L('sprinter', 'Sprinter', '14% of grunts', 'Speed ×1.7, HP ×0.65, slightly smaller.'),
-            L('eGrunt', 'Elite grunt', 'ground slam', 'Every 5.5 s inside 260 px, telegraphs a 115 px circle for 0.85 s then slams for 1.4× damage.'),
           ] },
           { id: 'swarmer', label: 'Swarmer', sub: '6 hp · spd 235 · dmg 3.4', desc: 'Fast and fragile; weaves side to side. Spawns in packs of 3+ (more later). 10% coin drop, 0.6 XP. 78% of damage taken together with grunts.' },
           { id: 'archer', label: 'Archer', sub: '16 hp · spd 105 · dmg 10', desc: 'Appears from ~round 2. Keeps 200–280 px away and strafes; a 0.6 s wind-up, then a bullet at 230 px/s every 2.6–3.6 s. 30% coin drop, 2 XP.', c: [
-            L('eArcher', 'Elite archer', 'triple shot', 'Fires a three-bullet spread.'),
           ] },
           { id: 'charger', label: 'Charger', sub: '36 hp · spd 140 · dmg 15', desc: 'Appears from ~round 4. Telegraphed 0.75 s wind-up, then dashes at 820 px/s for 0.55 s. 30% coin drop, 2.5 XP. Mines are strong against it.' },
           { id: 'armored', label: 'Armored', sub: '110 hp · spd 85 · armor 5', desc: 'Appears from ~round 7. Slow tank; armor grows with time (poison ignores it). 50% coin drop, 4 XP.' },
@@ -369,14 +367,14 @@ const TREE = {
 
   /* ============================== ECONOMY ============================== */
   { id: 'econ', label: 'Economy', sub: 'coins', file: 'src/game/shop.ts, rewards.ts',
-    desc: 'Coins drop from kills (10–50% by type, elites 3), +3+round per cleared round, +8+2k per boss. Spent in the shop between rounds.',
+    desc: 'Coins drop from kills (10–50% by type, elites 3), +3+round per cleared round, +8+2k per boss (k = boss tier). Spent in the shop between rounds.',
     inputs: ['Kills', 'Round and boss clears', 'Selling', 'Economy relics', 'Golden Idol'], outputs: ['Runes', 'Relics', 'Upgrades', 'Rerolls'],
     c: [
       { id: 'coins', label: 'Coins', desc: 'Income grows with spawn rate (~20× r1→r20); rune prices only +5% per round.',
         issue: { sev: 'warn', text: 'Late gold likely flows into uncapped Spell Power. Unverified.' }, c: [
         L('coinKill', 'Kill drops', '10–50%', 'Grunt 20%, swarmer 10%, archer 30%, charger 30%, armored 50%. Elites always drop 3.'),
         L('coinRound', 'Round clear', '3 + round', 'Paid when a round is cleared.'),
-        L('coinBoss', 'Boss clear', '8 + 2k', 'Paid for each boss.'),
+        L('coinBoss', 'Boss clear', '8 + 2k', 'Paid for each boss; k is the boss tier (0 to 3 for rounds 5 to 20).'),
         L('coinMods', 'Coin modifiers', 'Lodestone, Purse, Idol', 'Lodestone +20%, Hungry Purse ×1.5, Golden Idol +50% on all coins, Lucky Penny, Resin Vial, Ledger.'),
       ] },
       { id: 'shop', label: 'Shop', sub: '8 cards', desc: 'One shelf: 4 runes (slot 0 always a Core or Form) + 1 relic + 3 upgrades. Rune price ×1.05 per round, ×1.35 per owned copy. Rerolling replaces the whole shelf and each reroll costs more.', c: [
@@ -385,13 +383,13 @@ const TREE = {
         L('shReroll', 'Reroll', 'cost 1, 2, 3…', 'Bargain Bell −1, Hungry Purse ×2.'),
       ] },
       { id: 'upg', label: 'Upgrades', sub: '7', desc: 'Permanent purchases, three per shelf. Prices rise with every repeat.',
-        issue: { sev: 'warn', text: 'shop.ts:2 says "Nothing has a purchase cap"; README says capped; code soft-caps 4 of 7.' }, c: [
+        issue: { sev: 'warn', text: 'shop.ts:2 says "Nothing has a purchase cap"; README says capped; code soft-caps 3 of 7 (slots, Haste, Vitality).' }, c: [
         L('uCap', 'Capacity +2', '5 × 1.4ⁿ', "Raise one spell's capacity by 2."),
         L('uSlot', 'Spell Slot', '18 / 34 / 60', 'Unlock another slot (max 5).'),
         L('uPower', 'Spell Power +4%', '12 × 1.65ⁿ', 'All spells deal 4% more.'),
         L('uHaste', 'Haste −4%', '12 × 1.65ⁿ', 'Cooldowns; stops at 0.45.'),
         L('uVit', 'Vitality +10 HP', '6 × 1.35ⁿ', 'Max health; stops at 400.'),
-        L('uCrit', 'Keen Edge +3%', '10 × 1.6ⁿ', 'Crit chance; stops at 60%.'),
+        L('uCrit', 'Keen Edge +3%', '10 × 1.6ⁿ', 'Crit chance; no cap.'),
         L('uHeal', 'Healing Draught', '(8 + 0.8r) × 1.25ⁿ', 'Restore 20% of max health.'),
       ] },
       { id: 'sell', label: 'Selling', desc: 'Runes sell for half base price; relics for half. No arbitrage.' },
@@ -538,7 +536,7 @@ const FLOWS = [
   ['floor', 'fall', 'fall events', 'F'],
   ['hRitual', 'rituals', '50% HP cost', 'F'],
   ['fall', 'xPlayer', '+20% damage', 'R'],
-  ['gold', 'coinMods', 'doubled coins', 'R'],
+  ['gold', 'coinMods', '+50% coins', 'R'],
   ['vow', 'trig', 'double rolls', 'R'],
   ['res', 'bosses', 'resistances', 'F'],
   ['stack', 'clock', 'hidden by raised difficulty', 'B'],
