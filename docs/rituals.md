@@ -7,7 +7,7 @@
 - **Always 3 rounds.**
 - **Cost: half of your current health**, paid when you accept (rounded down, never lethal). No coins.
 - **The challenge must be something the player can bring about.** Not luck, not a kill count the build may not reach.
-- Offered on the between-round prep screen. Rituals can run at the same time (each one costs half of your health at that moment, so stacking them is expensive) and each ritual can be performed once per run.
+- Offered on the between-round prep screen. Only one ritual is offered at a time (a deterministic pick from those left, per round and seed), so you cannot start two in the same round; rituals started in different rounds can overlap (each costs half of your health at that moment), and each ritual can be performed once per run.
 - Miss the challenge in any round and the ritual **lapses** at the end of that round (the health is already spent). Meet it in all three and the reward is applied at the end of the third round.
 - The reward lasts for the rest of the run and is never meta progression.
 

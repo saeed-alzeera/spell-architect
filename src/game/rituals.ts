@@ -32,9 +32,14 @@ export const RITUALS: RitualDef[] = [
 /** Half of your current health: what a ritual costs. */
 export const ritualCost = (run: Run) => Math.floor(run.player.hp / 2);
 
-/** The rituals that can be accepted now: each only once per run, any number can run at the same time. */
+/** The ritual on offer now: only one is offered at a time, so you cannot start two in the same round. Each ritual can be
+ *  performed once per run. The pick is a pure function of (round, seed) so it stays put while the prep screen redraws. */
 export function availableRituals(run: Run): RitualDef[] {
-  return RITUALS.filter((d) => !run.rituals.some((r) => r.def.id === d.id) && (d.id !== 'silence' || triggeredSpells(run) >= SILENCE_SPELLS));
+  if (run.rituals.some((r) => r.startRound === run.round)) return []; // already accepted one this round
+  const open = RITUALS.filter((d) => !run.rituals.some((r) => r.def.id === d.id) && (d.id !== 'silence' || triggeredSpells(run) >= SILENCE_SPELLS));
+  if (open.length === 0) return [];
+  const h = (Math.imul(run.round + 1, 73856093) ^ Math.imul(run.seed, 19349663)) >>> 0;
+  return [open[h % open.length]];
 }
 
 /** How many of your spells have a Trigger anywhere in them (including on Forms launched by other Triggers). */
