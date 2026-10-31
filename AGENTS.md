@@ -32,12 +32,14 @@ There are no unit tests for the game itself. `tests/*.cjs` are Playwright end-to
 | `src/scenes/`, `src/gfx/` | Phaser glue and procedural textures |
 | `worker/` | Cloudflare Worker: `/mp/*` signaling (`mp.js`), `/runs` analytics store (`runs.js`) |
 | `tools/analyze.mjs` | Compares run analytics across game versions |
+| `tools/check-graph.mjs` | Checks the graph is in sync with the game (used by the Stop hook) |
 | `public/graph/` | Static mind map of everything in the game (concepts drilling down to single runes, enemies, bosses, relics), cross-links and open design issues, served at `/graph/`. Hand-maintained data at the top of `index.html`: update it when you add content. Vite copies `public/` into `dist/` as is |
 | `docs/` | Deep dives, see below |
 
 ## Rules that are easy to get wrong
 
 - **Bump `version` in `package.json` (and `package-lock.json`) in any PR that changes gameplay or balance** (numbers, enemy behaviour, rewards, shop, rune effects). UI/tooling-only changes do not. Run analytics are grouped by this version. See [`docs/analytics.md`](docs/analytics.md).
+- **Keep the graph in sync.** Any change to game content or rules (`src/data/`, `src/game/`, `src/core/spell.ts`) must update the matching nodes in `public/graph/index.html` in the same PR, then set `GRAPH_SYNCED_VERSION` there to the current `package.json` version (shown in the graph header). A Stop hook (`tools/check-graph.mjs`, wired in `.claude/settings.json`) blocks finishing while they differ; run `node tools/check-graph.mjs` to check by hand.
 - **Co-op determinism:** the host runs the only simulation. Code in `src/game/` must work for solo, host and "shell" (remote player) runs. Do not use ad-hoc `Math.random`-driven state that joiners are expected to share; cosmetic effects go through effect events, not replicated sprites. Changing the wire format means bumping the protocol version so mismatched builds are refused. Read [`docs/multiplayer.md`](docs/multiplayer.md) before touching `src/net/`.
 - **Joiner data is untrusted.** Characters and ritual lists sent by guests are validated on the host (`validateRituals` etc.). Keep it that way.
 - **UI direction:** declutter. No pop-ups, no relic stash, sparse effects (see recent history: "UI/UX declutter").

@@ -73,6 +73,7 @@
 <body>
 <header>
   <h1>Spell Architect systems map</h1>
+  <span id="ver" class="lab" style="font-size:13px;color:var(--muted)"></span>
   <div class="ctl"><span class="lab">Show depth:</span>
     <button data-depth="1">1</button><button data-depth="2">2</button><button data-depth="3">3</button><button data-depth="9">All</button>
   </div>
@@ -94,6 +95,10 @@
 /* Hand-maintained map of what is in the game. Structure: concept → group → item. Keep it in step with src/ when content is added.
    Node fields: id, label, sub (short tag shown on the node), desc, file, rar (rarity dot), cursed, issue {sev:'high'|'warn', text},
    inputs/outputs (lists), c (children). FLOWS below are the cross-links between nodes. */
+/* Game version this map was last brought up to date with. Must equal package.json "version"
+   (enforced by tools/check-graph.mjs). Set it only after the nodes below reflect that version. */
+const GRAPH_SYNCED_VERSION = '1.3.0';
+document.getElementById('ver').textContent = 'synced to game v' + GRAPH_SYNCED_VERSION;
 const RC = { common: '#8a94a8', uncommon: '#16a34a', rare: '#2563eb', epic: '#9333ea', legendary: '#d97706' };
 const L = (id, label, sub, desc, o) => Object.assign({ id, label, sub, desc }, o);   // leaf
 const RU = (id, label, rar, sub, desc, o) => L(id, label, sub, desc, Object.assign({ rar }, o)); // rune / relic leaf
