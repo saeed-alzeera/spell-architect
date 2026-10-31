@@ -2,7 +2,7 @@
 // and you gain a permanent upgrade for the rest of the run, miss a round and it lapses (the health is already spent).
 // A ritual's challenge is always something the player can bring about. Today there are three: the Vow of Silence asks you to
 // get through its rounds with every Trigger rune dead, the Rite of the Fall asks you to be
-// caught by the crumbling floor (fall into the void) in each of its rounds, the Golden Idol asks you to spend half of each round
+// caught by the crumbling floor (fall into the void) in each of its rounds, the Golden Idol asks you to spend three quarters of each round
 // inside the golden zone (about a fifth of the arena, made of whole floor tiles that keep changing).
 // Co-op: every player has their own ritual (events reach the shell of the player they belong to) and the host evaluates it.
 import type Phaser from 'phaser';
@@ -10,12 +10,12 @@ import { ARENA, TILE, TN, tileCx, tileCy, tileOf } from './arena';
 import type { CForm } from '../core/spell';
 import type { Run } from './run';
 import type { ActiveSpell } from './types';
-import { roundLen } from './rounds';
+import { isBossRound, roundLen } from './rounds';
 
 export const RITUAL_ROUNDS = 3;
 export const POWER_REWARD = 0.2;
 /** Golden Idol: the share of a round to spend in the zone, and the bonus on every coin earned once it is fulfilled. */
-export const ZONE_NEED = 0.5;
+export const ZONE_NEED = 0.75;
 export const GOLD_BONUS = 0.5;
 /** Vow of Silence: it is only offered once this many of your spells carry a Trigger. */
 export const SILENCE_SPELLS = 2;
@@ -149,8 +149,11 @@ export function ritualTick(run: Run, dt: number) {
   if (tileInZone(goldZone(run.round, run.seed, run.roundElapsed), tileOf(run.player.x, run.player.y))) run.ritualRound.zoneT += dt;
 }
 
-/** Share of the round spent in the zone so far. */
-const zoneShare = (run: Run) => (run.roundElapsed > 0 ? Math.min(1, run.ritualRound.zoneT / run.roundElapsed) : 0);
+/** Share of the round spent in the zone so far. Timed rounds count against the whole round (so reaching ZONE_NEED means you can safely leave); boss rounds have no fixed length, so they count against the time so far. */
+export function zoneShare(run: Run): number {
+  const len = isBossRound(run.round) ? run.roundElapsed : Math.max(roundLen(run.quick), run.roundElapsed);
+  return len > 0 ? Math.min(1, run.ritualRound.zoneT / len) : 0;
+}
 
 /** Paint the golden zone for the local player's running Golden Idol. */
 export function drawGoldZone(g: Phaser.GameObjects.Graphics, run: Run, time: number) {
@@ -187,7 +190,7 @@ export function ritualHint(r: ActiveRitual, run: Run): string {
   if (r.def.id === 'silence') return '▸ Your Triggers are silent. Carry on without them.';
   if (r.def.id === 'purity') { const sp = run.spells.find((x) => x.uid === r.uid); return `▸ Only ${sp?.c.valid ? sp.c.name : 'your weakest spell'} may cast. The rest are silent.`; }
   if (r.def.id === 'sanguine') return '▸ You cannot heal. Do not get hit.';
-  if (r.def.id === 'gold') return ritualMet(r, run) ? '✔ On track. Stay in the gold to keep it.' : '▸ Behind! Get into the golden zone.';
+  if (r.def.id === 'gold') return ritualMet(r, run) ? '✔ Enough time in the gold. You are safe to leave.' : '▸ Behind! Get into the golden zone.';
   return ritualMet(r, run) ? '✔ Done this round. You are safe.' : '▸ Not done yet! Stand on a cracked tile.';
 }
 
@@ -212,7 +215,7 @@ export function ritualProgress(r: ActiveRitual, run: Run): string {
   if (r.def.id === 'silence') return `${r.prog[0]}/${r.def.rounds} rounds without Triggers`;
   if (r.def.id === 'purity') return `${r.prog[0]}/${r.def.rounds} rounds with one spell`;
   if (r.def.id === 'sanguine') return `${r.prog[0]}/${r.def.rounds} rounds without healing`;
-  if (r.def.id === 'gold') return `${r.prog[0]}/${r.def.rounds} rounds · ${Math.round(Math.min(1, run.ritualRound.zoneT / roundLen(run.quick)) * 100)}% of the round spent in the zone (need ${Math.round(ZONE_NEED * 100)}%)`;
+  if (r.def.id === 'gold') return `${r.prog[0]}/${r.def.rounds} rounds · ${Math.round(zoneShare(run) * 100)}% of the round spent in the zone (need ${Math.round(ZONE_NEED * 100)}%)`;
   return `${r.prog[0]}/${r.def.rounds} rounds${run.ritualRound.fell ? ' · fell this round' : ''}`;
 }
 
