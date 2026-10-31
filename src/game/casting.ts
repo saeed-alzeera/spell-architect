@@ -7,7 +7,7 @@ import type { ActiveSpell, Enemy, GameEvent, SEnt, Src } from './types';
 import type { Run } from './run';
 import { ARENA, earlyPower } from './run';
 import { onCast, cooldownMul } from './relics';
-import { triggersSilenced, triggerRolls } from './rituals';
+import { triggersSilenced, triggerRolls, spellSilenced } from './rituals';
 import { triggerRoll } from './telemetry';
 import {
   dealDamage, applyElement, applyWet, applyPoison, POISON_BASE_STACKS, arc, explode, envReact, gravityImpulse, pullResist, reaction, reactDamage,
@@ -339,7 +339,7 @@ function isPersistent(f: CForm) { return f.form === 'orb' || f.form === 'aura' |
 export function updateCasting(run: Run, dt: number) {
   for (const sp of run.spells) {
     const f = sp.c.root;
-    if (!sp.c.valid || !f) continue;
+    if (!sp.c.valid || !f || spellSilenced(run, sp)) continue; // Oath of Purity
     if (!(isPersistent(f) && sp.live > 0)) sp.cd -= dt;
     if (sp.cd <= 0) {
       if (castRoot(run, sp, f)) {

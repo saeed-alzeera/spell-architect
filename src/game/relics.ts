@@ -5,6 +5,7 @@ import { ruleMods } from '../core/spell';
 import { dealDamage, arc } from './combat';
 import { castForm } from './casting';
 import { relicFactors, tallyProc } from './telemetry';
+import { spellSilenced } from './rituals';
 import type { Run } from './run';
 import type { Enemy, Src, ActiveSpell } from './types';
 
@@ -141,7 +142,7 @@ export function onCast(run: Run, sp: ActiveSpell) {
   }
   if (has(run, 'mirror') && i === 0) {
     const o = run.spells[1];
-    if (o && o.c.valid && o.c.root) { run.inRelic = true; tallyProc(run, 'mirror'); castForm(run, o, o.c.root, run.player.x, run.player.y, Math.random() * 6.28, true, 0.5, 'mirror'); run.inRelic = false; }
+    if (o && o.c.valid && o.c.root && !spellSilenced(run, o)) { run.inRelic = true; tallyProc(run, 'mirror'); castForm(run, o, o.c.root, run.player.x, run.player.y, Math.random() * 6.28, true, 0.5, 'mirror'); run.inRelic = false; }
   }
   if (has(run, 'metronome') && run.spells.length > 1) { const n = run.spells[(i + 1) % run.spells.length]; tallyProc(run, 'metronome', 1, Math.min(0.5, n.cd)); n.cd = Math.max(0, n.cd - 0.5); }
 }

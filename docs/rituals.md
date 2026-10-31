@@ -33,6 +33,16 @@ Why it moves: a fixed zone would be free (just stand there). A shifting one make
 
 Why it has no failure condition: the handicap is the challenge. Co-op: both effects are per player, resolved with the owner of the spell that raised the event.
 
+## Oath of Purity
+
+**Only offered while at least 3 of your spells use 75% or more of their capacity** (`PURITY_SPELLS`, `PURITY_FILL`). Swearing it picks your **weakest working spell** (the one that has dealt the least damage so far; the earliest slot wins a tie) and stores its uid on the ritual. For the 3 rounds only that spell casts: the others, their ultimates and relic procs that would cast them are silent (`spellSilenced`, checked in `updateCasting`, `Run.ultimates` and the Mirror relic). Nothing can fail, like the Vow of Silence. Reward: when it completes, the prep screen shows a picker (`claimPurity`) and **one spell of your choice gets +50% capacity** (at least +1), recorded with `picked` so it is only claimed once. In co-op the uid and `picked` travel in the build the joiner sends, and `validateRituals` checks both.
+
+## Sanguine Pact
+
+**Only offered from round 11 on, and only at full health** (`SANGUINE_ROUND`). For the 3 rounds **you cannot heal at all** (`healingBlocked`): `Run.heal` (hearts, draughts, level-up boosts, relic heals) does nothing, passive regeneration stops, and the round-start heal is skipped. The shop does not stock Healing Draughts and Mend Wounds / Full Restoration are not offered as rewards while it runs. Reviving a downed co-op player still works. Nothing can fail: the price is the half of your health it costs plus not being able to recover it. Reward: **+0.3 HP/s regeneration and +10 maximum health** for the rest of the run (the new max health is not filled in).
+
+Both new rituals bumped `PROTO` to 11 (the build gained `uid` / `picked`).
+
 ## UI
 
 - The Grimoire lists every ritual (challenge, reward, cost) in a Rituals section, generated from `RITUALS`.
@@ -41,6 +51,6 @@ Why it has no failure condition: the handicap is the challenge. Co-op: both effe
 
 ## Code
 
-- `RITUALS` lists the rituals (three entries). Adding another means a new def, a challenge flag on `Run.ritualRound`, a check in `ritualRoundEnd` and a reward.
+- `RITUALS` lists the rituals (five entries). Adding another means a new def, a challenge flag on `Run.ritualRound`, a check in `ritualRoundEnd` and a reward.
 - `Run.fallPlayer` raises `ritualEvent(run, { t: 'void' })`; `Run.startRound` / `endRound` call `ritualRoundStart` / `ritualRoundEnd`.
 - Co-op: every player has their own ritual, the host evaluates it per shell, and `validateRituals` rejects doctored lists from joiners. Progress reaches the joiner's HUD in the `rit` control message.

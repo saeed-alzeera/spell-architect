@@ -5,6 +5,7 @@ import { RUNES, RUNE_BY_ID, RARITY, dropWeight, type Rarity, type RuneDef } from
 import { store } from '../core/save';
 import { formsInPlay, relevance } from './rewards';
 import { RELIC_BY_ID, RELICS, relicPrice, rollRelics } from './relics';
+import { healingBlocked } from './rituals';
 import type { Run } from './run';
 
 export interface Offer {
@@ -132,7 +133,7 @@ export function upgrades(run: Run): Upgrade[] {
     { id: 'haste', title: 'Haste -4% cooldown', desc: 'Every spell recharges 4% faster.', icon: '⏩', rarity: 'uncommon', price: P(12 * Math.pow(1.65, n('haste'))), avail: p.cdMul > 0.45, weight: 2.5 },
     { id: 'maxhp', title: 'Vitality +10 HP', desc: '+10 maximum health and heal 5.', icon: '❤️', rarity: 'common', price: P(6 * Math.pow(1.35, n('maxhp'))), avail: p.maxHp < 400, weight: 4 },
     { id: 'crit', title: 'Keen Edge +3% crit', desc: 'Critical hit chance +3%.', icon: '🎯', rarity: 'uncommon', price: P(10 * Math.pow(1.6, n('crit'))), avail: true, weight: 2.5 },
-    { id: 'heal', title: 'Healing Draught', desc: 'Restore 20% of your maximum health.', icon: '💚', rarity: 'uncommon', price: P((8 + run.round * 0.8) * Math.pow(1.25, n('heal'))), avail: p.hp < p.maxHp * 0.95, weight: p.hp < p.maxHp * 0.6 ? 6 : 2 },
+    { id: 'heal', title: 'Healing Draught', desc: 'Restore 20% of your maximum health.', icon: '💚', rarity: 'uncommon', price: P((8 + run.round * 0.8) * Math.pow(1.25, n('heal'))), avail: p.hp < p.maxHp * 0.95 && !healingBlocked(run), weight: p.hp < p.maxHp * 0.6 ? 6 : 2 },
   ];
 }
 export const upgradeOf = (run: Run, id: string) => upgrades(run).find((u) => u.id === id);
