@@ -1,6 +1,6 @@
 // Stats panel: your current numbers and where each bonus came from (shop upgrades, rituals, level-ups and relics).
 // Opened from the pause menu and the round-prep screen.
-import { POWER_REWARD, GOLD_BONUS } from '../game/rituals';
+import { POWER_REWARD, GOLD_BONUS, SANGUINE_HP } from '../game/rituals';
 import type { Run } from '../game/run';
 import type { UI } from './ui';
 
@@ -15,6 +15,7 @@ export function statRows(run: Run): Row[] {
   const p = run.player, b = run.buys, n = (id: string) => b[id] ?? 0;
   const fall = run.rituals.some((r) => r.state === 'fulfilled' && r.def.id === 'fall');
   const gold = run.rituals.some((r) => r.state === 'fulfilled' && r.def.id === 'gold');
+  const pact = run.rituals.some((r) => r.state === 'fulfilled' && r.def.id === 'sanguine');
   const rows: Row[] = [];
 
   // Whatever the shop and rituals do not explain was picked up from level-ups or relics.
@@ -33,9 +34,9 @@ export function statRows(run: Run): Row[] {
   rows.push({ icon: '🗡️', label: 'Crit damage', value: `×${p.critMul.toFixed(2)}`, from: [
     `Base: ×${BASE.critMul.toFixed(1)}`, p.critMul - BASE.critMul > 0.004 ? `Level-ups: +${(p.critMul - BASE.critMul).toFixed(2)}` : '' ] });
 
-  const hpShop = n('maxhp') * 10, hpLvl = p.maxHp - BASE.maxHp - hpShop;
+  const hpShop = n('maxhp') * 10, hpRit = pact ? SANGUINE_HP : 0, hpLvl = p.maxHp - BASE.maxHp - hpShop - hpRit;
   rows.push({ icon: '❤️', label: 'Max health', value: `${Math.round(p.maxHp)}`, from: [
-    `Base: ${BASE.maxHp}`, n('maxhp') ? `Vitality ×${n('maxhp')}: +${hpShop}` : '', hpLvl > 0.5 ? `Level-ups: +${Math.round(hpLvl)}` : '' ] });
+    `Base: ${BASE.maxHp}`, n('maxhp') ? `Vitality ×${n('maxhp')}: +${hpShop}` : '', pact ? `Sanguine Pact: +${hpRit}` : '', hpLvl > 0.5 ? `Level-ups: +${Math.round(hpLvl)}` : '' ] });
 
   rows.push({ icon: '📜', label: 'Spell slots', value: `${run.slots}`, from: [n('slot') ? `Bought: ${n('slot')}` : ''] });
   rows.push({ icon: '🔷', label: 'Capacity bought', value: n('cap') ? `+${n('cap') * 2}` : 'none', from: [n('cap') ? `Capacity ×${n('cap')} (+2 each)` : ''] });

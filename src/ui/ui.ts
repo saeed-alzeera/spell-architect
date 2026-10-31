@@ -24,7 +24,7 @@ import { store, save, saveNow } from '../core/save';
 import { audio } from '../core/audio';
 import { spellCooldown } from '../core/spell';
 import type { Run, RunOpts, RunSummary } from '../game/run';
-import { RITUALS, ritualHint, ritualMet, ritualProgress } from '../game/rituals';
+import { RITUALS, ZONE_NEED, ritualHint, ritualMet, ritualProgress, zoneShare } from '../game/rituals';
 import { generateRewards, type Reward } from '../game/rewards';
 import { openEditor } from './editor';
 import { ritualSection } from './rituals';
@@ -204,15 +204,16 @@ class Hud {
       this.sealEl.innerHTML = run.rituals.filter((r) => r.state === 'fulfilled').map((r) => `<div class="seal" title="${r.def.name} complete: ${r.def.reward}"><span>${r.def.icon}</span><i>✔</i></div>`).join('');
     }
     const act = run.rituals.filter((r) => r.state === 'active');
-    const key = act.map((r) => `${r.def.id}${r.roundsDone}${r.prog.join(',')}${run.ritualRound.fell}${Math.floor(run.ritualRound.zoneT)}${Math.floor(run.roundElapsed)}`).join('|');
+    const key = act.map((r) => `${r.def.id}${r.roundsDone}${r.prog.join(',')}${run.ritualRound.fell}${Math.floor(run.ritualRound.zoneT * 4)}${Math.floor(run.roundElapsed)}`).join('|');
     if (key === this.ritKey) return;
     this.ritKey = key;
     this.ritEl.innerHTML = act.map((r) => {
-      const met = ritualMet(r, run);
+      const met = (r.def.id === 'fall' || r.def.id === 'gold') && ritualMet(r, run); // restriction rituals have nothing to meet mid-round, so they stay red
       const pips = Array.from({ length: r.def.rounds }, (_, i) => `<i class="${i < r.roundsDone ? 'done' : i === r.roundsDone ? (met ? 'done' : 'now') : ''}"></i>`).join('');
-      return `<div class="rit ${met ? 'met' : 'pending'}"><div class="rh"><b>${r.def.icon} RITUAL: ${r.def.name}</b><span class="pips">${pips}</span></div>
+      const bar = r.def.id === 'gold' ? `<div class="zbar ${met ? 'ok' : ''}" title="Time spent in the golden zone this round. Past the line you are safe to leave."><i style="width:${Math.round(zoneShare(run) * 100)}%"></i><u style="left:${Math.round(ZONE_NEED * 100)}%"></u></div>` : '';
+      return `<div class="rit ${met ? 'ok' : 'pending'}"><div class="rh"><b>${r.def.icon} RITUAL: ${r.def.name}</b><span class="pips">${pips}</span></div>
         <div class="rc">Round ${r.roundsDone + 1} of ${r.def.rounds}: ${r.def.challenge}</div>
-        <div class="rs">${ritualHint(r, run)} <em>${ritualProgress(r, run)}</em></div></div>`;
+        ${bar}<div class="rs">${ritualHint(r, run)} <em>${ritualProgress(r, run)}</em></div></div>`;
     }).join('');
   }
   /** Teammates' health (co-op). */

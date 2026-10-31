@@ -2,6 +2,7 @@
 import { RUNES, RUNE_BY_ID, RARITY, dropWeight, KIND_LABEL, runeColor, type FormId, type Rarity, type RuneDef } from '../data/runes';
 import { store } from '../core/save';
 import { walk } from '../core/spell';
+import { healingBlocked } from './rituals';
 import type { Run } from './run';
 import { EVOLVE_COST } from '../data/runes';
 
@@ -26,8 +27,8 @@ interface StatDef {
 const hpFrac = (r: Run) => r.player.hp / r.player.maxHp;
 
 const STATS: StatDef[] = [
-  { id: 'heal', title: 'Mend Wounds', icon: '💚', rarity: 'common', desc: () => 'Restore 20% of your maximum health.', weight: (r) => 5 * (hpFrac(r) < 0.6 ? 2 : 0.4), apply: (r) => r.heal(r.player.maxHp * 0.2) },
-  { id: 'healfull', title: 'Full Restoration', icon: '💖', rarity: 'uncommon', desc: () => 'Restore 50% of your maximum health.', weight: (r) => 2 * (hpFrac(r) < 0.4 ? 3 : 0.2), apply: (r) => r.heal(r.player.maxHp * 0.5) },
+  { id: 'heal', title: 'Mend Wounds', icon: '💚', rarity: 'common', desc: () => 'Restore 20% of your maximum health.', weight: (r) => (healingBlocked(r) ? 0 : 5 * (hpFrac(r) < 0.6 ? 2 : 0.4)), apply: (r) => r.heal(r.player.maxHp * 0.2) },
+  { id: 'healfull', title: 'Full Restoration', icon: '💖', rarity: 'uncommon', desc: () => 'Restore 50% of your maximum health.', weight: (r) => (healingBlocked(r) ? 0 : 2 * (hpFrac(r) < 0.4 ? 3 : 0.2)), apply: (r) => r.heal(r.player.maxHp * 0.5) },
   { id: 'maxhp', title: 'Vitality', icon: '❤️', rarity: 'common', desc: () => '+10 maximum health and heal 5.', weight: () => 5, apply: (r) => { r.player.maxHp += 10; r.heal(5); } },
   { id: 'regen', title: 'Regeneration', icon: '🌿', rarity: 'common', desc: () => '+0.1 health regenerated per second.', weight: () => 2.5, apply: (r) => { r.player.regen += 0.1; } },
   { id: 'speed', title: 'Fleet Feet', icon: '👟', rarity: 'common', desc: () => '+6% movement speed.', weight: (r) => (r.player.speed < 480 ? 5 : 0), apply: (r) => { r.player.speed *= 1.06; } },
