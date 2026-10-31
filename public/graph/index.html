@@ -97,7 +97,7 @@
    inputs/outputs (lists), c (children). FLOWS below are the cross-links between nodes. */
 /* Game version this map was last brought up to date with. Must equal package.json "version"
    (enforced by tools/check-graph.mjs). Set it only after the nodes below reflect that version. */
-const GRAPH_SYNCED_VERSION = '1.3.0';
+const GRAPH_SYNCED_VERSION = '1.4.1';
 document.getElementById('ver').textContent = 'synced to game v' + GRAPH_SYNCED_VERSION;
 const RC = { common: '#8a94a8', uncommon: '#16a34a', rare: '#2563eb', epic: '#9333ea', legendary: '#d97706' };
 const L = (id, label, sub, desc, o) => Object.assign({ id, label, sub, desc }, o);   // leaf
@@ -479,12 +479,14 @@ const TREE = {
   /* ============================== RITUALS ============================== */
   { id: 'rituals', label: 'Rituals', sub: '3 rounds', file: 'src/game/rituals.ts',
     desc: 'Pay 50% of current HP for a 3-round challenge the player controls. Keep it up every round and the reward lasts the run; miss a round and it lapses.',
-    inputs: ['Current HP'], outputs: ['Damage / coins / trigger rolls'],
+    inputs: ['Current HP'], outputs: ['Damage / coins / trigger rolls / capacity / regen'],
     c: [
       L('fall', 'Rite of the Fall', '+20% damage', 'Fall through the crumbling floor once in each of 3 rounds.'),
-      L('gold', 'Golden Idol', 'coins +50%', 'Spend 50% of each round in the drifting gold zone; then every coin you earn (kill drops, round and boss bonuses) is worth 50% more. Reworked from a random double on kill drops, which coins going straight to the purse made nearly invisible.'),
+      L('gold', 'Golden Idol', 'coins +50%', 'Spend 75% of each round in the drifting gold zone; then every coin you earn (kill drops, round and boss bonuses) is worth 50% more. Reworked from a random double on kill drops, which coins going straight to the purse made nearly invisible.'),
       L('vow', 'Vow of Silence', 'triggers roll twice', 'Triggers are silenced for 3 rounds (only offered with 2+ triggered spells); then every Trigger rolls twice.',
         { issue: { sev: 'warn', text: 'Two rolls on a 90% cap give 99%, so the documented cap no longer holds.' } }),
+      L('purity', 'Oath of Purity', '+50% capacity, one spell', 'Only your weakest spell (least damage dealt when sworn) may cast for 3 rounds; the rest and their ultimates are silent. Offered with 3+ spells at least 75% full. On completion pick a spell on the prep screen: +50% capacity.'),
+      L('pact', 'Sanguine Pact', '+0.3 regen/s, +10 max HP', 'No healing of any kind for 3 rounds (regen, round-start heal, hearts, draughts, relic heals). Offered from round 11 on, at full health.'),
     ] },
 
   /* ============================== CO-OP ============================== */

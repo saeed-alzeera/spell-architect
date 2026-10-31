@@ -12,7 +12,7 @@ import { ELEMENTS } from '../data/runes';
 import { textureHash } from '../gfx/textures';
 import { TN } from '../game/arena';
 
-export const PROTO = 10;
+export const PROTO = 11;
 /** Floor tile states packed 2 bits per tile. */
 export const FLOOR_BYTES = Math.ceil((TN * TN) / 4);
 /** Largest payload we put in one datagram; under the ~1200 byte path MTU WebRTC data channels assume. */
