@@ -458,7 +458,7 @@ button.ready, .itabs button.ready { border-color: var(--gold) !important; color:
 .hud-rit { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; max-width: 300px; }
 .hud-rit .rit { font-size: 8px; line-height: 1.7; color: #e6dcff; text-shadow: 2px 2px 0 #000; background: rgba(28,14,60,.85); border: 3px solid #ff5a5a; padding: 6px 8px; }
 .hud-rit .rit.pending { border-color: #ff5a5a; animation: ritpulse 1.4s ease-in-out infinite; }
-.hud-rit .rit.ok { border-color: #ff5a5a; animation: none; } /* this round's challenge is met, but the ritual stays red until it is fulfilled (then it becomes a green seal) */
+.hud-rit .rit.ok { border-color: #7cf08a; animation: none; } /* this round's challenge is met: green until the next round starts, then red again */
 .hud-rit .zbar { position: relative; height: 10px; margin: 4px 0; background: #120d26; border: 2px solid #c9a6ff; } .hud-rit .zbar i { display: block; height: 100%; background: #ffd25a; } .hud-rit .zbar.ok i { background: #7cf08a; }
 .hud-rit .zbar u { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #fff; text-decoration: none; }
 .hud-rit .rh { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

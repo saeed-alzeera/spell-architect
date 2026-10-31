@@ -208,7 +208,7 @@ class Hud {
     if (key === this.ritKey) return;
     this.ritKey = key;
     this.ritEl.innerHTML = act.map((r) => {
-      const met = ritualMet(r, run);
+      const met = r.def.id !== 'silence' && ritualMet(r, run); // Silence has nothing to meet mid-round, so it stays red
       const pips = Array.from({ length: r.def.rounds }, (_, i) => `<i class="${i < r.roundsDone ? 'done' : i === r.roundsDone ? (met ? 'done' : 'now') : ''}"></i>`).join('');
       const bar = r.def.id === 'gold' ? `<div class="zbar ${met ? 'ok' : ''}" title="Time spent in the golden zone this round. Past the line you are safe to leave."><i style="width:${Math.round(zoneShare(run) * 100)}%"></i><u style="left:${Math.round(ZONE_NEED * 100)}%"></u></div>` : '';
       return `<div class="rit ${met ? 'ok' : 'pending'}"><div class="rh"><b>${r.def.icon} RITUAL: ${r.def.name}</b><span class="pips">${pips}</span></div>

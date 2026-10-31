@@ -36,7 +36,7 @@ Why it has no failure condition: the handicap is the challenge. Co-op: both effe
 ## UI
 
 - The Grimoire lists every ritual (challenge, reward, cost) in a Rituals section, generated from `RITUALS`.
-- During a level the HUD card (`updateRituals` in `ui/ui.ts`) stays red (pulsing while the round's challenge is still open) until the ritual is fulfilled, and shows round pips plus a short hint; the Golden Idol also gets a progress bar of the time spent in the zone this round, with a line at the 75% mark past which you are safe to leave. Once a ritual is fulfilled it turns green and stays on the HUD as a green seal (`.hud-seals`, tooltip shows the reward), the round ends with a "RITUAL COMPLETE" announcement, and the prep screen lists it as complete with its reward.
+- During a level the HUD card (`updateRituals` in `ui/ui.ts`) is red (pulsing) while the round's challenge is still open, turns green once it is met for the round and goes back to red when the next round starts (the Vow of Silence has nothing to meet, so it stays red), and shows round pips plus a short hint; the Golden Idol also gets a progress bar of the time spent in the zone this round, with a line at the 75% mark past which you are safe to leave. Once a ritual is fulfilled it turns green and stays on the HUD as a green seal (`.hud-seals`, tooltip shows the reward), the round ends with a "RITUAL COMPLETE" announcement, and the prep screen lists it as complete with its reward.
 - The Stats panel (`ui/stats.ts`, 📊 button on the pause menu and prep screen) lists each ritual's state and reward next to the rest of your upgrades.
 
 ## Code
