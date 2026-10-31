@@ -288,7 +288,7 @@ export class HostSession implements CoopLink {
   private syncSprites() {
     const run = this.run;
     if (this.guests.size) {
-      this.hostLabel ??= this.scene.add.text(0, 0, this.name, { fontFamily: '"Press Start 2P", monospace', fontSize: '11px', color: '#ffe08a', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(15);
+      this.hostLabel ??= this.scene.add.text(0, 0, this.name, { fontFamily: '"Press Start 2P", monospace', fontSize: '10px', color: '#ffe08a', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(15);
       this.hostLabel.setPosition(run.player.x, run.player.y - 38).setText(run.down ? `${this.name} (down)` : this.name).setAlpha(run.down ? 0.6 : 1);
     }
     for (const g of this.guests.values()) {
@@ -298,7 +298,7 @@ export class HostSession implements CoopLink {
         s = {
           spr: run.img('wiz0', 8).setScale(3),
           shadow: run.img('shadow', 4).setScale(3).setAlpha(0.8),
-          label: this.scene.add.text(0, 0, g.name, { fontFamily: '"Press Start 2P", monospace', fontSize: '11px', color: '#9fd8ff', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(15),
+          label: this.scene.add.text(0, 0, g.name, { fontFamily: '"Press Start 2P", monospace', fontSize: '10px', color: '#9fd8ff', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5).setDepth(15),
         };
         this.sprites.set(sh, s);
       }

@@ -50,7 +50,7 @@ export class Fx {
     }
     for (let i = 0; i < NT; i++) {
       const t = scene.add.text(0, 0, '', {
-        fontFamily: '"Press Start 2P", monospace', fontSize: '13px', color: '#fff', stroke: '#000', strokeThickness: 4,
+        fontFamily: '"Press Start 2P", monospace', fontSize: '12px', color: '#fff', stroke: '#000', strokeThickness: 4,
       }).setDepth(14).setOrigin(0.5).setVisible(false);
       this.texts.push({ t, on: false, life: 0, vy: 0 });
     }
