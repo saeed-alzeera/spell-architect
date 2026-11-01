@@ -23,7 +23,7 @@ export interface SaveData {
 
 const KEY = 'spell-architect-save-v1';
 /** Runes that cost shards even before the starter set was trimmed (only these are refunded on migration). */
-const LEGACY_PAID = ['b_bounce', 'b_chain', 'b_orbit', 'b_pull', 'b_expand', 't_expiry', 't_crit', 'm_dup', 'm_acc', 'm_area'];
+const LEGACY_PAID = ['b_bounce', 'b_chain', 'b_pull', 'b_expand', 't_expiry', 't_crit', 'm_dup', 'm_acc', 'm_area'];
 
 function fresh(): SaveData {
   return {

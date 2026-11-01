@@ -7,7 +7,7 @@ import type { ActiveSpell, Enemy, GameEvent, SEnt, Src } from './types';
 import type { Run } from './run';
 import { ARENA, earlyPower } from './run';
 import { onCast, cooldownMul } from './relics';
-import { triggersSilenced, triggerRolls, spellSilenced } from './rituals';
+import { triggersSilenced, triggerRolls, spellSilenced, purityDamageMul } from './rituals';
 import { triggerRoll } from './telemetry';
 import {
   dealDamage, applyElement, applyWet, applyPoison, POISON_BASE_STACKS, arc, explode, envReact, gravityImpulse, pullResist, reaction, reactDamage,
@@ -92,10 +92,6 @@ export function spawnEnt(run: Run, sp: ActiveSpell, f: CForm, x: number, y: numb
       en.bounce = f.b.bounce ? 3 : 0;
       en.blast = f.element === 'fire' ? 48 * rad * mut.splash : f.element === 'gravity' ? 56 * rad : 0;
       en.pullR = 95 * mut.pullR;
-      if (f.b.orbit) {
-        en.orbR = 85 * rad; en.orbSpd = 3.2 * spd; en.orbAng = ang + ((o.idx ?? 0) / (o.n ?? 1)) * Math.PI * 2;
-        en.life = en.maxLife = o.life ?? lifeOf(f);
-      }
       en.spr = run.img(`proj_${f.element}`, 10).setScale(en.r / 6.5);
       en.spr2 = run.img('dot', 9, true).setTint(el.color).setAlpha(0.8).setScale(en.r / 4.5);
       en.deco.push(run.img('tail', 9, true).setTint(el.color).setOrigin(1, 0.5).setAlpha(0.7));
@@ -216,8 +212,7 @@ function syncEnt(run: Run, en: SEnt) {
       else if (en.el === 'gravity' || en.el === 'poison') en.spr.setRotation(T * 6);
       en.spr2?.setPosition(en.x, en.y).setScale((en.r / 4.5) * (1 + 0.15 * Math.sin(T * 25 + en.id)));
       if (d[0]) {
-        const sp = en.f.b.orbit ? en.orbSpd * en.orbR : en.speed;
-        d[0].setPosition(en.x, en.y).setRotation(en.f.b.orbit ? en.ang - Math.PI : Math.atan2(en.vy, en.vx)).setScale(Math.min(3, sp / 190) * (en.r / 9), en.r / 7).setAlpha(0.75 * a);
+        d[0].setPosition(en.x, en.y).setRotation(Math.atan2(en.vy, en.vx)).setScale(Math.min(3, en.speed / 190) * (en.r / 9), en.r / 7).setAlpha(0.75 * a);
       }
       break;
     }
@@ -334,7 +329,7 @@ function currentR(en: SEnt): number {
 
 /* --------------------------------- Casting --------------------------------- */
 
-function isPersistent(f: CForm) { return f.form === 'orb' || f.form === 'aura' || (f.form === 'projectile' && f.b.orbit); }
+function isPersistent(f: CForm) { return f.form === 'orb' || f.form === 'aura'; }
 
 export function updateCasting(run: Run, dt: number) {
   for (const sp of run.spells) {
@@ -355,7 +350,7 @@ export function updateCasting(run: Run, dt: number) {
 function castRoot(run: Run, sp: ActiveSpell, f: CForm): boolean {
   const p = run.player;
   if (f.form === 'mine' && sp.live >= 10) return false;
-  if (f.form === 'projectile' && !f.b.orbit) {
+  if (f.form === 'projectile') {
     if (!run.nearest(p.x, p.y, 700)) return false;
   } else if (f.form === 'beam') {
     if (!run.nearest(p.x, p.y, 420)) return false;
@@ -373,6 +368,7 @@ function castRoot(run: Run, sp: ActiveSpell, f: CForm): boolean {
 
 export function castForm(run: Run, sp: ActiveSpell, f: CForm, x: number, y: number, hint: number, root: boolean, dmgMul = 1, rel?: string) {
   run = run.owner(sp);
+  dmgMul *= purityDamageMul(run, sp); // Oath of Purity: the one spell allowed to cast hits harder
   const n = f.form === 'aura' ? 1 : copiesOf(f, sp.mut);
   const src = makeSrc(sp, f, f.depth);
   if (rel) src.rel = rel; // telemetry: damage from this cast and everything it spawns is credited to the relic
@@ -381,11 +377,7 @@ export function castForm(run: Run, sp: ActiveSpell, f: CForm, x: number, y: numb
   const aim = nearTo ? Math.atan2(nearTo.y - y, nearTo.x - x) : hint;
   switch (f.form) {
     case 'projectile':
-      if (f.b.orbit) {
-        for (let i = 0; i < n; i++) spawnEnt(run, sp, f, x, y, hint, o({ anchor: root, idx: i, n }));
-      } else {
-        for (let i = 0; i < n; i++) spawnEnt(run, sp, f, x, y, aim + (i - (n - 1) / 2) * 0.17, o({}));
-      }
+      for (let i = 0; i < n; i++) spawnEnt(run, sp, f, x, y, aim + (i - (n - 1) / 2) * 0.17, o({}));
       break;
     case 'beam':
       for (let i = 0; i < n; i++) {
@@ -616,39 +608,31 @@ function pullEnemies(run: Run, cx: number, cy: number, R: number, F: number, dt:
 
 function updateProjectile(run: Run, en: SEnt, dt: number) {
   const f = en.f;
-  if (f.b.orbit) {
-    en.orbAng += en.orbSpd * dt;
-    const [cx, cy] = center(run, en);
-    const R = en.orbR * (en.expand ? 1 + 0.8 * (1 - en.life / en.maxLife) : 1);
-    en.x = cx + Math.cos(en.orbAng) * R; en.y = cy + Math.sin(en.orbAng) * R;
-    en.ang = en.orbAng + Math.PI / 2;
-  } else {
-    if (f.b.homing) {
-      en.target -= dt;
-      let t: Enemy | null | undefined = run.enemyById(en.target);
-      if (!t || t.dead) {
-        t = run.nearest(en.x, en.y, 450);
-        en.target = t ? t.id : 0;
-      }
-      if (t) {
-        const want = Math.atan2(t.y - en.y, t.x - en.x);
-        let diff = Phaser.Math.Angle.Wrap(want - en.ang);
-        const turn = 4.2 * dt;
-        diff = Math.max(-turn, Math.min(turn, diff));
-        en.ang += diff;
-        en.vx = Math.cos(en.ang) * en.speed; en.vy = Math.sin(en.ang) * en.speed;
-      }
+  if (f.b.homing) {
+    en.target -= dt;
+    let t: Enemy | null | undefined = run.enemyById(en.target);
+    if (!t || t.dead) {
+      t = run.nearest(en.x, en.y, 450);
+      en.target = t ? t.id : 0;
     }
-    en.x += en.vx * dt; en.y += en.vy * dt;
-    const M = 20;
-    if (en.x < M || en.x > ARENA - M || en.y < M || en.y > ARENA - M) {
-      if (f.b.bounce) {
-        if (en.x < M || en.x > ARENA - M) en.vx = -en.vx;
-        if (en.y < M || en.y > ARENA - M) en.vy = -en.vy;
-        en.x = Math.max(M, Math.min(ARENA - M, en.x)); en.y = Math.max(M, Math.min(ARENA - M, en.y));
-        en.ang = Math.atan2(en.vy, en.vx);
-      } else { en.life = 0; }
+    if (t) {
+      const want = Math.atan2(t.y - en.y, t.x - en.x);
+      let diff = Phaser.Math.Angle.Wrap(want - en.ang);
+      const turn = 4.2 * dt;
+      diff = Math.max(-turn, Math.min(turn, diff));
+      en.ang += diff;
+      en.vx = Math.cos(en.ang) * en.speed; en.vy = Math.sin(en.ang) * en.speed;
     }
+  }
+  en.x += en.vx * dt; en.y += en.vy * dt;
+  const M = 20;
+  if (en.x < M || en.x > ARENA - M || en.y < M || en.y > ARENA - M) {
+    if (f.b.bounce) {
+      if (en.x < M || en.x > ARENA - M) en.vx = -en.vx;
+      if (en.y < M || en.y > ARENA - M) en.vy = -en.vy;
+      en.x = Math.max(M, Math.min(ARENA - M, en.x)); en.y = Math.max(M, Math.min(ARENA - M, en.y));
+      en.ang = Math.atan2(en.vy, en.vx);
+    } else { en.life = 0; }
   }
   if (en.expand) en.r = en.baseR * (1 + 0.8 * (1 - en.life / en.maxLife));
   if (en.pull) pullEnemies(run, en.x, en.y, en.pullR, en.pullF, dt, en.src);
@@ -658,13 +642,12 @@ function updateProjectile(run: Run, en: SEnt, dt: number) {
   }
   // collision
   const list = run.query(en.x, en.y, en.r);
-  const orbit = !!f.b.orbit;
   for (let i = 0; i < list.length; i++) {
     const e = list[i];
     if (e.dead) continue;
     const nt = en.hit.get(e.id);
     if (nt !== undefined && nt > run.time) continue;
-    en.hit.set(e.id, orbit ? run.time + 0.5 : Infinity);
+    en.hit.set(e.id, Infinity);
     hitWithProjectile(run, en, e);
     if (en.dead || en.life <= 0) break;
   }
@@ -691,7 +674,6 @@ function hitWithProjectile(run: Run, en: SEnt, e: Enemy) {
   if (en.el === 'poison' && Math.random() < 0.4) spawnEnv(run, en.src, 'poison', en.x, en.y, 34, 3.2, 2.5);
   if (en.chain > 0) arc(run, e, en.dmg * 0.7, en.el === 'fire' ? 'lightning' : en.el, en.src, en.chain, 170, [e]);
   run.fx.ring(en.x, en.y, ELEMENTS[en.el].color, 4, 20, 0.18, 0.8);
-  if (en.f.b.orbit) return;
   if (en.f.b.split && !en.splitDone) doSplit(run, en, en.ang);
   if (en.pierce > 0) { en.pierce--; return; }
   if (en.bounce > 0) {

@@ -146,8 +146,6 @@ export const RUNES: RuneDef[] = [
     desc: 'Ricochets to a new enemy up to 3 times and rebounds off arena walls.' },
   { id: 'b_chain', kind: 'behavior', name: 'Chain', icon: '🔗', rarity: 'rare', cost: 2, key: 'chain', forms: ['projectile', 'beam', 'orb', 'mine', 'nova', 'meteor'], maxStack: 1, unlock: 50,
     desc: 'On hit, arcs to up to 3 nearby enemies for 70% damage. Passes poison along; conducts through wet enemies.' },
-  { id: 'b_orbit', kind: 'behavior', name: 'Orbit', icon: '🪐', rarity: 'rare', cost: 2, key: 'orbit', forms: ['projectile'], maxStack: 1, unlock: 50,
-    desc: 'The projectile circles you instead of flying away, hitting anything it sweeps through.' },
   { id: 'b_homing', kind: 'behavior', name: 'Homing', icon: '🎯', rarity: 'common', cost: 1, key: 'homing', forms: ['projectile', 'mine', 'meteor'], maxStack: 1, unlock: 15,
     desc: 'Steers toward the nearest enemy. Mines crawl toward their prey.' },
   { id: 'b_pull', kind: 'behavior', name: 'Pull', icon: '🧲', rarity: 'uncommon', cost: 2, key: 'pull', maxStack: 1, unlock: 40,
@@ -162,7 +160,7 @@ export const RUNES: RuneDef[] = [
     desc: 'When the form hits an enemy, every effect below activates at the impact point.' },
   { id: 't_kill', kind: 'trigger', name: 'On Kill', icon: '💀', rarity: 'uncommon', cost: 1, trigger: 'kill', chance: 0.2, maxStack: 1, unlock: 20,
     desc: 'When this spell kills an enemy (including by burn or poison), connected branches activate where it died.' },
-  { id: 't_expiry', kind: 'trigger', name: 'On Expiry', icon: '⏳', rarity: 'uncommon', cost: 1, trigger: 'expiry', chance: 1, forms: ['projectile', 'beam', 'orb', 'mine', 'nova', 'meteor'], maxStack: 1, unlock: 30,
+  { id: 't_expiry', kind: 'trigger', name: 'On Expiry', icon: '⏳', rarity: 'uncommon', cost: 1, trigger: 'expiry', chance: 0.4, forms: ['projectile', 'beam', 'orb', 'mine', 'nova', 'meteor'], maxStack: 1, unlock: 30,
     desc: 'When the form ends (timeout, spent or detonated), the effects below activate at its final position.' },
   { id: 't_crit', kind: 'trigger', name: 'On Critical Hit', icon: '✴️', rarity: 'rare', cost: 1, trigger: 'crit', chance: 0.2, maxStack: 1, unlock: 40,
     desc: 'When this spell lands a critical hit, connected branches activate. Lightning crits often.' },
@@ -185,33 +183,45 @@ export const RUNES: RuneDef[] = [
 /** Runes available from the very first run (everything else unlocks by finishing runs, see store.unlockNext). */
 export const STARTER_RUNES = ['c_fire', 'f_projectile', 'f_nova', 'b_pierce', 't_hit', 'm_grow'];
 
-// Trigger rarity tiers: Hit / Kill / Crit triggers fire only a fraction of the time.
-// common 20%, uncommon 45%, rare 60%, epic 80%. (On Expiry is a timing event and always fires.)
-for (const baseId of ['t_hit', 't_kill', 't_crit']) {
+// Trigger chances. Each trigger rolls once per event, and the events differ hugely in how often they happen, so the numbers are NOT equal:
+//   On Hit    happens many times a second (pierce, auras, novas), but at most every 0.12 s per source  -> lowest chances
+//   On Kill   happens every few seconds on a busy screen, only when this spell lands the kill        -> mid chances
+//   On Crit   happens only after the crit roll (base 5%) has already succeeded                      -> highest chances
+//   On Expiry happens exactly once per form, so it is a sure thing per cast                          -> mid-high chances (it used to be 100%)
+// Level I is what you find; II-IV are mostly forged (see tierUpResult) and rarer to find.
+const TRIGGER_TIERS: Record<string, number[]> = {
+  t_hit: [0.15, 0.3, 0.45, 0.6],
+  t_kill: [0.35, 0.5, 0.65, 0.8],
+  t_crit: [0.5, 0.65, 0.8, 0.9],
+  t_expiry: [0.4, 0.55, 0.7, 0.85],
+};
+for (const baseId of Object.keys(TRIGGER_TIERS)) {
   const b = RUNES.find((r) => r.id === baseId)!;
-  b.rarity = 'common'; b.unlock = 0;
-  const tiers: [string, Rarity, number, string][] = [['_2', 'uncommon', 0.45, 'II'], ['_3', 'rare', 0.6, 'III'], ['_4', 'epic', 0.8, 'IV']];
+  const ch = TRIGGER_TIERS[baseId];
+  if (baseId !== 't_expiry') { b.rarity = 'common'; b.unlock = 0; }
+  const tiers: [string, Rarity, string][] = [['_2', 'uncommon', 'II'], ['_3', 'rare', 'III'], ['_4', 'epic', 'IV']];
   const baseDesc = b.desc;
-  b.desc = `${baseDesc} Fires 20% of the time.`;
-  for (const [suf, rar, ch, num] of tiers) {
-    RUNES.push({ ...b, id: baseId + suf, name: `${b.name} ${num}`, rarity: rar, chance: ch, cost: rar === 'epic' ? 2 : 1, unlock: 0, tierOf: baseId, desc: `${baseDesc} Fires ${Math.round(ch * 100)}% of the time.` });
-  }
+  b.chance = ch[0];
+  b.desc = `${baseDesc} Fires ${Math.round(ch[0] * 100)}% of the time.`;
+  tiers.forEach(([suf, rar, num], i) => {
+    RUNES.push({ ...b, id: baseId + suf, name: `${b.name} ${num}`, rarity: rar, chance: ch[i + 1], cost: rar === 'epic' ? 2 : 1, unlock: 0, tierOf: baseId, desc: `${baseDesc} Fires ${Math.round(ch[i + 1] * 100)}% of the time.` });
+  });
 }
 
 export const RUNE_BY_ID: Record<string, RuneDef> = Object.fromEntries(RUNES.map((r) => [r.id, r]));
 
 /** Two same-type triggers merge into one whose chance is the sum, up to this cap. */
 export const MAX_MERGE_CHANCE = 0.8;
-export const MERGEABLE: TriggerType[] = ['hit', 'kill', 'crit'];
-const MERGE_BASE: Record<string, string> = { hit: 't_hit', kill: 't_kill', crit: 't_crit' };
+export const MERGEABLE: TriggerType[] = ['hit', 'kill', 'crit', 'expiry'];
+const MERGE_BASE: Record<string, string> = { hit: 't_hit', kill: 't_kill', crit: 't_crit', expiry: 't_expiry' };
 const rarityForChance = (c: number): Rarity => (c <= 0.2 ? 'common' : c <= 0.45 ? 'uncommon' : c <= 0.6 ? 'rare' : 'epic');
 
 /** The rune you get by merging triggers `a` and `b` (created on first use), or the reason it can't be done. */
 export function mergeResult(a: string, b: string): RuneDef | string {
   const ra = RUNE_BY_ID[a], rb = RUNE_BY_ID[b];
   if (!ra || !rb || ra.kind !== 'trigger' || rb.kind !== 'trigger') return 'Only triggers can be merged.';
-  if (ra.trigger !== rb.trigger) return 'Both triggers must be the same type (two On Hit, two On Kill, or two On Critical Hit).';
-  if (!MERGEABLE.includes(ra.trigger!)) return 'On Expiry always fires, so there is nothing to merge.';
+  if (ra.trigger !== rb.trigger) return 'Both triggers must be the same type (two On Hit, two On Kill, two On Critical Hit or two On Expiry).';
+  if (!MERGEABLE.includes(ra.trigger!)) return 'These triggers can\'t be merged.';
   const pct = Math.round(((ra.chance ?? 1) + (rb.chance ?? 1)) * 100);
   if (pct > MAX_MERGE_CHANCE * 100) return `The merged chance would be ${pct}%. A single trigger can't pass ${Math.round(MAX_MERGE_CHANCE * 100)}%.`;
   return makeMerged(RUNE_BY_ID[MERGE_BASE[ra.trigger!]], pct);
@@ -228,7 +238,7 @@ function makeMerged(base: RuneDef, pct: number): RuneDef {
 /** Merged triggers are created on the machine that merges them, so a build from another machine can name one this machine has not seen yet: rebuild it from its id (e.g. `t_kill@40`). */
 export function ensureMergedRune(id: string): RuneDef | undefined {
   if (RUNE_BY_ID[id]) return RUNE_BY_ID[id];
-  const m = /^(t_hit|t_kill|t_crit)@(\d{1,3})$/.exec(id);
+  const m = /^(t_hit|t_kill|t_crit|t_expiry)@(\d{1,3})$/.exec(id);
   const pct = m ? Number(m[2]) : 0;
   if (!m || !RUNE_BY_ID[m[1]] || pct < 1 || pct > MAX_MERGE_CHANCE * 100) return undefined;
   return makeMerged(RUNE_BY_ID[m[1]], pct);

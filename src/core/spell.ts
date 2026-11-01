@@ -19,6 +19,10 @@ export const costOf = (id: string): number => { const r = RUNE_BY_ID[id]; return
 
 /** No stack of boosts can push a trigger past this. */
 export const MAX_TRIGGER_CHANCE = 0.9;
+/** The chance a trigger with this base chance really has, after relics (Echo Chamber, Gambler's Dice) and the global cap. */
+export function triggerChanceOf(base: number): number {
+  return base >= 1 ? 1 : Math.min(MAX_TRIGGER_CHANCE, (base + ruleMods.triggerChanceAdd) * ruleMods.triggerChanceMul);
+}
 export const MAX_TRIGGER_NEST = 3;
 export const MAX_TRIGGER_CHILDREN = 3;
 
@@ -160,7 +164,7 @@ function compileForm(node: SpellNode, inherit: Element, depth: number, warnings:
     else if (cr.kind === 'modifier') (f.m as Record<string, number>)[cr.key!]++;
     else if (cr.kind === 'trigger') {
       const base = cr.chance ?? 1;
-      const chance = base >= 1 ? 1 : Math.min(MAX_TRIGGER_CHANCE, (base + ruleMods.triggerChanceAdd) * ruleMods.triggerChanceMul);
+      const chance = triggerChanceOf(base);
       const t: { type: TriggerType; chance: number; children: CForm[] } = { type: cr.trigger!, chance, children: [] };
       if (c.children.length === 0) warnings.push(`${cr.name} has no effect yet. Slot a Form into it.`);
       for (const k of c.children) t.children.push(compileForm(k, element, depth + 1, warnings));
@@ -168,6 +172,14 @@ function compileForm(node: SpellNode, inherit: Element, depth: number, warnings:
     }
   }
   return f;
+}
+
+/** Elements of the evolved Cores anywhere in this spell (the main Form and every Form its Triggers launch), in order, without repeats. */
+export function evolvedElements(root: CForm | null): Element[] {
+  const out: Element[] = [];
+  const rec = (f: CForm) => { if (f.evolved && !out.includes(f.element)) out.push(f.element); f.triggers.forEach((t) => t.children.forEach(rec)); };
+  if (root) rec(root);
+  return out;
 }
 
 export function compileSpell(def: SpellDef): CompiledSpell {
@@ -208,7 +220,7 @@ export function signatureOf(n: SpellNode, inherit: string): string {
 export const BASE_LIFE: Record<FormId, number> = { projectile: 1.5, beam: 0.8, orb: 6, aura: 7, mine: 14, nova: 0.6, meteor: 0.8 };
 
 export function lifeOf(f: CForm): number {
-  const base = f.form === 'projectile' && f.b.orbit ? 5 : BASE_LIFE[f.form];
+  const base = BASE_LIFE[f.form];
   return base * (1 + 0.5 * f.m.dur);
 }
 
@@ -226,7 +238,7 @@ export function copiesOf(f: CForm, mut: Mut): number { return 1 + f.m.dup + mut.
 
 const BEH_ADJ: [string, string][] = [
   ['split', 'Splitting'], ['chain', 'Arcing'], ['bounce', 'Ricochet'], ['pierce', 'Piercing'],
-  ['homing', 'Seeking'], ['orbit', 'Orbiting'], ['pull', 'Dragging'], ['push', 'Repelling'], ['expand', 'Swelling'],
+  ['homing', 'Seeking'], ['pull', 'Dragging'], ['push', 'Repelling'], ['expand', 'Swelling'],
 ];
 const TRIG_WORD: Record<TriggerType, string> = { hit: 'Impact', kill: 'Reaping', expiry: 'Fading', crit: 'Fortune' };
 
@@ -247,7 +259,6 @@ const BEH_TEXT: Record<string, string> = {
   pierce: 'pierces up to 3 enemies',
   bounce: 'ricochets between enemies and walls',
   chain: 'arcs lightning to 3 nearby enemies',
-  orbit: 'circles around you',
   homing: 'homes in on enemies',
   pull: 'drags enemies toward it',
   push: 'slows enemies inside it and pushes them back',
@@ -311,6 +322,19 @@ export function storyOf(root: CForm): string {
     sentences.push(`When ${WHEN[t.type]}, ${t.chance < 1 ? `${Math.round(t.chance * 100)}% of the time ` : ''}it ${joinAnd(t.children.map((c) => clause(c, false)))}.`);
   }
   return sentences.join(' ');
+}
+
+/** Replacing a Form with another keeps everything that still fits. Returns what would be dropped (runes that don't work on the new Form), or why it can't be done. */
+export function checkSwapForm(def: SpellDef, node: SpellNode, runeId: string): Check & { dropped: SpellNode[] } {
+  const rune = RUNE_BY_ID[runeId], cur = RUNE_BY_ID[node.rune];
+  const fail = (reason: string) => ({ ok: false, reason, dropped: [] as SpellNode[] });
+  if (!rune || rune.kind !== 'form' || cur.kind !== 'form') return fail('Only a Form can replace a Form.');
+  if (rune.id === cur.id) return fail(`This is already a ${cur.name}.`);
+  const f = rune.form!;
+  const dropped = node.children.filter((c) => { const r = RUNE_BY_ID[c.rune]; return r.kind !== 'core' && r.forms !== undefined && !r.forms.includes(f); });
+  const free = def.capacity - spellCost(def) + costOf(cur.id) + dropped.reduce((a, d) => a + subtreeCost(d), 0);
+  if (costOf(rune.id) > free) return fail(`Not enough Spell Capacity: ${rune.name} costs ${costOf(rune.id)}, only ${Math.max(0, free)} would be free.`);
+  return { ok: true, reason: dropped.length ? `Replace ${cur.name} with ${rune.name}. ${dropped.map((d) => RUNE_BY_ID[d.rune].name).join(', ')} can't be used on it and go back to your pool.` : `Replace ${cur.name} with ${rune.name}. Everything else stays.`, dropped };
 }
 
 /**

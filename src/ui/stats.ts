@@ -1,6 +1,10 @@
 // Stats panel: your current numbers and where each bonus came from (shop upgrades, rituals, level-ups and relics).
 // Opened from the pause menu and the round-prep screen.
 import { POWER_REWARD, GOLD_BONUS, SANGUINE_HP } from '../game/rituals';
+import { critChance, triggerRuleParts } from '../game/chances';
+import { RELIC_BY_ID } from '../game/relics';
+import { ULT_COOLDOWN } from '../game/ultimates';
+import { ULTIMATES } from '../data/runes';
 import type { Run } from '../game/run';
 import type { UI } from './ui';
 
@@ -29,7 +33,7 @@ export function statRows(run: Run): Row[] {
 
   const crShop = n('crit') * 0.03, crLvl = p.crit - BASE.crit - crShop;
   rows.push({ icon: '🎯', label: 'Crit chance', value: `${Math.round(p.crit * 100)}%`, from: [
-    `Base: ${Math.round(BASE.crit * 100)}%`, n('crit') ? `Keen Edge ×${n('crit')}: ${pct(crShop)}` : '', crLvl > 0.004 ? `Level-ups: ${pct(crLvl)}` : '' ] });
+    `Base: ${Math.round(BASE.crit * 100)}% (Lightning spells +12% on top)`, n('crit') ? `Keen Edge ×${n('crit')}: ${pct(crShop)}` : '', crLvl > 0.004 ? `Level-ups: ${pct(crLvl)}` : '' ] });
 
   rows.push({ icon: '🗡️', label: 'Crit damage', value: `×${p.critMul.toFixed(2)}`, from: [
     `Base: ×${BASE.critMul.toFixed(1)}`, p.critMul - BASE.critMul > 0.004 ? `Level-ups: +${(p.critMul - BASE.critMul).toFixed(2)}` : '' ] });
@@ -41,11 +45,20 @@ export function statRows(run: Run): Row[] {
   rows.push({ icon: '📜', label: 'Spell slots', value: `${run.slots}`, from: [n('slot') ? `Bought: ${n('slot')}` : ''] });
   rows.push({ icon: '🔷', label: 'Capacity bought', value: n('cap') ? `+${n('cap') * 2}` : 'none', from: [n('cap') ? `Capacity ×${n('cap')} (+2 each)` : ''] });
 
+  const w = (id: string) => run.equipped.includes(id);
+  rows.push({ icon: '🔔', label: 'Trigger chances', value: w('echo') || w('dice') ? 'modified' : 'normal', from: triggerRuleParts(run).map((x) => `${x.label}: ${x.text}`) });
+  const cr: { label: string; text: string }[] = [];
+  critChance(run, 'lightning', null, cr);
+  rows.push({ icon: '⚡', label: 'Crit chance on Lightning', value: `${Math.round(critChance(run, 'lightning', null) * 100)}%`, from: cr.map((x) => `${x.label}: ${x.text}`) });
+
   const m = run.mods;
-  if (m.coinMul !== 1 || m.priceMul !== 1 || gold) {
-    rows.push({ icon: '◈', label: 'Coins & prices', value: `${pct(m.coinMul - 1)} coins`, from: [
-      m.priceMul !== 1 ? `Shop prices: ${pct(m.priceMul - 1)}` : '', gold ? `Golden Idol: all coins +${Math.round(GOLD_BONUS * 100)}%` : '', 'From relics' ] });
-  }
+  rows.push({ icon: '◈', label: 'Coins', value: `×${(m.coinMul * (gold ? 1 + GOLD_BONUS : 1)).toFixed(2)}`, from: [
+    w('lodestone') ? `${RELIC_BY_ID.lodestone.name}: ×1.2` : '', w('purse') ? `${RELIC_BY_ID.purse.name}: ×1.5` : '', gold ? `Golden Idol: ×${1 + GOLD_BONUS}` : '' ] });
+  rows.push({ icon: '🛒', label: 'Shop prices', value: m.priceMul === 1 ? 'normal' : pct(m.priceMul - 1), from: [
+    w('bell') ? `${RELIC_BY_ID.bell.name}: prices −10%, rerolls cost 1 less` : '', w('purse') ? `${RELIC_BY_ID.purse.name}: rerolls cost double` : '' ] });
+  rows.push({ icon: '⚒️', label: 'Forge cost', value: `${run.forgeCost()} Cores`, from: [w('hammer') ? `${RELIC_BY_ID.hammer.name}: 2 fewer Cores` : ''] });
+  const uls = run.ultimates();
+  if (uls.length) rows.push({ icon: '🌋', label: 'Ultimates', value: `${ULT_COOLDOWN}s recharge`, from: uls.map((u, i) => `${ULTIMATES[u.el].name} (spell ${u.i + 1}): ${['Space', 'Q', 'R', 'F', 'C', 'V'][i]}`) });
   return rows.map((r) => ({ ...r, from: r.from.filter(Boolean) }));
 }
 

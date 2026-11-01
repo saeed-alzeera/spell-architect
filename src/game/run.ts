@@ -1,8 +1,8 @@
 // The Run: owns all simulation state for one playthrough and advances it each frame.
 import Phaser from 'phaser';
-import { RUNES, RUNE_BY_ID, mergeResult, tierUpResult, EVOLVE_COST, BASE_CORE_OF, EVOLVED_OF, ELEMENTS, type Rarity } from '../data/runes';
+import { RUNES, RUNE_BY_ID, mergeResult, tierUpResult, EVOLVE_COST, BASE_CORE_OF, EVOLVED_OF, ELEMENTS, type Rarity, type Element } from '../data/runes';
 import { MUT_TRACKS, MUT_OPTION_BY_ID, defaultMut, type MutTrack } from '../data/mutations';
-import { compileSpell, newNode, newSpell, walk, type SpellDef } from '../core/spell';
+import { compileSpell, evolvedElements, newNode, newSpell, walk, type SpellDef } from '../core/spell';
 import { store } from '../core/save';
 import { audio } from '../core/audio';
 import { Fx } from './fx';
@@ -59,7 +59,7 @@ export interface CoopLink {
   /** Host: the run ended. */
   onOver?(won: boolean): void;
   /** Guest: Space pressed. Returns whether an ultimate was available. */
-  ult(): boolean;
+  ult(pick?: number): boolean;
   /** Number of players in the game (rituals scale with it). */
   size?(): number;
   /** Leave the game (guest) or end it for everyone (host). */
@@ -1024,23 +1024,28 @@ export class Run {
     return (['fire', 'ice', 'lightning', 'poison', 'water', 'gravity'] as const).filter((e) => this.coreCopies(e) >= this.forgeCost());
   }
 
-  /** Ultimates available from equipped evolved cores. */
+  /** Ultimates available from evolved Cores anywhere in your spells (also on Forms launched by Triggers). A spell has ONE Ultimate charge: with
+   *  several evolved Cores in it, each is listed and you choose which to unleash (they share the spell's cooldown). */
   ultimates() {
-    return this.spells.map((sp, i) => ({ sp, i })).filter((x) => x.sp.c.valid && x.sp.c.root?.evolved && !spellSilenced(this, x.sp));
+    const out: { sp: ActiveSpell; i: number; el: Element }[] = [];
+    this.spells.forEach((sp, i) => {
+      if (!sp.c.valid || spellSilenced(this, sp)) return;
+      for (const el of evolvedElements(sp.c.root)) out.push({ sp, i, el });
+    });
+    return out;
   }
 
-  useUltimate(): boolean {
+  /** Fire an Ultimate: `pick` is its position in `ultimates()`, or -1 for the first one that is ready. */
+  useUltimate(pick = -1): boolean {
     if (this.frozen || this.over || (this.phase !== 'fight' && this.phase !== 'sandbox')) return false;
-    for (const u of this.ultimates()) {
-      if (u.sp.ultCd <= 0) {
-        u.sp.ultCd = this.sandbox ? 6 : ULT_COOLDOWN;
-        this.ultTrack = { sp: u.sp, t: this.time, kills: this.kills };
-        this.tal.ults++;
-        castUltimate(this, u.sp);
-        return true;
-      }
-    }
-    return false;
+    const list = this.ultimates();
+    const u = pick >= 0 ? list[pick] : list.find((x) => x.sp.ultCd <= 0);
+    if (!u || u.sp.ultCd > 0) return false;
+    u.sp.ultCd = this.sandbox ? 6 : ULT_COOLDOWN;
+    this.ultTrack = { sp: u.sp, t: this.time, kills: this.kills };
+    this.tal.ults++;
+    castUltimate(this, u.sp, u.el);
+    return true;
   }
 
   checkMutations() {
