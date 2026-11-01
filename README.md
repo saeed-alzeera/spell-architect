@@ -41,7 +41,7 @@ Editor: click a rune in the **Rune Pool**, then click a glowing card to place it
 | --- | --- |
 | **Form** (the spell's body, fills a slot) | Projectile, Beam, Orbiting Orb, Aura, Mine, Nova, Meteor |
 | **Core** (element, socketed into a Form) | Fire, Ice, Lightning, Poison, Water, Gravity (no Core = plain Arcane magic) |
-| **Behavior** | Split, Pierce, Bounce, Chain, Orbit, Homing, Pull, Push (Aura only: slows enemies inside), Expand |
+| **Behavior** | Split, Pierce, Bounce, Chain, Homing, Pull, Push (Aura only: slows enemies inside), Expand |
 | **Trigger** | On Hit, On Kill, On Expiry, On Critical Hit |
 | **Modifier** | Duplicate, Accelerate, Grow, Increase Duration, Increase Area, Reduce Cooldown |
 
@@ -100,7 +100,7 @@ Enemies drop **coins** as pickups (roughly 1 per five kills; elites pay 3; clear
 
 ### Rarity and Triggers
 
-In the editor's **Forge** pane, two same-type triggers from your pool (On Hit, On Kill, On Critical Hit) merge into one trigger with the summed chance (max 80%): two 20% On Hits become one 40% On Hit. Trigger chance can never exceed 90% after relics.
+In the editor's **Forge** pane, the **Trigger Forge** levels up two identical triggers (I → IV) or merges two of one type (On Hit, On Kill, On Critical Hit, On Expiry) into one with the summed chance (max 80%). Base chances reflect how often each event happens: On Hit 15%, On Kill 35%, On Critical Hit 50%, On Expiry 40% at level I. All crit and trigger odds, and everything that changes them, live in `src/game/chances.ts`; the Stats tab and trigger blocks in the editor show the real numbers. The editor's right-hand pane has Shop, Sell (drag runes and relics onto it), Forge and Stats tabs; dropping a Form rune on an existing Form swaps it and keeps every rune that still fits. Trigger chance can never exceed 90% after relics.
 
 Everything except Cores has a rarity. **On Hit / On Kill / On Critical Hit** are not guaranteed: they come in tiers that fire 20% (Common), 45% (Uncommon), 60% (Rare) and 80% (Epic) of the time.
 

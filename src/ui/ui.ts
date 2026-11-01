@@ -46,6 +46,9 @@ export function runeChipHtml(r: RuneDef, extra = ''): string {
 
 interface Layer { kind: string; el: HTMLElement; onKey?: (e: KeyboardEvent) => boolean }
 
+/** Ultimate hotkeys in HUD order: Space fires the first one that is ready, the others fire that specific one. */
+const ULT_KEYS = ['SPACE', 'Q', 'R', 'F', 'C', 'V'];
+
 class Hud {
   root: HTMLElement;
   hp!: HTMLElement; hpTxt!: HTMLElement; xp!: HTMLElement; lvl!: HTMLElement; timer!: HTMLElement; kills!: HTMLElement;
@@ -152,12 +155,12 @@ class Hud {
     $('[data-a=editor]', this.root).classList.toggle('hidden', !run.sandbox);
     // ultimates
     const uls = run.ultimates();
-    const ukey = uls.map((u) => `${u.i}:${u.sp.c.root!.element}`).join(',');
+    const ukey = uls.map((u) => `${u.i}:${u.el}`).join(',');
     if (ukey !== this.ultKey) {
       this.ultKey = ukey;
       this.ultsEl.innerHTML = uls.map((u, n) => {
-        const U = ULTIMATES[u.sp.c.root!.element];
-        return `<div class="ult" style="--c:${ELEMENTS[u.sp.c.root!.element].css}" title="${U.name}: ${U.desc}"><span>${U.icon}</span><small>${n === 0 ? 'SPACE' : `#${n + 1}`}</small><em>${U.name}</em><div class="cd"></div></div>`;
+        const U = ULTIMATES[u.el];
+        return `<div class="ult" style="--c:${ELEMENTS[u.el].css}" title="${U.name} (spell ${u.i + 1}): ${U.desc} Space fires the first one that is ready; ${ULT_KEYS[n]} fires this one."><span>${U.icon}</span><small>${ULT_KEYS[n] ?? '?'}</small><em>${U.name}</em><div class="cd"></div></div>`;
       }).join('');
       this.ultEls = Array.from(this.ultsEl.querySelectorAll<HTMLElement>('.ult'));
     }
@@ -307,6 +310,8 @@ class UI {
       return;
     }
     if (k === ' ' || k === 'Spacebar') { e.preventDefault(); if (!top && !e.repeat && !(this.run.coop?.role === 'guest' ? this.run.coop.ult() : this.run.useUltimate())) this.hud.flashUlt(this.run); return; }
+    const uk = ULT_KEYS.indexOf(k.toUpperCase());
+    if (uk > 0 && !top && !e.repeat && this.run.phase !== 'prep') { if (!(this.run.coop?.role === 'guest' ? this.run.coop.ult(uk) : this.run.useUltimate(uk))) this.hud.flashUlt(this.run); return; }
     if (k === 'Escape' || k === 'p' || k === 'P') {
       if (top?.kind === 'pause') this.pop('pause');
       else if (!top && this.run.phase !== 'prep') this.togglePause();
@@ -375,7 +380,7 @@ class UI {
       <h4>YOUR LOADOUT</h4><div class="pslots">${slots}</div>
       ${relicBar(run, () => {}, false).html}
       <div data-rituals></div>
-      <div class="rbtns"><button class="big" data-a="stats">📊 Stats</button><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor &amp; Shop <small>◈ ${Math.floor(run.coins)}</small></button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
+      <div class="rbtns"><button class="big ${run.forgeReady().length ? 'ready' : ''}" data-a="editor">Spell Editor &amp; Shop <small>◈ ${Math.floor(run.coins)}</small></button>${co?.role === 'guest' ? '<button class="big primary" data-a="ready">Ready</button>' : `<button class="big primary" data-a="go">Start Round ${r}</button>`}</div>
     </div></div>`);
     if (co) n.querySelector('[data-lobby]')!.replaceWith(lobbyPanel(this, co as never));
     n.querySelector('[data-rituals]')!.replaceWith(ritualSection(run, () => { const sb = n.querySelector('[data-a=editor] small'); if (sb) sb.textContent = `◈ ${Math.floor(run.coins)}`; if (co?.role === 'guest') { const g = co as unknown as { ready?: boolean; setReady?(on: boolean): void }; if (g.ready) { g.setReady!(false); const rb = n.querySelector('[data-a=ready]'); if (rb) rb.textContent = 'Ready'; } } }));
@@ -395,8 +400,7 @@ class UI {
       const b = (e.target as HTMLElement).closest('button[data-a]') as HTMLElement | null;
       if (!b) return;
       audio.play('ui');
-      if (b.dataset.a === 'stats') showStats(this, run);
-      else if (b.dataset.a === 'editor') { unready(); openEditor(this, run); }
+      if (b.dataset.a === 'editor') { unready(); openEditor(this, run); }
       else if (b.dataset.a === 'go') startRound();
       else if (b.dataset.a === 'ready') {
         const g = run.coop as unknown as { ready: boolean; setReady(on: boolean): void };

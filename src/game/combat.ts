@@ -8,6 +8,7 @@ import type { Run } from './run';
 import { spawnEnv } from './casting';
 import { rollRelics } from './relics';
 import { relicDamageMul, reactionMul, onReaction, onCrit, onKill, has } from './relics';
+import { critChance } from './chances';
 import { tallyDamage, tallyKill } from './telemetry';
 
 export interface DmgOpts {
@@ -202,8 +203,7 @@ export function dealDamage(run: Run, e: Enemy, amount: number, el: Element, src:
   if (!o.dot && !o.react && e.armor > 0) a = Math.max(a * 0.25, a - e.armor);
   let crit = false;
   if (!o.noCrit && !o.dot && !o.react && src) {
-    const chance = run.player.crit + (el === 'lightning' ? 0.12 : 0) + src.sp.mut.crit;
-    if (Math.random() < chance) { crit = true; a *= run.player.critMul; }
+    if (Math.random() < critChance(run, el, src.sp)) { crit = true; a *= run.player.critMul; }
   }
   run.critKill = crit;
   const dealt = Math.min(a, Math.max(0, e.hp));

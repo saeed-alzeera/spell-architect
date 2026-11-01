@@ -97,7 +97,7 @@
    inputs/outputs (lists), c (children). FLOWS below are the cross-links between nodes. */
 /* Game version this map was last brought up to date with. Must equal package.json "version"
    (enforced by tools/check-graph.mjs). Set it only after the nodes below reflect that version. */
-const GRAPH_SYNCED_VERSION = '1.4.2';
+const GRAPH_SYNCED_VERSION = '1.5.0';
 document.getElementById('ver').textContent = 'synced to game v' + GRAPH_SYNCED_VERSION;
 const RC = { common: '#8a94a8', uncommon: '#16a34a', rare: '#2563eb', epic: '#9333ea', legendary: '#d97706' };
 const L = (id, label, sub, desc, o) => Object.assign({ id, label, sub, desc }, o);   // leaf
@@ -143,17 +143,16 @@ const TREE = {
         RU('b_pierce', 'Pierce', 'common', 'projectile', 'Passes through up to 3 enemies.'),
         RU('b_bounce', 'Bounce', 'uncommon', 'projectile', 'Ricochets to a new enemy up to 3 times and rebounds off arena walls.'),
         RU('b_chain', 'Chain', 'rare', 'most forms', 'On hit, arcs to up to 3 nearby enemies for 70% damage. Passes poison along; conducts through wet enemies.'),
-        RU('b_orbit', 'Orbit', 'rare', 'projectile', 'The projectile circles you instead of flying away.'),
         RU('b_homing', 'Homing', 'common', 'projectile, mine, meteor', 'Steers toward the nearest enemy. Mines crawl toward their prey.'),
         RU('b_pull', 'Pull', 'uncommon', 'any form', 'Drags nearby enemies toward the form. Gathers them into puddles, clouds and flames.'),
         RU('b_push', 'Push', 'uncommon', 'aura only', 'Enemies in the aura are slowed 40% and shoved outward. Bosses and elites resist.'),
         RU('b_expand', 'Expand', 'common', 'most forms', 'The form grows steadily over its lifetime, up to 80% larger.'),
       ] },
-      { id: 'trig', label: 'Triggers', sub: '4 kinds · 4 tiers', desc: 'Launch child Forms when something happens. Hit / Kill / Crit come in tiers firing 20 / 45 / 60 / 80% of the time; On Expiry always fires. Global cap 90% after relics.', c: [
-        RU('t_hit', 'On Hit', 'common', 'cost 1 · 20/45/60/80%', 'When the form hits an enemy, every effect below activates at the impact point.'),
-        RU('t_kill', 'On Kill', 'uncommon', 'cost 1 · 20/45/60/80%', 'When this spell kills an enemy (including by burn or poison), connected branches activate where it died.'),
-        RU('t_expiry', 'On Expiry', 'uncommon', 'cost 1 · always', 'When the form ends (timeout, spent or detonated), the effects below activate at its final position.'),
-        RU('t_crit', 'On Critical Hit', 'rare', 'cost 1 · 20/45/60/80%', 'When this spell lands a critical hit, connected branches activate.'),
+      { id: 'trig', label: 'Triggers', sub: '4 kinds · 4 tiers', desc: 'Launch child Forms when something happens. All four come in tiers I-IV; the chance depends on how often the event happens: On Hit 15/30/45/60%, On Kill 35/50/65/80%, On Crit 50/65/80/90% (the crit roll already happened), On Expiry 40/55/70/85% (it used to always fire). Global cap 90% per roll after relics. All odds are defined in src/game/chances.ts.', c: [
+        RU('t_hit', 'On Hit', 'common', 'cost 1 · 15/30/45/60%', 'When the form hits an enemy, every effect below activates at the impact point.'),
+        RU('t_kill', 'On Kill', 'uncommon', 'cost 1 · 35/50/65/80%', 'When this spell kills an enemy (including by burn or poison), connected branches activate where it died.'),
+        RU('t_expiry', 'On Expiry', 'uncommon', 'cost 1 · 40/55/70/85%', 'When the form ends (timeout, spent or detonated), the effects below activate at its final position.'),
+        RU('t_crit', 'On Critical Hit', 'rare', 'cost 1 · 50/65/80/90%', 'When this spell lands a critical hit, connected branches activate.'),
         L('forgeTrig', 'Forging triggers', 'tier up / merge', 'Two triggers of the same type and level forge into the next level. Merging two of a kind sums their chance (max 80%). Higher tiers are mostly forged, not found.'),
       ] },
       { id: 'mods', label: 'Modifiers', sub: '6', desc: 'Numeric tweaks to a Form. Most stack up to 3.', c: [
@@ -360,7 +359,7 @@ const TREE = {
           L('mEcho', 'Echo', '', 'One extra copy of the spell each cast.'), L('mColo', 'Colossus', '', '+30% size and area.')] },
       ] },
       { id: 'evo', label: 'Evolutions', sub: '6 copies', desc: 'Six copies of a Core forge an evolved Core: +40% damage, a passive, and an Ultimate.' },
-      { id: 'ult', label: 'Ultimates', sub: '6', desc: '45 s recharge, −0.2 s per kill (about 15 s late in a run). One per evolved Core.', c: [
+      { id: 'ult', label: 'Ultimates', sub: '6', desc: '45 s recharge, −0.2 s per kill (about 15 s late in a run). One charge per spell; evolved Cores on trigger-launched Forms count, and with several in one spell you pick which to fire (Space = first ready, Q/R/F/C/V = that one).', c: [
         L('uFire', 'Meteor Storm', 'Inferno', 'Calls down a barrage of 14 meteors across the arena around you.'),
         L('uIce', 'Absolute Zero', 'Glacier', 'Flash-freezes every enemy (bosses are slowed) and shatters them for bonus damage.'),
         L('uLight', 'Thunderstorm', 'Tempest', 'Five seconds of relentless lightning strikes on random enemies, with chains.'),
@@ -418,7 +417,7 @@ const TREE = {
         RU('hammer', "Forgemaster's Hammer", 'legendary', '', 'Forging costs 2 fewer Cores; evolved Cores +20% damage.'),
         RU('idol', 'Glass Cannon Idol', 'rare', 'cursed', '+50% damage, −40% max health.', { cursed: true }),
       ] },
-      { id: 'rTrig', label: 'Triggers', sub: '2', desc: 'Change trigger odds. Echo Chamber and Gambler\'s Dice both push toward the 90% global cap.', c: [
+      { id: 'rTrig', label: 'Triggers', sub: '2', desc: 'Change trigger odds (all through src/game/chances.ts, shown on the trigger blocks and the Stats tab). Echo Chamber and Gambler\'s Dice both push toward the 90% global cap.', c: [
         RU('echo', 'Echo Chamber', 'uncommon', '', '+8 percentage points to every On Hit / Kill / Crit chance.'),
         RU('dice', "Gambler's Dice", 'epic', 'cursed', 'Trigger chances ×1.5, but every Trigger rune costs +1 capacity.', { cursed: true }),
       ] },
@@ -485,7 +484,7 @@ const TREE = {
       L('gold', 'Golden Idol', 'coins +50%', 'Spend 75% of each round in the drifting gold zone; then every coin you earn (kill drops, round and boss bonuses) is worth 50% more. Reworked from a random double on kill drops, which coins going straight to the purse made nearly invisible.'),
       L('vow', 'Vow of Silence', 'triggers roll twice', 'Triggers are silenced for 3 rounds (only offered with 2+ triggered spells); then every Trigger rolls twice.',
         { issue: { sev: 'warn', text: 'Two rolls on a 90% cap give 99%, so the documented cap no longer holds.' } }),
-      L('purity', 'Oath of Purity', '+50% capacity, one spell', 'Only your weakest spell (least damage dealt when sworn) may cast for 3 rounds; the rest and their ultimates are silent. Offered with 3+ spells at least 75% full. On completion pick a spell on the prep screen: +50% capacity.'),
+      L('purity', 'Oath of Purity', '+50% capacity, one spell', 'Only your weakest spell (least damage dealt when sworn; the offer names it) may cast for 2 rounds, with +60% damage and 25% shorter cooldown; the rest and their ultimates are silent. Offered with 3+ spells at least 75% full. On completion pick a spell on the prep screen: +50% capacity.'),
       L('pact', 'Sanguine Pact', '+0.3 regen/s, +10 max HP', 'No healing of any kind for 3 rounds (regen, round-start heal, hearts, draughts, relic heals). Offered from round 11 on, at full health.'),
     ] },
 

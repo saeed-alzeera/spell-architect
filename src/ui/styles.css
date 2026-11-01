@@ -544,3 +544,22 @@ button.ready, .itabs button.ready { border-color: var(--gold) !important; color:
 .stcard .sth { display: flex; align-items: center; gap: 8px; }
 .stcard .stl { flex: 1; color: #cfc8f0; } .stcard .stv { color: #ffd25a; font-size: 13px; }
 .stcard ul { margin: 6px 0 0; padding-left: 14px; color: #b8a8e8; } .stcard p { margin: 6px 0 0; }
+
+/* ---------- drag to sell, trigger forge, stats tab, mutations (UI/UX pass) ---------- */
+.selldrop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px; margin-bottom: 8px; border: 3px dashed var(--edge2); color: var(--gold); text-align: center; }
+.selldrop small { color: var(--mut); font-size: 9px; line-height: 1.6; }
+.shoppane.selling { outline: 4px dashed var(--gold); outline-offset: -4px; position: relative; }
+.shoppane.selling::after { content: 'DROP HERE TO SELL'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #100b26d8; color: var(--gold); font-size: 14px; pointer-events: none; z-index: 5; }
+.shopmods { font-size: 9px; color: #7cf08a; border: 2px solid #2c5a3a; padding: 4px 6px; line-height: 1.6; }
+.lanehd .mutchip { margin: 0; padding: 1px 5px; font-size: 8px; cursor: help; }
+.thead em.boosted { color: #7cf08a; }
+.tforge { display: flex; flex-direction: column; gap: 6px; }
+.tforge .tfhelp { margin: 0; font-size: 9px; line-height: 1.7; color: #cfc6f5; }
+.tfslots { display: flex; gap: 6px; align-items: center; }
+.tfslot { flex: 1; min-height: 28px; border: 2px dashed var(--edge2); padding: 4px 6px; font-size: 9px; display: flex; align-items: center; justify-content: center; color: var(--mut); }
+.tfslot.on { border-style: solid; border-color: #ff6b9c; color: #fff; }
+.tfact { display: flex; flex-direction: column; gap: 4px; font-size: 9px; line-height: 1.6; }
+.tfact button { align-self: flex-start; font-size: 9px; padding: 5px 8px; }
+.fgdesc { margin: 2px 0 0; font-size: 8px; line-height: 1.6; color: #cfc6f5; flex-basis: 100%; }
+.shoppane .forge { flex-wrap: wrap; }
+.stats .stgrid { grid-template-columns: 1fr; }

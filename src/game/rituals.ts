@@ -24,6 +24,10 @@ export const SILENCE_SPELLS = 2;
 export const PURITY_SPELLS = 3;
 export const PURITY_FILL = 0.75;
 export const PURITY_CAP = 0.5;
+/** Oath of Purity: it is shorter than the other rituals, and the one spell allowed to cast is empowered while the oath lasts. */
+export const PURITY_ROUNDS = 2;
+export const PURITY_DMG = 0.6;
+export const PURITY_CD = 0.75;
 /** Sanguine Pact: offered from this round on, at full health; the reward is +regen (HP/s) and +max health. */
 export const SANGUINE_ROUND = 11;
 export const SANGUINE_REGEN = 0.3;
@@ -38,7 +42,7 @@ export const RITUALS: RitualDef[] = [
   { id: 'fall', name: 'Rite of the Fall', icon: '🕳️', rounds: RITUAL_ROUNDS, challenge: 'Fall through the crumbling floor at least once in each round', reward: `+${Math.round(POWER_REWARD * 100)}% damage for the rest of the run` },
   { id: 'gold', name: 'Golden Idol', icon: '🗿', rounds: RITUAL_ROUNDS, challenge: `Spend at least ${Math.round(ZONE_NEED * 100)}% of each round inside the golden zone (about a fifth of the arena, whole floor tiles that light up and go dark as it drifts)`, reward: `every coin you earn (kill drops, round and boss bonuses) is worth ${Math.round(GOLD_BONUS * 100)}% more, for the rest of the run` },
   { id: 'silence', name: 'Vow of Silence', icon: '🤐', rounds: RITUAL_ROUNDS, challenge: `Triggers do not work at all for ${RITUAL_ROUNDS} rounds (only offered while ${SILENCE_SPELLS} or more of your spells have a Trigger)`, reward: 'every Trigger gets 2 rolls instead of 1, for the rest of the run' },
-  { id: 'purity', name: 'Oath of Purity', icon: '🕯️', rounds: RITUAL_ROUNDS, challenge: `Only your weakest spell may cast for ${RITUAL_ROUNDS} rounds, the others (and their ultimates) fall silent (only offered while ${PURITY_SPELLS} or more spells are at least ${Math.round(PURITY_FILL * 100)}% full)`, reward: `one spell of your choice gets ${Math.round(PURITY_CAP * 100)}% more capacity` },
+  { id: 'purity', name: 'Oath of Purity', icon: '🕯️', rounds: PURITY_ROUNDS, challenge: `Only your weakest spell may cast for ${PURITY_ROUNDS} rounds (it gets +${Math.round(PURITY_DMG * 100)}% damage and ${Math.round((1 - PURITY_CD) * 100)}% shorter cooldown meanwhile), the others (and their ultimates) fall silent (only offered while ${PURITY_SPELLS} or more spells are at least ${Math.round(PURITY_FILL * 100)}% full)`, reward: `one spell of your choice gets ${Math.round(PURITY_CAP * 100)}% more capacity` },
   { id: 'sanguine', name: 'Sanguine Pact', icon: '🩸', rounds: RITUAL_ROUNDS, challenge: `Heal nothing for ${RITUAL_ROUNDS} rounds: no regeneration, round-start healing, hearts, draughts or relic heals (only offered from round ${SANGUINE_ROUND} on, at full health)`, reward: `+${SANGUINE_REGEN} health regenerated per second and +${SANGUINE_HP} maximum health, for the rest of the run` },
 ];
 
@@ -63,10 +67,18 @@ function fullSpells(run: Run): number {
 }
 
 /** The weakest working spell: the one that has dealt the least damage so far (the earliest slot wins a tie). */
-function weakestSpell(run: Run): ActiveSpell | null {
+export function weakestSpell(run: Run): ActiveSpell | null {
   let w: ActiveSpell | null = null;
   for (const sp of run.spells) if (sp.c.valid && (!w || sp.damage < w.damage)) w = sp;
   return w;
+}
+
+/** What an offered ritual will do to YOUR build right now, for the offer card (the Oath of Purity names the spell it would keep). */
+export function ritualNote(run: Run, def: RitualDef): string {
+  if (def.id !== 'purity') return '';
+  const sp = weakestSpell(run);
+  if (!sp) return '';
+  return `Only spell ${run.spells.indexOf(sp) + 1}, ${sp.c.name} (the weakest: ${Math.round(sp.damage).toLocaleString()} damage so far), would keep casting.`;
 }
 
 /** How many of your spells have a Trigger anywhere in them (including on Forms launched by other Triggers). */
@@ -86,6 +98,11 @@ export function spellSilenced(run: Run, sp: ActiveSpell): boolean {
   const r = run.rituals.find((x) => x.state === 'active' && x.def.id === 'purity');
   return !!r && r.uid !== undefined && r.uid !== sp.uid && run.spells.some((x) => x.uid === r.uid);
 }
+
+/** The one spell the Oath of Purity lets cast is stronger while it lasts. */
+const purityKeeper = (run: Run, sp: ActiveSpell) => run.rituals.some((r) => r.state === 'active' && r.def.id === 'purity' && r.uid === sp.uid);
+export const purityDamageMul = (run: Run, sp: ActiveSpell) => (purityKeeper(run, sp) ? 1 + PURITY_DMG : 1);
+export const purityCooldownMul = (run: Run, sp: ActiveSpell) => (purityKeeper(run, sp) ? PURITY_CD : 1);
 
 /** The Sanguine Pact is being kept: this player cannot heal. */
 export const healingBlocked = (run: Run) => run.rituals.some((r) => r.state === 'active' && r.def.id === 'sanguine');
@@ -193,7 +210,7 @@ export function ritualMet(r: ActiveRitual, run: Run): boolean {
 /** One line telling the player what to do right now. */
 export function ritualHint(r: ActiveRitual, run: Run): string {
   if (r.def.id === 'silence') return '▸ Your Triggers are silent. Carry on without them.';
-  if (r.def.id === 'purity') { const sp = run.spells.find((x) => x.uid === r.uid); return `▸ Only ${sp?.c.valid ? sp.c.name : 'your weakest spell'} may cast. The rest are silent.`; }
+  if (r.def.id === 'purity') { const sp = run.spells.find((x) => x.uid === r.uid); return `▸ Only ${sp?.c.valid ? `spell ${run.spells.indexOf(sp) + 1}, ${sp.c.name}` : 'your weakest spell'} may cast (+${Math.round(PURITY_DMG * 100)}% damage, faster). The rest are silent.`; }
   if (r.def.id === 'sanguine') return '▸ You cannot heal. Do not get hit.';
   if (r.def.id === 'gold') return ritualMet(r, run) ? '✔ Enough time in the gold. You are safe to leave.' : '▸ Behind! Get into the golden zone.';
   return ritualMet(r, run) ? '✔ Done this round. You are safe.' : '▸ Not done yet! Stand on a cracked tile.';
@@ -232,7 +249,7 @@ export function validateRituals(list: unknown): string | null {
   const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
   for (const r of list as ActiveRitual[]) {
     const known = RITUALS.find((d) => d.id === r?.def?.id);
-    if (!known || r.def.rounds !== RITUAL_ROUNDS) return 'bad ritual';
+    if (!known || r.def.rounds !== known.rounds) return 'bad ritual';
     if (!['active', 'fulfilled', 'lapsed'].includes(r.state) || !num(r.roundsDone, 0, RITUAL_ROUNDS) || !num(r.startRound, 0, 100)) return 'bad ritual';
     if (!Array.isArray(r.prog) || r.prog.length !== 1 || !num(r.prog[0], 0, RITUAL_ROUNDS)) return 'bad ritual';
     if ((r.uid !== undefined && !num(r.uid, 0, 1e9)) || (r.picked !== undefined && typeof r.picked !== 'boolean')) return 'bad ritual';

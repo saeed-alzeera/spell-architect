@@ -1,5 +1,5 @@
 // Ultimate abilities unlocked by forging an evolved core. Activated with Space; recharge over time and with kills.
-import { ELEMENTS, ULTIMATES } from '../data/runes';
+import { ELEMENTS, ULTIMATES, type Element } from '../data/runes';
 import { audio } from '../core/audio';
 import type { ActiveSpell, Enemy } from './types';
 import type { Run } from './run';
@@ -21,9 +21,8 @@ function targetPoint(run: Run, spread: number): [number, number] {
   return [p.x + Math.cos(a) * d, p.y + Math.sin(a) * d];
 }
 
-export function castUltimate(run: Run, sp: ActiveSpell) {
+export function castUltimate(run: Run, sp: ActiveSpell, el: Element) {
   const root = sp.c.root!;
-  const el = root.element;
   const U = ULTIMATES[el];
   const p = run.player;
   const src = makeSrc(sp, root, 0);

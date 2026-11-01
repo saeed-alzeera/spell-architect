@@ -173,7 +173,7 @@ export class HostSession implements CoopLink {
         g.build = m.build as Build; g.ready = true; this.net.broadcastCtl(this.lobbyMsg()); this.onChange?.(); break;
       }
       case 'unready': g.ready = false; this.net.broadcastCtl(this.lobbyMsg()); this.onChange?.(); break;
-      case 'ult': if (this.run.phase === 'fight' && !g.shell.down) g.shell.useUltimate(); break;
+      case 'ult': if (this.run.phase === 'fight' && !g.shell.down) { const pk = (m as { i?: unknown }).i; g.shell.useUltimate(typeof pk === 'number' && Number.isInteger(pk) && pk >= 0 && pk < 16 ? pk : -1); } break;
       case 'bye': this.remove(g, 'left the game.'); break;
     }
   }
@@ -545,10 +545,10 @@ export class GuestSession implements CoopLink {
 
   /* ---- CoopLink ---- */
 
-  ult(): boolean {
+  ult(pick = -1): boolean {
     if (!this.inFight) return false;
     if (!this.run.ultimates().length) return false;
-    this.net.sendCtl({ t: 'ult' });
+    this.net.sendCtl({ t: 'ult', i: pick });
     return true;
   }
 

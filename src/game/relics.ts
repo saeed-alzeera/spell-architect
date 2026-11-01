@@ -1,11 +1,11 @@
 // Relics: passive items with conditional effects. You can wear up to 6 and there is no stash: to take a new relic
 // when full you sell one. Effects are applied through a few hook points (damage, kill, crit, cast, reaction, round start/end).
 import { RARITY, ELEMENTS, type Rarity } from '../data/runes';
-import { ruleMods } from '../core/spell';
+import { applyTriggerRules } from './chances';
 import { dealDamage, arc } from './combat';
 import { castForm } from './casting';
 import { relicFactors, tallyProc } from './telemetry';
-import { spellSilenced } from './rituals';
+import { spellSilenced, purityCooldownMul } from './rituals';
 import type { Run } from './run';
 import type { Enemy, Src, ActiveSpell } from './types';
 
@@ -34,14 +34,14 @@ export const RELICS: RelicDef[] = [
   { id: 'ember', name: 'Ember Heart', icon: '❤️‍🔥', rarity: 'common', desc: 'Burning enemies take +15% damage from every source.' },
   // ---- uncommon
   { id: 'purist', name: 'Arcane Purist', icon: '✦', rarity: 'uncommon', desc: 'Spells whose main Form has no Core deal +50% damage and recharge 25% faster.' },
-  { id: 'echo', name: 'Echo Chamber', icon: '🔔', rarity: 'uncommon', desc: '+8 percentage points to every On Hit / On Kill / On Crit chance.',
+  { id: 'echo', name: 'Echo Chamber', icon: '🔔', rarity: 'uncommon', desc: '+8 percentage points to every On Hit / On Kill / On Crit chance.', badge: () => '+8%',
     onEquip: (r) => r.recomputeRelics(), onUnequip: (r) => r.recomputeRelics() },
   { id: 'sock', name: 'Static Sock', icon: '🧦', rarity: 'uncommon', desc: 'Every 8th spell cast is cast a second time for free.', badge: (r) => `${st(r, 'sock').n ?? 0}/8` },
-  { id: 'resin', name: 'Resin Vial', icon: '🧪', rarity: 'uncommon', desc: '+2 poison stack cap, and poisoned enemies drop +1 coin when they die.',
+  { id: 'resin', name: 'Resin Vial', icon: '🧪', rarity: 'uncommon', desc: '+2 poison stack cap, and poisoned enemies drop +1 coin when they die.', badge: () => '+2',
     onEquip: (r) => r.recomputeRelics(), onUnequip: (r) => r.recomputeRelics() },
   { id: 'compass', name: 'Storm Compass', icon: '🧭', rarity: 'uncommon', desc: 'Critical hits release a free arc of lightning to 2 nearby enemies.' },
-  { id: 'bell', name: 'Bargain Bell', icon: '🛎️', rarity: 'uncommon', desc: 'Shop prices -10% and rerolls cost 1 less.' },
-  { id: 'lodestone', name: 'Lodestone', icon: '🧲', rarity: 'uncommon', desc: 'Coins are worth +20%.' },
+  { id: 'bell', name: 'Bargain Bell', icon: '🛎️', rarity: 'uncommon', desc: 'Shop prices -10% and rerolls cost 1 less.', badge: () => '−10%' },
+  { id: 'lodestone', name: 'Lodestone', icon: '🧲', rarity: 'uncommon', desc: 'Coins are worth +20%.', badge: () => '+20%' },
   // ---- rare
   { id: 'nulllens', name: 'Null Lens', icon: '🔍', rarity: 'rare', desc: 'Elemental damage against enemies immune to that element is converted into 30% Arcane damage.' },
   { id: 'baton', name: "Conductor's Baton", icon: '🪄', rarity: 'rare', desc: 'Every different reaction you trigger this round adds +4% damage until the round ends (stacks).', badge: (r) => `+${(Object.keys(st(r, 'baton')).length) * 4}%` },
@@ -54,14 +54,14 @@ export const RELICS: RelicDef[] = [
   { id: 'ledger', name: "Alchemist's Ledger", icon: '📒', rarity: 'epic', desc: 'Reactions deal +60% damage, and the first reaction each round pays 1 coin.' },
   // ---- legendary
   { id: 'archive', name: 'Heart of the Archive', icon: '📚', rarity: 'legendary', desc: 'Your ultimates start every round ready, and refund half their cooldown if they kill 20+ enemies.' },
-  { id: 'hammer', name: "Forgemaster's Hammer", icon: '🔨', rarity: 'legendary', desc: 'Forging costs 2 fewer Cores, and evolved Cores deal an extra +20% damage.' },
+  { id: 'hammer', name: "Forgemaster's Hammer", icon: '🔨', rarity: 'legendary', desc: 'Forging costs 2 fewer Cores, and evolved Cores deal an extra +20% damage.', badge: () => '−2 cores' },
   // ---- cursed (big upside, real downside)
   { id: 'idol', name: 'Glass Cannon Idol', icon: '🗿', rarity: 'rare', cursed: true, desc: '+50% damage, but -40% maximum health.',
     onEquip: (r) => { const p = r.player; const lose = Math.round(p.maxHp * 0.4); st(r, 'idol').lost = lose; p.maxHp -= lose; p.hp = Math.min(p.hp, p.maxHp); },
     onUnequip: (r) => { const p = r.player; p.maxHp += st(r, 'idol').lost ?? 0; st(r, 'idol').lost = 0; } },
-  { id: 'dice', name: "Gambler's Dice", icon: '🎲', rarity: 'epic', cursed: true, desc: 'Trigger chances ×1.5, but every Trigger rune costs +1 capacity.',
+  { id: 'dice', name: "Gambler's Dice", icon: '🎲', rarity: 'epic', cursed: true, desc: 'Trigger chances ×1.5, but every Trigger rune costs +1 capacity.', badge: () => '×1.5',
     onEquip: (r) => r.recomputeRelics(), onUnequip: (r) => r.recomputeRelics() },
-  { id: 'purse', name: 'Hungry Purse', icon: '👛', rarity: 'uncommon', cursed: true, desc: 'Coins are worth ×1.5, but shop rerolls cost double.' },
+  { id: 'purse', name: 'Hungry Purse', icon: '👛', rarity: 'uncommon', cursed: true, desc: 'Coins are worth ×1.5, but shop rerolls cost double.', badge: () => '×1.5' },
 ];
 export const RELIC_BY_ID: Record<string, RelicDef> = Object.fromEntries(RELICS.map((r) => [r.id, r]));
 
@@ -77,9 +77,7 @@ export function recomputeMods(run: Run) {
   const els = new Set<string>();
   for (const sp of run.spells) if (sp.c.valid) for (const e of sp.c.elements) if (e !== 'arcane') els.add(e);
   m.elements = els.size;
-  ruleMods.triggerChanceAdd = has(run, 'echo') ? 0.08 : 0;
-  ruleMods.triggerChanceMul = has(run, 'dice') ? 1.5 : 1;
-  ruleMods.triggerCost = has(run, 'dice') ? 1 : 0;
+  applyTriggerRules(run); // trigger odds live in chances.ts
   m.poisonCap = has(run, 'resin') ? 2 : 0;
   m.coinMul = (has(run, 'purse') ? 1.5 : 1) * (has(run, 'lodestone') ? 1.2 : 1);
   m.priceMul = (has(run, 'bell') ? 0.9 : 1);
@@ -107,7 +105,7 @@ export function relicDamageMul(run: Run, e: Enemy, el: string, src: Src | null, 
 export const reactionMul = (run: Run) => (has(run, 'ledger') ? 1.6 : 1);
 
 export function cooldownMul(run: Run, sp: ActiveSpell): number {
-  return has(run, 'purist') && sp.c.root && sp.c.root.element === 'arcane' ? 0.75 : 1;
+  return (has(run, 'purist') && sp.c.root && sp.c.root.element === 'arcane' ? 0.75 : 1) * purityCooldownMul(run, sp);
 }
 
 export function onReaction(run: Run, id: string) {

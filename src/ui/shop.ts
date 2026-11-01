@@ -1,8 +1,9 @@
 // Between-round shop, embedded in the spell editor's right-hand pane: one shelf of cards (runes, a relic, permanent upgrades) and selling.
 // The pane owns only the two pending-choice states (capacity target, relic swap); the editor owns the tab and re-renders after `click`.
 import { RUNE_BY_ID, RUNES, RARITY, KIND_LABEL, ELEMENTS, runeColor } from '../data/runes';
+import { costOf } from '../core/spell';
 import { RELIC_BY_ID, relicColor, relicSellPrice } from '../game/relics';
-import { buyOffer, upgradeOf, reroll, rerollCost, sellRune, sellPrice, owned } from '../game/shop';
+import { buyOffer, upgradeOf, reroll, rerollCost, sellPrice, owned } from '../game/shop';
 import { audio } from '../core/audio';
 import type { Run } from '../game/run';
 import { icon } from './icons';
@@ -41,20 +42,25 @@ export class ShopPane {
       const own = owned(run, r.id);
       const prog = r.kind === 'core' && r.element ? `<div class="stag" title="Cores owned toward a forge">${ELEMENTS[r.element].icon} ${run.coreCopies(r.element)}/${run.forgeCost()}</div>` : own ? `<div class="stag">×${own}</div>` : '';
       return `<div class="scard ${o.sold ? 'sold' : afford ? 'aff' : 'poor'}" data-offer="${o.id}" style="--rc:${r.kind === 'core' ? '#9a9ab8' : RARITY[r.rarity].color};--c:${runeColor(r)}" title="${r.name}: ${r.desc}">
-        <div class="sch"><span class="sci">${r.icon}</span><div class="scn">${r.name}<small>${r.kind === 'core' ? '' : RARITY[r.rarity].name + ' '}${KIND_LABEL[r.kind]} · cap ${r.cost}</small></div><div class="sprice">${o.sold ? 'SOLD' : coin(o.price)}</div></div>
+        <div class="sch"><span class="sci">${r.icon}</span><div class="scn">${r.name}<small>${r.kind === 'core' ? '' : RARITY[r.rarity].name + ' '}${KIND_LABEL[r.kind]} · cap ${costOf(r.id)}</small></div><div class="sprice">${o.sold ? 'SOLD' : coin(o.price)}</div></div>
         <p>${r.desc}</p>${prog}</div>`;
     }).join('');
     const spells = this.picking ? `<div class="picker"><b>+2 capacity for?</b>${run.spells.map((s, i) => `<button data-spell="${i}">${i + 1}. ${s.def.root ? s.c.name : 'Empty'} <small>${s.c.cost}/${s.def.capacity}</small></button>`).join('')}<button data-spell="x" title="Cancel">${icon('x', 10)}</button></div>` : '';
     const swapOffer = this.swapFor ? run.shop.stock.find((x) => x.id === this.swapFor) : null;
     const swap = swapOffer ? `<div class="picker"><b>Relics full. Sell one for ${RELIC_BY_ID[swapOffer.rune].name} (${coin(swapOffer.price)})?</b>${run.equipped.map((id) => `<button data-swapout="${id}">${RELIC_BY_ID[id].icon} ${RELIC_BY_ID[id].name} <small>+${relicSellPrice(RELIC_BY_ID[id])}</small></button>`).join('')}<button data-swapout="x" title="Cancel">${icon('x', 10)}</button></div>` : '';
-    return `${swap}${spells}<div class="scards">${cards}</div>`;
+    const m = run.mods, notes = [
+      m.priceMul !== 1 ? `Prices ${Math.round((m.priceMul - 1) * 100)}%` : '', m.rerollMinus ? `Rerolls −${m.rerollMinus}` : '', m.rerollMul !== 1 ? `Rerolls ×${m.rerollMul}` : '',
+      m.coinMul !== 1 ? `Coins ×${m.coinMul.toFixed(2)}` : '' ].filter(Boolean);
+    const mods = notes.length ? `<div class="shopmods" title="Active bonuses from your relics (see the Stats tab)">${notes.join(' · ')}</div>` : '';
+    return `${swap}${spells}${mods}<div class="scards">${cards}</div>`;
   }
 
+  /** Selling is by dragging (a click used to sell, and relics were lost by accident): drop a rune from the pool, or a relic from the bar, on this pane. */
   sellHtml(): string {
     const run = this.run;
-    const pool = RUNES.filter((r) => (run.inv[r.id] ?? 0) > 0).map((r) => `<div class="rchip inv" data-sell="${r.id}" style="--c:${runeColor(r)}" title="${r.name}: sell for ${sellPrice(run, r)}">
+    const pool = RUNES.filter((r) => (run.inv[r.id] ?? 0) > 0).map((r) => `<div class="rchip inv" draggable="true" data-rune="${r.id}" style="--c:${runeColor(r)}" title="${r.name}: drag it onto this pane to sell for ${sellPrice(run, r)}">
       <span class="ri">${r.icon}</span><span class="rn">${r.name}</span><span class="rc">+${sellPrice(run, r)}</span><span class="rx">×${run.inv[r.id]}</span></div>`).join('');
-    return `<div class="chips">${pool || `<p class="muted">${icon('none', 12)}</p>`}</div>`;
+    return `<div class="selldrop">${icon('sell', 18)}<b>Drag to sell</b><small>Drag a rune from the pool (or a relic from the relic bar) onto this pane. Nothing sells by clicking.</small></div><div class="chips">${pool || `<p class="muted">${icon('none', 12)}</p>`}</div>`;
   }
 
   rerollHtml(): string {
@@ -103,8 +109,6 @@ export class ShopPane {
       if (err) { say(err, true); audio.play('warn'); } else { say('Capacity increased.'); audio.play('pick'); }
       return true;
     }
-    const sl = t.closest('[data-sell]') as HTMLElement | null;
-    if (sl) { const v = sellRune(run, sl.dataset.sell!); if (v) { say(`Sold for ${v} coins.`); audio.play('gem'); } return true; }
     return false;
   }
 }
