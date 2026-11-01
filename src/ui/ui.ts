@@ -210,10 +210,12 @@ class Hud {
     this.ritEl.innerHTML = act.map((r) => {
       const met = (r.def.id === 'fall' || r.def.id === 'gold') && ritualMet(r, run); // restriction rituals have nothing to meet mid-round, so they stay red
       const pips = Array.from({ length: r.def.rounds }, (_, i) => `<i class="${i < r.roundsDone ? 'done' : i === r.roundsDone ? (met ? 'done' : 'now') : ''}"></i>`).join('');
-      const bar = r.def.id === 'gold' ? `<div class="zbar ${met ? 'ok' : ''}" title="Time spent in the golden zone this round. Past the line you are safe to leave."><i style="width:${Math.round(zoneShare(run) * 100)}%"></i><u style="left:${Math.round(ZONE_NEED * 100)}%"></u></div>` : '';
-      return `<div class="rit ${met ? 'ok' : 'pending'}"><div class="rh"><b>${r.def.icon} RITUAL: ${r.def.name}</b><span class="pips">${pips}</span></div>
-        <div class="rc">Round ${r.roundsDone + 1} of ${r.def.rounds}: ${r.def.challenge}</div>
-        ${bar}<div class="rs">${ritualHint(r, run)} <em>${ritualProgress(r, run)}</em></div></div>`;
+      // Name, round pips and one bar, no text: gold shows the share of the round spent in the zone (line = enough), fall is empty until you
+      // fall, the restriction rituals fill as the round runs out. The full challenge text is in the tooltip.
+      const fill = r.def.id === 'gold' ? zoneShare(run) : r.def.id === 'fall' ? (run.ritualRound.fell ? 1 : 0) : Math.min(1, run.roundElapsed / Math.max(1, roundLen(run.quick)));
+      const mark = r.def.id === 'gold' ? `<u style="left:${Math.round(ZONE_NEED * 100)}%"></u>` : '';
+      return `<div class="rit ${met ? 'ok' : 'pending'}" title="${r.def.challenge}. ${ritualProgress(r, run)}"><div class="rh"><b>${r.def.icon} ${r.def.name}</b><span class="pips">${pips}</span></div>
+        <div class="zbar ${met ? 'ok' : ''}"><i style="width:${Math.round(fill * 100)}%"></i>${mark}</div></div>`;
     }).join('');
   }
   /** Teammates' health (co-op). */
