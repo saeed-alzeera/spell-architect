@@ -765,7 +765,8 @@ export class Run {
 
     this.updateArena(dt);
 
-    for (const pr of this.players) { if (!pr.down) pr.movePlayer(dt); else if (pr.remote) pr.dropCmds(); }
+    const realDt = Math.min(0.25, dtRaw); // wall-clock time of this frame: a remote player's movement budget runs on it, not on the capped sim step
+    for (const pr of this.players) { if (!pr.down) pr.movePlayer(dt, realDt); else if (pr.remote) pr.dropCmds(); }
     if (this.phase === 'fight') for (const pr of this.players) if (!pr.down) ritualTick(pr, dt);
 
     this.recalcEnemyIndex();
@@ -807,8 +808,8 @@ export class Run {
 
   /** Move this player by its input, resolve the floor, tick timers and regen. A co-op joiner's character is moved by the
    *  input commands the joiner sent instead (see driveRemote): the host never guesses at what a remote player is pressing. */
-  movePlayer(dt: number) {
-    if (this.remote) this.driveRemote(dt);
+  movePlayer(dt: number, realDt = dt) {
+    if (this.remote) this.driveRemote(realDt);
     else stepMove(this.player, this.arena, this.input.x, this.input.y, dt);
     this.tickBody(dt);
   }
@@ -837,7 +838,9 @@ export class Run {
 
   /** Host: apply the joiner's queued commands, each for exactly the duration the joiner applied it on its own screen, so the
    *  joiner's prediction and this authoritative result agree. Time is metered (about 1.15x real time, with a short burst
-   *  allowance for network jitter) so a modified client cannot make its character faster than allowed. */
+   *  allowance for network jitter) so a modified client cannot make its character faster than allowed. `dt` is REAL elapsed time:
+   *  the simulation step is capped at 50 ms, so on a slow host frame (a big party's horde) metering on it would starve the joiner
+   *  (0.7x real time at 80 ms frames), its commands would pile up, and its wizard would move in bursts on every screen. */
   private driveRemote(dt: number) {
     this.cmdCredit = Math.min(0.25, this.cmdCredit + dt * 1.15);
     const q = this.cmdQ;
