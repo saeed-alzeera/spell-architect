@@ -70,9 +70,17 @@ Soak (`n5`, 40 s of continuous joiner movement in a 80-enemy fight, clean and wi
 
 Costs: host replication about 0.3-1.1 ms per snapshot (including all joiners' packets); joiner decode about 0.1 ms per datagram and about 0.4-3 ms per frame to pose the world. Under a heavy swarm with 5 spells (`tests/coop.perf.cjs`) the rig itself ran at 40 ms frames for both players, so frame-rate conclusions from that scenario are limited to "the joiner is no slower than the host".
 
+## Parties of three or more
+
+Reported: "very jittery with more than 2 people". `tests/coop.three.cjs` (host plus one or two joiners, same swarm and spells, optional simulated impairment) found one concrete cause and one limit that remains.
+
+* **Fixed: a slow host frame starved the joiners' movement budget.** `Run.tick` caps the simulation step at 50 ms, and a joiner's `cmdCredit` (the anti-speed-hack meter, 1.15x) grew with that capped step. When the host's frame took longer than about 57 ms the joiners earned less than real time (0.7x at 80 ms frames), their command queues grew (27-38 queued commands with 3 players and 2% loss / 40 ms delay, against 3 with 2 players), the oldest were discarded past 120, and their wizards moved in bursts on every screen with the joiner's prediction corrected over and over. A bigger party makes the host's frame longer (the horde is 1 + 0.75 x (n-1): 2.5x at 3 players, plus three casters), so it showed up there first. Credit now accrues on real elapsed time (capped at 250 ms) while the simulation step stays capped: same scenario, queues of 0-2 commands.
+* **Remaining limit: snapshot rate follows the host's frame rate.** A snapshot is sent at most once per host frame, and the host does the whole simulation and its own rendering. In the test rig (3 browsers on 4 cores, software GL) 3 players gave 10-14 snapshots/s against 21-23 with 2, joiners' interpolation buffers widened to 170-200 ms and starved more often. That rig is CPU-bound, so those numbers say "the host frame time is what scales", not what real machines do; they were not verified on real hardware. Bandwidth is not the limit: 120-130 KB/s of state to two joiners with 300 enemies, joiner queues peaked at 26 KB (the skip threshold is 48 KB) and no snapshot was skipped. Relieving the host (cheaper per-enemy simulation or rendering at high counts) is the next lever.
+
 ## Tests
 
 * `tests/coop.perf.cjs`: responsiveness, host/joiner agreement (enemies, spell sprites), datagram sizes, prediction, on a clean link and under simulated impairment.
+* `tests/coop.three.cjs`: a host with one or two joiners under a swarm: host upload, command-queue backlog, how steadily one joiner's wizard is drawn on the others' screens. `EXTRA=0` gives the 2-player baseline.
 * `tests/coop.flow.cjs`: connection drop and automatic reconnect, host pause and resume, joiner leaves, host ends the game, version mismatch refused.
 * `tests/coop.e2e.cjs`: lobby, ready flow, rewards, round result merge, game over.
 * `worker/mp.test.mjs`: signaling rooms, including the lock route.

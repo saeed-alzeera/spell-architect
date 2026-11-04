@@ -39,10 +39,21 @@ exports.session = async function (opt = {}) {
     return { A, B, bA, bB, errs, code, refused: await B.textContent('[data-status]'), close: async () => { await bA.close(); await bB.close(); } };
   }
   await B.waitForSelector('.lobbyp', { timeout: 40000 });
+  // `opt.extra`: more joiners (each in its own browser process), named Carol, Dave, ... -> returned as `C`, `D`, `more`
+  const more = [], browsers = [bA, bB];
+  for (let i = 0; i < (opt.extra || 0); i++) {
+    const bx = await chromium.launch({ args: exports.ARGS }); browsers.push(bx);
+    const X = await (await bx.newContext({ viewport: vp })).newPage();
+    X.on('pageerror', (e) => errs.push(`joiner${i + 2} ${e}`)); X.on('console', (m) => { if (m.type() === 'error') errs.push(`joiner${i + 2} ${m.text()}`); });
+    await X.goto(base); await X.waitForTimeout(800);
+    await X.click('[data-a=mp]'); await X.fill('[data-name]', ['Carol', 'Dave', 'Erin'][i] || `P${i}`); await X.fill('[data-code]', code); await X.click('.mpbox [data-a=join]');
+    await X.waitForSelector('.lobbyp', { timeout: 40000 });
+    more.push(X);
+  }
   if (opt.beforeReady) await opt.beforeReady(A, B);
-  await B.click('[data-a=ready]'); await B.waitForTimeout(500);
+  for (const X of [B, ...more]) { await X.click('[data-a=ready]'); await X.waitForTimeout(500); }
   await A.click('[data-a=go]'); await A.waitForTimeout(1500);
-  return { A, B, bA, bB, errs, code, close: async () => { await bA.close(); await bB.close(); } };
+  return { A, B, C: more[0], D: more[1], more, bA, bB, errs, code, close: async () => { for (const b of browsers) await b.close(); } };
 };
 
 /** Per-frame probes: frame times, camera position, and the key-press -> camera-moves latency. */
